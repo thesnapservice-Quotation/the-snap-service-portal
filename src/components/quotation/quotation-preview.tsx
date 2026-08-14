@@ -256,11 +256,11 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
     : 'WEDDING PACKAGE';
 
   return (
-    <div className="w-full flex justify-center py-2 px-1">
+    <div className="w-full flex justify-center py-1 sm:py-2 px-0 sm:px-1">
       {/* Minimalistic Capturable Container with Rounded Edges (rounded-3xl) */}
       <div
         ref={previewRef}
-        className="w-full max-w-[794px] bg-[#FAF9F6] text-slate-800 shadow-xl rounded-3xl border-2 border-[#E5E0D5] font-sans relative overflow-hidden text-xs leading-tight p-6"
+        className="w-full max-w-[794px] bg-[#FAF9F6] text-slate-800 shadow-xl rounded-2xl sm:rounded-3xl border sm:border-2 border-[#E5E0D5] font-sans relative overflow-hidden text-xs leading-tight p-3 sm:p-6"
         id="quotation-capture-area"
       >
         {/* Background Botanical Leaves & Watercolor Accents */}
@@ -270,11 +270,11 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
         <WatercolorBloomBottomLeft />
 
         {/* TOP HEADER SECTION */}
-        <div className="relative min-h-[110px] bg-white rounded-2xl border border-[#E5E0D5] overflow-hidden shadow-2xs z-10 flex items-center justify-between">
+        <div className="relative min-h-[95px] sm:min-h-[110px] bg-white rounded-xl sm:rounded-2xl border border-[#E5E0D5] overflow-hidden shadow-2xs z-10 flex items-center justify-between">
           {/* Angled Dark Teal Left Banner (#0D4F4F & #093A3A) */}
-          <div className="absolute top-0 left-0 bottom-0 w-[42%] bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-3 flex items-center justify-center text-center [clip-path:polygon(0_0,100%_0,82%_100%,0_100%)] shadow-md">
+          <div className="absolute top-0 left-0 bottom-0 w-[40%] sm:w-[42%] bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-2 sm:p-3 flex items-center justify-center text-center [clip-path:polygon(0_0,100%_0,82%_100%,0_100%)] shadow-md">
             {/* Prominent Metallic Gold Snap Service Logo */}
-            <div className="w-20 h-20 rounded-full border-2 border-[#D4AF37] p-0.5 flex items-center justify-center relative bg-[#093A3A] shadow-xl overflow-hidden shrink-0">
+            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full border border-sm:border-2 border-[#D4AF37] p-0.5 flex items-center justify-center relative bg-[#093A3A] shadow-xl overflow-hidden shrink-0">
               {/* eslint-disable-next-next/no-img-element */}
               <img
                 src={business.logoUrl || '/snap-service-logo.png'}
@@ -285,34 +285,34 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
           </div>
 
           {/* Right Header Details - Positioned on the Right Side */}
-          <div className="w-full pl-[45%] pr-6 py-3 flex flex-col items-end text-right">
-            <h1 className="font-serif font-extrabold text-3xl text-[#0D4F4F] tracking-wider uppercase leading-none">
+          <div className="w-full pl-[42%] sm:pl-[45%] pr-3 sm:pr-6 py-2 sm:py-3 flex flex-col items-end text-right">
+            <h1 className="font-serif font-extrabold text-xl sm:text-3xl text-[#0D4F4F] tracking-wider uppercase leading-none">
               QUOTATION
             </h1>
-            <p className="font-serif text-xs font-semibold text-[#D4AF37] tracking-widest uppercase mt-1">
+            <p className="font-serif text-[10px] sm:text-xs font-semibold text-[#D4AF37] tracking-widest uppercase mt-0.5 sm:mt-1">
               {packageTypeTitle}
             </p>
-            <div className="flex items-center gap-1 my-1">
-              <div className="h-[1px] w-12 bg-[#D4AF37]" />
-              <span className="text-[#D4AF37] text-[8px]">❖</span>
-              <div className="h-[1px] w-12 bg-[#D4AF37]" />
+            <div className="flex items-center gap-1 my-0.5 sm:my-1">
+              <div className="h-[1px] w-8 sm:w-12 bg-[#D4AF37]" />
+              <span className="text-[#D4AF37] text-[7px] sm:text-[8px]">❖</span>
+              <div className="h-[1px] w-8 sm:w-12 bg-[#D4AF37]" />
             </div>
-            <p className="text-[10px] text-slate-500 font-medium">
+            <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium">
               Quotation No. <span className="font-bold text-[#0D4F4F] font-mono">#{quotationNumber || 'SS-00950'}</span>
             </p>
           </div>
         </div>
 
         {/* CLIENT DETAILS BAR (Rounded Corners - Prepared For, Quotation Date & Event Dates) */}
-        <div className="mt-3 bg-white rounded-2xl border border-[#E5E0D5] p-3 shadow-2xs relative z-10">
+        <div className="mt-2 sm:mt-3 bg-white rounded-xl sm:rounded-2xl border border-[#E5E0D5] p-2.5 sm:p-3 shadow-2xs relative z-10">
           <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 gap-2 sm:gap-0">
             {/* Prepared For */}
-            <div className="flex items-center gap-3 px-3">
-              <div className="w-8 h-8 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
-                <User className="w-4 h-4 text-[#FAF9F6]" />
+            <div className="flex items-center gap-2.5 px-2 sm:px-3 pb-1.5 sm:pb-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
+                <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FAF9F6]" />
               </div>
               <div className="overflow-hidden">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
+                <span className="text-[8.5px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
                   PREPARED FOR:
                 </span>
                 <span className="font-bold text-xs sm:text-sm text-[#0D4F4F] block truncate">
@@ -322,12 +322,12 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
             </div>
 
             {/* Quotation Date */}
-            <div className="flex items-center gap-3 px-3 sm:pl-4 pt-2 sm:pt-0">
-              <div className="w-8 h-8 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
-                <Calendar className="w-4 h-4 text-[#FAF9F6]" />
+            <div className="flex items-center gap-2.5 px-2 sm:px-3 sm:pl-4 pt-1.5 sm:pt-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
+                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FAF9F6]" />
               </div>
               <div>
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
+                <span className="text-[8.5px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider block">
                   QUOTATION DATE:
                 </span>
                 <span className="font-bold text-xs sm:text-sm text-slate-900 block">
@@ -337,15 +337,15 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
             </div>
 
             {/* Event Date(s) */}
-            <div className="flex items-center gap-3 px-3 sm:pl-4 pt-2 sm:pt-0">
-              <div className="w-8 h-8 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
-                <Calendar className="w-4 h-4 text-[#D4AF37]" />
+            <div className="flex items-center gap-2.5 px-2 sm:px-3 sm:pl-4 pt-1.5 sm:pt-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
+                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#D4AF37]" />
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-[9px] text-[#0D4F4F] font-bold uppercase tracking-wider block">
+                <span className="text-[8.5px] sm:text-[9px] text-[#0D4F4F] font-bold uppercase tracking-wider block">
                   EVENT DATE(S):
                 </span>
-                <span className="font-extrabold text-[11px] sm:text-xs text-[#0D4F4F] block leading-tight break-words">
+                <span className="font-extrabold text-[10.5px] sm:text-xs text-[#0D4F4F] block leading-tight break-words">
                   {client.eventDates || 'As Discussed'}
                 </span>
               </div>
@@ -354,46 +354,46 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
         </div>
 
         {/* PACKAGE DETAILS SECTION */}
-        <div className="mt-3 relative z-10">
+        <div className="mt-2 sm:mt-3 relative z-10">
           <GoldOrnamentDivider text="PACKAGE DETAILS" />
 
           {/* EVENTS / PACKAGES GRID */}
-          <div className="space-y-3 mt-2">
+          <div className="space-y-2.5 sm:space-y-3 mt-2">
             {sortedEvents.length === 0 ? (
-              <div className="text-center py-6 bg-white rounded-2xl border border-dashed border-slate-300 text-slate-400 text-xs">
+              <div className="text-center py-6 bg-white rounded-xl sm:rounded-2xl border border-dashed border-slate-300 text-slate-400 text-xs">
                 No events added to quotation yet.
               </div>
             ) : (
               sortedEvents.map((evt, idx) => (
                 <div
                   key={evt.id || idx}
-                  className="bg-white rounded-2xl border border-[#E5E0D5] overflow-hidden flex flex-col sm:flex-row shadow-2xs"
+                  className="bg-white rounded-xl sm:rounded-2xl border border-[#E5E0D5] overflow-hidden flex flex-col sm:flex-row shadow-2xs"
                 >
                   {/* Left Column: DAY 1, DAY 2, etc. (Dark Teal #0D4F4F Background) */}
-                  <div className="sm:w-1/3 bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-3 flex flex-col justify-center items-center text-center border-r border-[#E5E0D3]">
-                    <span className="text-[10px] tracking-widest text-slate-300 font-bold uppercase block border-b border-[#D4AF37]/40 pb-1 w-full">
+                  <div className="sm:w-1/3 bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-2.5 sm:p-3 flex flex-col justify-center items-center text-center border-b sm:border-b-0 sm:border-r border-[#E5E0D3]">
+                    <span className="text-[9.5px] sm:text-[10px] tracking-widest text-slate-300 font-bold uppercase block border-b border-[#D4AF37]/40 pb-0.5 sm:pb-1 w-full">
                       DAY {idx + 1}
                     </span>
                     
                     <EventMotifIcon name={evt.name} />
 
-                    <h4 className="font-serif font-bold text-base text-[#D4AF37] tracking-wider uppercase mt-0.5">
+                    <h4 className="font-serif font-bold text-sm sm:text-base text-[#D4AF37] tracking-wider uppercase mt-0.5">
                       {evt.name || `Day ${idx + 1}`}
                     </h4>
 
                     {evt.guestCount !== undefined && evt.guestCount > 0 && (
-                      <span className="text-[10px] text-slate-300 font-medium block mt-0.5">
+                      <span className="text-[9.5px] sm:text-[10px] text-slate-300 font-medium block mt-0.5">
                         ({evt.guestCount} GUESTS)
                       </span>
                     )}
                   </div>
 
                   {/* Middle Column: Services List */}
-                  <div className="sm:w-5/12 p-3 flex flex-col justify-between border-r border-dashed border-slate-300">
-                    <ul className="space-y-2 text-xs">
+                  <div className="sm:w-5/12 p-2.5 sm:p-3 flex flex-col justify-between border-b sm:border-b-0 sm:border-r border-dashed border-slate-300">
+                    <ul className="space-y-1.5 sm:space-y-2 text-xs">
                       {evt.services.map((srv) => (
-                        <li key={srv.id} className="flex items-center gap-2.5 text-slate-800 font-bold uppercase text-[11px]">
-                          {getEquipmentIcon(srv.serviceName, "w-4 h-4 text-[#0D4F4F] shrink-0")}
+                        <li key={srv.id} className="flex items-center gap-2 text-slate-800 font-bold uppercase text-[10.5px] sm:text-[11px]">
+                          {getEquipmentIcon(srv.serviceName, "w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0D4F4F] shrink-0")}
                           <span>
                             {srv.quantity} {srv.serviceName.toUpperCase()}
                           </span>
@@ -401,27 +401,27 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
                       ))}
                     </ul>
 
-                    <div className="pt-2 border-t border-slate-100 mt-2">
-                      <span className="text-[10px] font-bold tracking-widest text-[#0D4F4F] uppercase block">
+                    <div className="pt-1.5 sm:pt-2 border-t border-slate-100 mt-2">
+                      <span className="text-[9.5px] sm:text-[10px] font-bold tracking-widest text-[#0D4F4F] uppercase block">
                         FULL EVENT COVERAGE
                       </span>
                     </div>
                   </div>
 
                   {/* Right Column: Price */}
-                  <div className="sm:w-3/12 p-3 bg-white flex flex-col items-center justify-center text-center">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">
+                  <div className="sm:w-3/12 p-2.5 sm:p-3 bg-white flex flex-col items-center justify-center text-center">
+                    <span className="text-[9.5px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-0.5 sm:mb-1">
                       PACKAGE PRICE
                     </span>
-                    <div className="flex items-center gap-1 my-1">
+                    <div className="flex items-center gap-1 my-0.5 sm:my-1">
                       <div className="h-[1px] w-6 bg-[#D4AF37]" />
                       <span className="text-[#D4AF37] text-[7px]">❖</span>
                       <div className="h-[1px] w-6 bg-[#D4AF37]" />
                     </div>
-                    <p className="font-serif font-bold text-xl text-[#0D4F4F] tracking-tight">
+                    <p className="font-serif font-bold text-lg sm:text-xl text-[#0D4F4F] tracking-tight">
                       {formatCurrency(evt.price)}
                     </p>
-                    <div className="flex items-center gap-1 my-1">
+                    <div className="flex items-center gap-1 my-0.5 sm:my-1">
                       <div className="h-[1px] w-6 bg-[#D4AF37]" />
                       <span className="text-[#D4AF37] text-[7px]">❖</span>
                       <div className="h-[1px] w-6 bg-[#D4AF37]" />
@@ -434,15 +434,15 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
         </div>
 
         {/* GRAND TOTAL BANNER BAR (Rounded Edges) */}
-        <div className="my-3 relative z-10">
-          <div className="bg-[#D4AF37] rounded-2xl overflow-hidden flex items-center shadow-md border border-[#B89228]">
+        <div className="my-2.5 sm:my-3 relative z-10">
+          <div className="bg-[#D4AF37] rounded-xl sm:rounded-2xl overflow-hidden flex items-center shadow-md border border-[#B89228]">
             {/* Left Angled Dark Teal Box */}
-            <div className="w-1/2 bg-[#0D4F4F] text-white py-3 px-4 font-serif font-bold text-sm tracking-widest uppercase [clip-path:polygon(0_0,100%_0,85%_100%,0_100%)]">
+            <div className="w-1/2 bg-[#0D4F4F] text-white py-2.5 sm:py-3 px-3 sm:px-4 font-serif font-bold text-xs sm:text-sm tracking-widest uppercase [clip-path:polygon(0_0,100%_0,85%_100%,0_100%)]">
               GRAND TOTAL
             </div>
             {/* Right Gold Amount */}
-            <div className="w-1/2 text-right pr-6 py-2">
-              <span className="font-serif font-extrabold text-2xl text-white tracking-tight">
+            <div className="w-1/2 text-right pr-3 sm:pr-6 py-1.5 sm:py-2">
+              <span className="font-serif font-extrabold text-lg sm:text-2xl text-white tracking-tight">
                 {formatCurrency(payment.grandTotal)}
               </span>
             </div>
@@ -450,8 +450,8 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
 
           {/* ADVANCE BREAKDOWN ROW (If Advance Entered) */}
           {hasAdvance && (
-            <div className="grid grid-cols-3 gap-2 mt-2 text-center text-xs">
-              <div className="bg-white p-2 rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-center text-xs">
+              <div className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
                   <Wallet className="w-3.5 h-3.5" />
                 </div>
@@ -461,7 +461,7 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
                 </div>
               </div>
 
-              <div className="bg-white p-2 rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
+              <div className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
                   <Receipt className="w-3.5 h-3.5" />
                 </div>
@@ -471,7 +471,7 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
                 </div>
               </div>
 
-              <div className="bg-[#0D4F4F] text-white p-2 rounded-2xl border border-[#0D4F4F] shadow-2xs flex items-center gap-2">
+              <div className="bg-[#0D4F4F] text-white p-2 rounded-xl sm:rounded-2xl border border-[#0D4F4F] shadow-2xs flex items-center gap-2">
                 <div className="text-left pl-2">
                   <span className="text-[8.5px] text-slate-300 font-bold block uppercase">TOTAL AMOUNT</span>
                   <span className="font-bold text-[#D4AF37] text-xs">{formatCurrency(payment.grandTotal)}</span>
@@ -486,13 +486,13 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
           <div className="my-2 relative z-10">
             <div className="flex items-center justify-center gap-2 my-1">
               <div className="h-[1px] bg-gradient-to-r from-transparent via-[#D4AF37] to-[#D4AF37] flex-1" />
-              <div className="bg-[#0D4F4F] text-[#D4AF37] px-3 py-0.5 rounded-full text-[9.5px] font-bold tracking-widest uppercase border border-[#D4AF37]/40 shadow-2xs">
+              <div className="bg-[#0D4F4F] text-[#D4AF37] px-3 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-bold tracking-widest uppercase border border-[#D4AF37]/40 shadow-2xs">
                 INCLUDED IN PACKAGE
               </div>
               <div className="h-[1px] bg-gradient-to-l from-transparent via-[#D4AF37] to-[#D4AF37] flex-1" />
             </div>
 
-            <div className="grid grid-cols-4 gap-2 text-center mt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center mt-2">
               {inclusions
                 .filter((inc) => inc.included)
                 .map((inc) => {
@@ -502,11 +502,11 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
                   const displayName = (isAlbum || qty > 1) ? `${qty} ${inc.name}` : inc.name;
 
                   return (
-                    <div key={inc.id} className="bg-white p-2 rounded-2xl border border-[#E5E0D5] shadow-2xs flex flex-col items-center justify-center">
-                      <div className="w-9 h-9 rounded-full border border-[#D4AF37] bg-[#FAF9F6] flex items-center justify-center text-[#0D4F4F] mb-1 shadow-2xs">
-                        {getEquipmentIcon(inc.name, "w-4 h-4 text-[#0D4F4F]")}
+                    <div key={inc.id} className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex flex-col items-center justify-center">
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-[#D4AF37] bg-[#FAF9F6] flex items-center justify-center text-[#0D4F4F] mb-1 shadow-2xs">
+                        {getEquipmentIcon(inc.name, "w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0D4F4F]")}
                       </div>
-                      <span className="font-bold text-[9px] text-slate-800 uppercase tracking-tight leading-tight">
+                      <span className="font-bold text-[8.5px] sm:text-[9px] text-slate-800 uppercase tracking-tight leading-tight">
                         {displayName}
                       </span>
                     </div>
@@ -517,10 +517,10 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
         )}
 
         {/* TERMS & CONDITIONS + BANK DETAILS GRID (Rounded Corners) */}
-        <div className="my-3 pt-2 border-t border-[#E5E0D5] relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div className="my-2.5 sm:my-3 pt-2 border-t border-[#E5E0D5] relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-xs">
             {/* Terms & Conditions */}
-            <div className="bg-white p-3 rounded-2xl border border-[#E5E0D5]">
+            <div className="bg-white p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-[#E5E0D5]">
               <h4 className="font-serif font-bold text-xs text-[#0D4F4F] uppercase tracking-wider flex items-center gap-1.5 mb-2">
                 <ShieldCheck className="w-4 h-4 text-[#0D4F4F]" />
                 TERMS & CONDITIONS
@@ -536,7 +536,7 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
             </div>
 
             {/* Bank Details */}
-            <div className="bg-white p-3 rounded-2xl border border-[#E5E0D5]">
+            <div className="bg-white p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-[#E5E0D5]">
               <h4 className="font-serif font-bold text-xs text-[#0D4F4F] uppercase tracking-wider flex items-center gap-1.5 mb-2">
                 <Building2 className="w-4 h-4 text-[#0D4F4F]" />
                 BANK DETAILS
@@ -566,23 +566,23 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
         </div>
 
         {/* BOTTOM FOOTER BAR (Rounded Container) */}
-        <div className="bg-[#0D4F4F] text-white py-2.5 px-5 rounded-2xl flex flex-wrap items-center justify-between text-[10px] font-semibold border border-[#D4AF37]/40 shadow-sm relative z-10">
+        <div className="bg-[#0D4F4F] text-white p-2.5 sm:py-2.5 sm:px-5 rounded-xl sm:rounded-2xl flex flex-col sm:flex-row items-center justify-between text-[10px] font-semibold border border-[#D4AF37]/40 shadow-sm relative z-10 gap-1.5 sm:gap-0 text-center sm:text-left">
           <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-full bg-[#D4AF37] text-[#0D4F4F] flex items-center justify-center font-bold">
+            <div className="w-5 h-5 rounded-full bg-[#D4AF37] text-[#0D4F4F] flex items-center justify-center font-bold shrink-0">
               <Phone className="w-3 h-3 text-[#0D4F4F]" />
             </div>
             <span>{business.phone || '0323-9244924'}</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-full bg-[#D4AF37] text-[#0D4F4F] flex items-center justify-center font-bold">
+            <div className="w-5 h-5 rounded-full bg-[#D4AF37] text-[#0D4F4F] flex items-center justify-center font-bold shrink-0">
               <MapPin className="w-3 h-3 text-[#0D4F4F]" />
             </div>
             <span>{business.address || 'Office# 42, Dragon Mall, Faisalabad'}</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-full bg-[#D4AF37] text-[#0D4F4F] flex items-center justify-center font-bold">
+            <div className="w-5 h-5 rounded-full bg-[#D4AF37] text-[#0D4F4F] flex items-center justify-center font-bold shrink-0">
               <DSLRCameraIcon className="w-3 h-3 text-[#0D4F4F]" />
             </div>
             <span>{business.instagram || '@snapservice.pk'}</span>

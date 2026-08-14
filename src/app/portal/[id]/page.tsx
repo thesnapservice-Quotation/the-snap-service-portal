@@ -175,8 +175,8 @@ export default function ClientPortalPage() {
 
       {/* 2-STEP SEQUENTIAL VERIFICATION MODAL POPUP */}
       {showConfirmModal && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-3xl border-2 border-[#D4AF37] p-6 md:p-8 max-w-lg w-full shadow-2xl space-y-5 relative">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border-2 border-[#D4AF37] p-4 sm:p-6 md:p-8 max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl space-y-4 sm:space-y-5 relative">
             <button
               onClick={() => setShowConfirmModal(false)}
               className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
