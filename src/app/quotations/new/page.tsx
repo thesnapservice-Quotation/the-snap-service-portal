@@ -108,15 +108,16 @@ function NewQuotationContent() {
     }));
   }, [quotation.events, quotation.payment.advanceType, quotation.payment.advancePercentage]);
 
-  const handleSave = (status: Quotation['status'] = quotation.status) => {
+  const handleSave = (status?: Quotation['status']) => {
+    const finalStatus = status || quotation.status || 'sent';
     const toSave: Quotation = {
       ...quotation,
-      status,
+      status: finalStatus,
       updatedAt: new Date().toISOString(),
     };
     saveQuotation(toSave);
     setQuotation(toSave);
-    setSaveSuccessMsg(`Quotation saved as ${status.toUpperCase().replace('_', ' ')}!`);
+    setSaveSuccessMsg(`Quotation saved as ${finalStatus.toUpperCase().replace('_', ' ')}!`);
     setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
 
