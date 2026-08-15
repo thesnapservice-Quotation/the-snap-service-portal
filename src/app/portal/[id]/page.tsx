@@ -75,6 +75,12 @@ function ClientPortalContent() {
           const isAlreadyConfirmed = q.status === 'confirmed' || q.status === 'completed';
           setAccepted(isAlreadyConfirmed);
           setStepConfirmed(isAlreadyConfirmed);
+
+          // Address bar auto-clean: Instantly remove query params so user sees only clean URL (e.g. /portal/SS-2026-103)
+          if (typeof window !== 'undefined' && window.history && (searchParams?.get('d') || searchParams?.get('p'))) {
+            const cleanPath = `/portal/${q.quotationNumber || q.id}`;
+            window.history.replaceState(null, '', cleanPath);
+          }
         } else {
           setQuotation(null);
         }
