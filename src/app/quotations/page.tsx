@@ -41,7 +41,7 @@ export function StatusBadge({ status }: { status: QuotationStatus }) {
 }
 
 export default function QuotationsListPage() {
-  const { quotations, loading, deleteQuotation, duplicateQuotation } = useQuotations();
+  const { quotations, loading, saveQuotation, deleteQuotation, duplicateQuotation } = useQuotations();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -193,9 +193,25 @@ export default function QuotationsListPage() {
                         <span className="text-[10px] text-slate-400 block">Internal Profit</span>
                       </td>
 
-                      {/* Status */}
+                      {/* Status Dropdown */}
                       <td className="px-5 py-4">
-                        <StatusBadge status={q.status} />
+                        <select
+                          value={q.status}
+                          onChange={(e) => {
+                            const updated = { ...q, status: e.target.value as QuotationStatus, updatedAt: new Date().toISOString() };
+                            saveQuotation(updated);
+                          }}
+                          className={`text-xs font-bold px-2 py-1 rounded-lg border focus:outline-none cursor-pointer ${
+                            STATUS_CLASSES[q.status] || STATUS_CLASSES.draft
+                          }`}
+                        >
+                          <option value="draft">📝 Draft</option>
+                          <option value="sent">📨 Sent</option>
+                          <option value="not_confirmed">🔴 Not Confirmed (Red Date Hold)</option>
+                          <option value="confirmed">🟢 Confirmed (Green Date Lock)</option>
+                          <option value="completed">✅ Completed</option>
+                          <option value="cancelled">❌ Cancelled</option>
+                        </select>
                       </td>
 
                       {/* Date */}

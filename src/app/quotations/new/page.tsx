@@ -115,7 +115,8 @@ function NewQuotationContent() {
       updatedAt: new Date().toISOString(),
     };
     saveQuotation(toSave);
-    setSaveSuccessMsg(`Quotation saved as ${status.toUpperCase()}!`);
+    setQuotation(toSave);
+    setSaveSuccessMsg(`Quotation saved as ${status.toUpperCase().replace('_', ' ')}!`);
     setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
 
