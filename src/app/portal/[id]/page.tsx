@@ -1,16 +1,16 @@
-'use me';
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Quotation, AppSettings } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { formatCurrency, formatWhatsAppPhone } from '@/lib/utils';
+import { formatCurrency, formatWhatsAppPhone, decodeQuotationData } from '@/lib/utils';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check } from 'lucide-react';
 
-export default function ClientPortalPage() {
+function ClientPortalContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const quotationId = params?.id as string;
 
   const [quotation, setQuotation] = useState<Quotation | null>(null);
@@ -31,7 +31,20 @@ export default function ClientPortalPage() {
 
   useEffect(() => {
     if (quotationId) {
-      const q = storage.getQuotationById(quotationId);
+      let q = storage.getQuotationById(quotationId);
+
+      // If not in local storage on client phone, decode embedded URL data payload `?d=...`
+      if (!q) {
+        const encodedData = searchParams?.get('d');
+        if (encodedData) {
+          const decoded = decodeQuotationData(encodedData);
+          if (decoded) {
+            storage.saveQuotation(decoded);
+            q = decoded;
+          }
+        }
+      }
+
       if (q) {
         setQuotation(q);
         setSettings(storage.getSettings(q.userId));
@@ -43,7 +56,7 @@ export default function ClientPortalPage() {
       }
     }
     setLoading(false);
-  }, [quotationId]);
+  }, [quotationId, searchParams]);
 
   const handleOpenModal = () => {
     setShowConfirmModal(true);
@@ -372,5 +385,13 @@ export default function ClientPortalPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ClientPortalPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center text-xs font-bold text-[#0D4F4F]">Loading Official Studio Quotation...</div>}>
+      <ClientPortalContent />
+    </Suspense>
   );
 }

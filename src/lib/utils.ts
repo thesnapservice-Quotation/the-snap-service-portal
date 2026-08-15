@@ -62,16 +62,86 @@ export function formatWhatsAppPhone(phone: string): string {
 }
 
 /**
+ * Encode quotation object into lightweight URL-safe string
+ */
+export function encodeQuotationData(quotation: any): string {
+  try {
+    const compact = {
+      id: quotation.id,
+      qN: quotation.quotationNumber,
+      uId: quotation.userId,
+      st: quotation.status,
+      cA: quotation.createdAt,
+      uA: quotation.updatedAt,
+      cl: quotation.client,
+      pT: quotation.packageType,
+      ev: quotation.events,
+      inc: quotation.inclusions,
+      pay: quotation.payment,
+      tC: quotation.termsAndConditions,
+    };
+    const jsonStr = JSON.stringify(compact);
+    if (typeof window !== 'undefined' && window.btoa) {
+      return encodeURIComponent(window.btoa(encodeURIComponent(jsonStr)));
+    }
+  } catch (e) {
+    console.error('Error encoding quotation data', e);
+  }
+  return '';
+}
+
+/**
+ * Decode quotation object from URL-safe string
+ */
+export function decodeQuotationData(encodedStr: string): any | null {
+  try {
+    if (!encodedStr) return null;
+    const jsonStr = decodeURIComponent(window.atob(decodeURIComponent(encodedStr)));
+    const parsed = JSON.parse(jsonStr);
+    if (parsed) {
+      return {
+        id: parsed.id || `quote-${Date.now()}`,
+        quotationNumber: parsed.qN || 'SS-2026',
+        userId: parsed.uId || 'user-super-admin',
+        status: parsed.st || 'sent',
+        createdAt: parsed.cA || new Date().toISOString(),
+        updatedAt: parsed.uA || new Date().toISOString(),
+        client: parsed.cl || {},
+        packageType: parsed.pT || 'multi_event',
+        events: parsed.ev || [],
+        inclusions: parsed.inc || [],
+        payment: parsed.pay || {},
+        termsAndConditions: parsed.tC || [],
+      };
+    }
+  } catch (e) {
+    console.error('Error decoding quotation data', e);
+  }
+  return null;
+}
+
+/**
+ * Generate full portal URL with embedded payload for global cross-device access
+ */
+export function generatePortalUrl(quotation: any, originUrl?: string): string {
+  const baseUrl = originUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://portal.thesnapservice.com');
+  const encoded = encodeQuotationData(quotation);
+  if (encoded) {
+    return `${baseUrl}/portal/${quotation.id}?d=${encoded}`;
+  }
+  return `${baseUrl}/portal/${quotation.id}`;
+}
+
+/**
  * Generate luxury personalized WhatsApp share URL with portal link
  */
 export function generateWhatsAppShareUrl(quotation: any, originUrl?: string): string {
   const phone = formatWhatsAppPhone(quotation.client?.phone || '');
-  const baseUrl = originUrl || (typeof window !== 'undefined' ? window.location.origin : '');
-  const portalUrl = `${baseUrl}/portal/${quotation.id}`;
+  const portalUrl = generatePortalUrl(quotation, originUrl);
 
   const eventNames = (quotation.events || []).map((e: any) => e.name).join(', ');
 
-  const message = `SNAP SERVICE WEDDING STUDIO\n\nAssalam-o-Alaikum ${quotation.client?.name},\nHere is your official wedding quotation (#${quotation.quotationNumber}).\n\nEvents Covered: ${eventNames || 'Wedding Package'}\nEvent Dates: ${quotation.client?.eventDates || 'As Discussed'}\nGrand Total: ${formatCurrency(quotation.payment?.grandTotal)}\nAdvance Paid: ${formatCurrency(quotation.payment?.advanceReceived)}\nBalance Payable: ${formatCurrency(quotation.payment?.balancePayable)}\n\nView Interactive Quotation & Lock Your Dates Online:\n${portalUrl}\n\nThank you for choosing Snap Service Studio.`;
+  const message = `THE SNAP SERVICE\n\nAssalam-o-Alaikum ${quotation.client?.name || 'Valued Client'},\nHere is your official wedding quotation (#${quotation.quotationNumber || 'SS-2026'}).\n\nEvents Covered: ${eventNames || 'Wedding Package'}\nEvent Dates: ${quotation.client?.eventDates || 'As Discussed'}\nGrand Total: ${formatCurrency(quotation.payment?.grandTotal)}\nAdvance Paid: ${formatCurrency(quotation.payment?.advanceReceived)}\nBalance Payable: ${formatCurrency(quotation.payment?.balancePayable)}\n\nView Interactive Quotation & Lock Your Dates Online:\n${portalUrl}\n\nThank you for choosing The Snap Service.`;
 
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
