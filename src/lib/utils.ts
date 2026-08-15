@@ -62,41 +62,25 @@ export function formatWhatsAppPhone(phone: string): string {
 }
 
 /**
- * Encode quotation object into ultra-compact, short URL payload string
+ * Encode quotation object into lightweight URL-safe string
  */
 export function encodeQuotationData(quotation: any): string {
   try {
-    const compactArr = [
-      quotation.id || '',
-      quotation.quotationNumber || '',
-      quotation.userId || 'user-super-admin',
-      quotation.status || 'sent',
-      quotation.client?.name || '',
-      quotation.client?.phone || '',
-      quotation.client?.quotationDate || '',
-      quotation.client?.eventDates || '',
-      quotation.packageType || 'multi_event',
-      (quotation.events || []).map((e: any) => [
-        e.id || '',
-        e.name || '',
-        e.dayNumber || 1,
-        e.guestCount || 0,
-        e.price || 0,
-        (e.services || []).map((s: any) => [s.serviceName || '', s.quantity || 1]),
-        e.eventDate || '',
-      ]),
-      (quotation.inclusions || []).map((inc: any) => [inc.id || '', inc.name || '', inc.included ? 1 : 0]),
-      [
-        quotation.payment?.grandTotal || 0,
-        quotation.payment?.advanceReceived || 0,
-        quotation.payment?.advanceType || 'fixed',
-        quotation.payment?.advancePercentage || 0,
-        quotation.payment?.balancePayable || 0,
-      ],
-      quotation.termsAndConditions || [],
-    ];
-
-    const jsonStr = JSON.stringify(compactArr);
+    const compact = {
+      id: quotation.id,
+      qN: quotation.quotationNumber,
+      uId: quotation.userId,
+      st: quotation.status,
+      cA: quotation.createdAt,
+      uA: quotation.updatedAt,
+      cl: quotation.client,
+      pT: quotation.packageType,
+      ev: quotation.events,
+      inc: quotation.inclusions,
+      pay: quotation.payment,
+      tC: quotation.termsAndConditions,
+    };
+    const jsonStr = JSON.stringify(compact);
     if (typeof window !== 'undefined' && window.btoa) {
       return encodeURIComponent(window.btoa(encodeURIComponent(jsonStr)));
     }
@@ -107,59 +91,14 @@ export function encodeQuotationData(quotation: any): string {
 }
 
 /**
- * Decode quotation object from URL-safe string (Supports both compact array & legacy object formats)
+ * Decode quotation object from URL-safe string
  */
 export function decodeQuotationData(encodedStr: string): any | null {
   try {
     if (!encodedStr) return null;
     const jsonStr = decodeURIComponent(window.atob(decodeURIComponent(encodedStr)));
     const parsed = JSON.parse(jsonStr);
-
-    if (Array.isArray(parsed)) {
-      return {
-        id: parsed[0] || `quote-${Date.now()}`,
-        quotationNumber: parsed[1] || 'SS-2026',
-        userId: parsed[2] || 'user-super-admin',
-        status: parsed[3] || 'sent',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        client: {
-          name: parsed[4] || '',
-          phone: parsed[5] || '',
-          quotationDate: parsed[6] || '',
-          eventDates: parsed[7] || '',
-        },
-        packageType: parsed[8] || 'multi_event',
-        events: (parsed[9] || []).map((e: any) => ({
-          id: e[0] || `evt-${Math.random()}`,
-          name: e[1] || '',
-          dayNumber: e[2] || 1,
-          guestCount: e[3] || 0,
-          price: e[4] || 0,
-          services: (e[5] || []).map((s: any, idx: number) => ({
-            id: `srv-${idx}`,
-            serviceName: s[0] || '',
-            quantity: s[1] || 1,
-          })),
-          eventDate: e[6] || '',
-        })),
-        inclusions: (parsed[10] || []).map((inc: any, idx: number) => ({
-          id: inc[0] || `inc-${idx}`,
-          name: inc[1] || '',
-          included: Boolean(inc[2]),
-        })),
-        payment: {
-          grandTotal: parsed[11]?.[0] || 0,
-          advanceReceived: parsed[11]?.[1] || 0,
-          advanceType: parsed[11]?.[2] || 'fixed',
-          advancePercentage: parsed[11]?.[3] || 0,
-          balancePayable: parsed[11]?.[4] || 0,
-        },
-        termsAndConditions: parsed[12] || [],
-      };
-    }
-
-    if (parsed && typeof parsed === 'object') {
+    if (parsed) {
       return {
         id: parsed.id || `quote-${Date.now()}`,
         quotationNumber: parsed.qN || 'SS-2026',
@@ -182,14 +121,115 @@ export function decodeQuotationData(encodedStr: string): any | null {
 }
 
 /**
- * Generate ultra-short clean portal URL (`/p/SS-2026-102?p=...`)
+ * Ultra-Compact Quotation Serialization for Short Links
+ */
+export function compactQuotationData(q: any): string {
+  try {
+    const compactObj = {
+      i: q.id,
+      n: q.quotationNumber,
+      u: q.userId,
+      s: q.status,
+      c: {
+        n: q.client?.name || '',
+        p: q.client?.phone || '',
+        d: q.client?.quotationDate || '',
+        e: q.client?.eventDates || '',
+      },
+      e: (q.events || []).map((evt: any) => [
+        evt.id,
+        evt.name,
+        evt.eventDate || '',
+        evt.guestCount || 0,
+        evt.price || 0,
+        (evt.services || []).map((srv: any) => [srv.serviceId, srv.serviceName, srv.quantity]),
+      ]),
+      m: [
+        q.payment?.grandTotal || 0,
+        q.payment?.advanceReceived || 0,
+        q.payment?.balancePayable || 0,
+        q.payment?.advanceType || 'fixed',
+      ],
+      t: q.termsAndConditions || [],
+      k: (q.inclusions || []).map((inc: any) => [inc.id, inc.name, inc.included ? 1 : 0]),
+    };
+
+    const jsonStr = JSON.stringify(compactObj);
+    if (typeof window !== 'undefined' && window.btoa) {
+      return encodeURIComponent(window.btoa(encodeURIComponent(jsonStr)));
+    }
+  } catch (e) {
+    console.error('Error compacting quotation data', e);
+  }
+  return '';
+}
+
+/**
+ * Decompact quotation object from ultra-compact string
+ */
+export function decompactQuotationData(str: string): any | null {
+  try {
+    if (!str) return null;
+    const jsonStr = decodeURIComponent(window.atob(decodeURIComponent(str)));
+    const o = JSON.parse(jsonStr);
+    if (!o) return null;
+
+    return {
+      id: o.i || `quote-${Date.now()}`,
+      quotationNumber: o.n || 'SS-2026',
+      userId: o.u || 'user-super-admin',
+      status: o.s || 'sent',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      client: {
+        name: o.c?.n || '',
+        phone: o.c?.p || '',
+        quotationDate: o.c?.d || '',
+        eventDates: o.c?.e || '',
+      },
+      packageType: 'multi_event',
+      events: (o.e || []).map((eArr: any, idx: number) => ({
+        id: eArr[0] || `evt-${idx}`,
+        name: eArr[1] || `Event ${idx + 1}`,
+        dayNumber: idx + 1,
+        eventDate: eArr[2] || '',
+        guestCount: eArr[3] || 0,
+        price: eArr[4] || 0,
+        services: (eArr[5] || []).map((sArr: any, sIdx: number) => ({
+          id: `srv-${idx}-${sIdx}`,
+          serviceId: sArr[0] || 'srv-1',
+          serviceName: sArr[1] || 'Photography',
+          quantity: sArr[2] || 1,
+        })),
+      })),
+      payment: {
+        grandTotal: o.m?.[0] || 0,
+        advanceReceived: o.m?.[1] || 0,
+        balancePayable: o.m?.[2] || 0,
+        advanceType: o.m?.[3] || 'fixed',
+      },
+      termsAndConditions: o.t || [],
+      inclusions: (o.k || []).map((kArr: any) => ({
+        id: kArr[0],
+        name: kArr[1],
+        included: kArr[2] === 1,
+      })),
+    };
+  } catch (e) {
+    console.error('Error decompacting quotation data', e);
+  }
+  return null;
+}
+
+/**
+ * Generate luxury short portal URL (e.g. portal.thesnapservice.com/p/SS-2026-102?c=...)
  */
 export function generatePortalUrl(quotation: any, originUrl?: string): string {
   const baseUrl = originUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://portal.thesnapservice.com');
   const shortId = quotation.quotationNumber || quotation.id;
-  const encoded = encodeQuotationData(quotation);
-  if (encoded) {
-    return `${baseUrl}/p/${shortId}?p=${encoded}`;
+  const compactPayload = compactQuotationData(quotation);
+  if (compactPayload) {
+    return `${baseUrl}/p/${shortId}?c=${compactPayload}`;
   }
   return `${baseUrl}/p/${shortId}`;
 }

@@ -3,7 +3,6 @@
 
 import React from 'react';
 import { Quotation, AppSettings, EventItem } from '@/lib/types';
-import { storage } from '@/lib/storage';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { 
   User, 
@@ -18,7 +17,7 @@ import {
 
 interface QuotationPreviewProps {
   quotation: Quotation;
-  settings?: AppSettings;
+  settings: AppSettings;
   previewRef?: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -244,9 +243,8 @@ function EventMotifIcon({ name }: { name: string }) {
   );
 }
 
-export function QuotationPreview({ quotation, settings: providedSettings, previewRef }: QuotationPreviewProps) {
+export function QuotationPreview({ quotation, settings, previewRef }: QuotationPreviewProps) {
   const { client, events, inclusions, payment, termsAndConditions, quotationNumber } = quotation;
-  const settings = providedSettings || storage.getSettings(quotation.userId);
   const { business, bank } = settings;
 
   // Auto-sort events chronologically (Engagement -> Nikkah -> Ubtan/Mayun -> Mehndi -> Barat -> Walima -> Couple Shoot)
