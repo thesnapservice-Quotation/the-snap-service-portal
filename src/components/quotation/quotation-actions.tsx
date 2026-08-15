@@ -1,7 +1,7 @@
 'use me';
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Quotation, QuotationStatus } from '@/lib/types';
 import { 
   downloadPDF, 
@@ -9,6 +9,7 @@ import {
   triggerPrint, 
   shareViaWhatsApp 
 } from '@/lib/export-utils';
+import { generatePortalUrl } from '@/lib/utils';
 import { 
   Save, 
   FileCheck, 
@@ -17,7 +18,9 @@ import {
   FileDown, 
   Image as ImageIcon, 
   Share2, 
-  Trash2 
+  Trash2,
+  Link as LinkIcon,
+  Check
 } from 'lucide-react';
 
 interface QuotationActionsProps {
@@ -33,8 +36,19 @@ export function QuotationActions({
   onDuplicate,
   onDelete,
 }: QuotationActionsProps) {
+  const [copiedLink, setCopiedLink] = useState(false);
+
   const filename = `SnapService_Quotation_${quotation.quotationNumber || 'Draft'}.pdf`;
   const imgFilename = `SnapService_Quotation_${quotation.quotationNumber || 'Draft'}.png`;
+
+  const handleCopyClientLink = () => {
+    const fullUrl = generatePortalUrl(quotation);
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(fullUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 3000);
+    }
+  };
 
   return (
     <div className="no-print bg-white rounded-xl p-4 border border-slate-200 shadow-md space-y-3">
@@ -115,6 +129,27 @@ export function QuotationActions({
           className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold transition-colors border border-amber-200"
         >
           <ImageIcon className="w-4 h-4 text-amber-600" /> Download PNG
+        </button>
+
+        {/* Copy Client Link */}
+        <button
+          type="button"
+          onClick={handleCopyClientLink}
+          className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-bold transition-all shadow-xs border ${
+            copiedLink
+              ? 'bg-emerald-600 text-white border-emerald-600'
+              : 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-300'
+          }`}
+        >
+          {copiedLink ? (
+            <>
+              <Check className="w-4 h-4 text-white" /> Link Copied!
+            </>
+          ) : (
+            <>
+              <LinkIcon className="w-4 h-4 text-blue-600" /> Copy Client Link
+            </>
+          )}
         </button>
 
         {/* WhatsApp Share */}

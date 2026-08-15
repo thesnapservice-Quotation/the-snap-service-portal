@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
-import { formatCurrency, formatDate, generateWhatsAppShareUrl } from '@/lib/utils';
+import { formatCurrency, formatDate, generateWhatsAppShareUrl, generatePortalUrl } from '@/lib/utils';
 import { QuotationStatus } from '@/lib/types';
 import { 
   PlusCircle, 
@@ -232,14 +232,15 @@ export default function QuotationsListPage() {
                             <MessageSquare className="w-4 h-4" />
                           </a>
 
-                          <Link
-                            href={`/portal/${q.id}`}
+                          <a
+                            href={generatePortalUrl(q)}
                             target="_blank"
+                            rel="noopener noreferrer"
                             className="p-1.5 rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200"
                             title="Open Interactive Client Portal Link"
                           >
                             <ExternalLink className="w-4 h-4" />
-                          </Link>
+                          </a>
 
                           <Link
                             href={`/quotations/${q.id}/compare`}
