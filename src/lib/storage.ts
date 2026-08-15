@@ -181,6 +181,15 @@ export const storage = {
       localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(updatedList));
       window.dispatchEvent(new Event('snap_quotation_updated'));
       storage.triggerAutoBackup();
+
+      // Background API sync so all clients on any IP/device can load the quotation
+      try {
+        fetch('/api/quotations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedQuotation),
+        }).catch(() => {});
+      } catch (e) {}
     }
     return updatedQuotation;
   },

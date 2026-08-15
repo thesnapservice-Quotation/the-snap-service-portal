@@ -30,10 +30,17 @@ function ClientPortalContent() {
   };
 
   useEffect(() => {
-    if (quotationId) {
+    let isMounted = true;
+    async function loadQuotationData() {
+      if (!quotationId) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
+      // Tier 1: LocalStorage lookup
       let q = storage.getQuotationById(quotationId);
 
-      // If not in local storage on client phone, decode embedded URL data payload `?d=...`
+      // Tier 2: URL embedded payload `?d=...` lookup
       if (!q) {
         const encodedData = searchParams?.get('d');
         if (encodedData) {
@@ -45,17 +52,38 @@ function ClientPortalContent() {
         }
       }
 
-      if (q) {
-        setQuotation(q);
-        setSettings(storage.getSettings(q.userId));
-        const isAlreadyConfirmed = q.status === 'confirmed' || q.status === 'completed';
-        setAccepted(isAlreadyConfirmed);
-        setStepConfirmed(isAlreadyConfirmed);
-      } else {
-        setQuotation(null);
+      // Tier 3: Serverless API Endpoint lookup `/api/quotations/[id]`
+      if (!q) {
+        try {
+          const res = await fetch(`/api/quotations/${encodeURIComponent(quotationId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.quotation) {
+              q = data.quotation;
+              storage.saveQuotation(q!);
+            }
+          }
+        } catch (e) {
+          console.error('API quotation lookup failed', e);
+        }
+      }
+
+      if (isMounted) {
+        if (q) {
+          setQuotation(q);
+          setSettings(storage.getSettings(q.userId));
+          const isAlreadyConfirmed = q.status === 'confirmed' || q.status === 'completed';
+          setAccepted(isAlreadyConfirmed);
+          setStepConfirmed(isAlreadyConfirmed);
+        } else {
+          setQuotation(null);
+        }
+        setLoading(false);
       }
     }
-    setLoading(false);
+
+    loadQuotationData();
+    return () => { isMounted = false; };
   }, [quotationId, searchParams]);
 
   const handleOpenModal = () => {
