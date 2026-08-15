@@ -31,17 +31,15 @@ export default function ClientPortalPage() {
 
   useEffect(() => {
     if (quotationId) {
-      let q = storage.getQuotationById(quotationId);
-      if (!q) {
-        const all = storage.getQuotations();
-        q = all.find((item) => item.id === quotationId || item.quotationNumber.toLowerCase() === quotationId.toLowerCase()) || all[0] || null;
-      }
+      const q = storage.getQuotationById(quotationId);
       if (q) {
         setQuotation(q);
         setSettings(storage.getSettings(q.userId));
         const isAlreadyConfirmed = q.status === 'confirmed' || q.status === 'completed';
         setAccepted(isAlreadyConfirmed);
         setStepConfirmed(isAlreadyConfirmed);
+      } else {
+        setQuotation(null);
       }
     }
     setLoading(false);

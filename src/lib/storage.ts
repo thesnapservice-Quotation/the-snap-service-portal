@@ -152,8 +152,10 @@ export const storage = {
   },
 
   getQuotationById: (id: string): Quotation | null => {
+    if (!id) return null;
     const list = storage.getQuotations();
-    return list.find((q) => q.id === id) || null;
+    const cleanId = id.trim().toLowerCase();
+    return list.find((q) => q.id.toLowerCase() === cleanId || q.quotationNumber.toLowerCase() === cleanId) || null;
   },
 
   saveQuotation: (quotation: Quotation): Quotation => {
@@ -188,6 +190,7 @@ export const storage = {
     const updatedList = list.filter((q) => q.id !== id);
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(updatedList));
+      window.dispatchEvent(new Event('snap_quotation_updated'));
       storage.triggerAutoBackup();
     }
   },
@@ -196,14 +199,12 @@ export const storage = {
     const target = storage.getQuotationById(id);
     if (!target) return null;
 
-    const list = storage.getQuotations();
-    const settings = storage.getSettings();
-    const nextNum = settings.quotation.startingNumber + list.length + 1;
+    const nextNum = storage.generateQuotationNumber();
 
     const newQuotation: Quotation = {
       ...target,
       id: `quote-${Date.now()}`,
-      quotationNumber: `${settings.quotation.prefix}-${nextNum}`,
+      quotationNumber: nextNum,
       client: {
         ...target.client,
         name: `${target.client.name} (Copy)`,
@@ -276,11 +277,24 @@ export const storage = {
     }
   },
 
-  // Auto-generate next quotation number
+  // Auto-generate next quotation number with strict sequence increment
   generateQuotationNumber: (): string => {
     const settings = storage.getSettings();
     const quotations = storage.getQuotations();
-    const nextNumber = settings.quotation.startingNumber + quotations.length;
+    let maxSeq = settings.quotation.startingNumber - 1;
+
+    quotations.forEach((q) => {
+      if (q.quotationNumber) {
+        const parts = q.quotationNumber.split('-');
+        const numStr = parts[parts.length - 1];
+        const num = parseInt(numStr, 10);
+        if (!isNaN(num) && num > maxSeq) {
+          maxSeq = num;
+        }
+      }
+    });
+
+    const nextNumber = maxSeq + 1;
     return `${settings.quotation.prefix}-${nextNumber}`;
   },
 
