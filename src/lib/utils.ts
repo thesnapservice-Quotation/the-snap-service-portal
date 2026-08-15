@@ -62,25 +62,41 @@ export function formatWhatsAppPhone(phone: string): string {
 }
 
 /**
- * Encode quotation object into lightweight URL-safe string
+ * Encode quotation object into ultra-compact, short URL payload string
  */
 export function encodeQuotationData(quotation: any): string {
   try {
-    const compact = {
-      id: quotation.id,
-      qN: quotation.quotationNumber,
-      uId: quotation.userId,
-      st: quotation.status,
-      cA: quotation.createdAt,
-      uA: quotation.updatedAt,
-      cl: quotation.client,
-      pT: quotation.packageType,
-      ev: quotation.events,
-      inc: quotation.inclusions,
-      pay: quotation.payment,
-      tC: quotation.termsAndConditions,
-    };
-    const jsonStr = JSON.stringify(compact);
+    const compactArr = [
+      quotation.id || '',
+      quotation.quotationNumber || '',
+      quotation.userId || 'user-super-admin',
+      quotation.status || 'sent',
+      quotation.client?.name || '',
+      quotation.client?.phone || '',
+      quotation.client?.quotationDate || '',
+      quotation.client?.eventDates || '',
+      quotation.packageType || 'multi_event',
+      (quotation.events || []).map((e: any) => [
+        e.id || '',
+        e.name || '',
+        e.dayNumber || 1,
+        e.guestCount || 0,
+        e.price || 0,
+        (e.services || []).map((s: any) => [s.serviceName || '', s.quantity || 1]),
+        e.eventDate || '',
+      ]),
+      (quotation.inclusions || []).map((inc: any) => [inc.id || '', inc.name || '', inc.included ? 1 : 0]),
+      [
+        quotation.payment?.grandTotal || 0,
+        quotation.payment?.advanceReceived || 0,
+        quotation.payment?.advanceType || 'fixed',
+        quotation.payment?.advancePercentage || 0,
+        quotation.payment?.balancePayable || 0,
+      ],
+      quotation.termsAndConditions || [],
+    ];
+
+    const jsonStr = JSON.stringify(compactArr);
     if (typeof window !== 'undefined' && window.btoa) {
       return encodeURIComponent(window.btoa(encodeURIComponent(jsonStr)));
     }
@@ -91,14 +107,59 @@ export function encodeQuotationData(quotation: any): string {
 }
 
 /**
- * Decode quotation object from URL-safe string
+ * Decode quotation object from URL-safe string (Supports both compact array & legacy object formats)
  */
 export function decodeQuotationData(encodedStr: string): any | null {
   try {
     if (!encodedStr) return null;
     const jsonStr = decodeURIComponent(window.atob(decodeURIComponent(encodedStr)));
     const parsed = JSON.parse(jsonStr);
-    if (parsed) {
+
+    if (Array.isArray(parsed)) {
+      return {
+        id: parsed[0] || `quote-${Date.now()}`,
+        quotationNumber: parsed[1] || 'SS-2026',
+        userId: parsed[2] || 'user-super-admin',
+        status: parsed[3] || 'sent',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        client: {
+          name: parsed[4] || '',
+          phone: parsed[5] || '',
+          quotationDate: parsed[6] || '',
+          eventDates: parsed[7] || '',
+        },
+        packageType: parsed[8] || 'multi_event',
+        events: (parsed[9] || []).map((e: any) => ({
+          id: e[0] || `evt-${Math.random()}`,
+          name: e[1] || '',
+          dayNumber: e[2] || 1,
+          guestCount: e[3] || 0,
+          price: e[4] || 0,
+          services: (e[5] || []).map((s: any, idx: number) => ({
+            id: `srv-${idx}`,
+            serviceName: s[0] || '',
+            quantity: s[1] || 1,
+          })),
+          eventDate: e[6] || '',
+        })),
+        inclusions: (parsed[10] || []).map((inc: any, idx: number) => ({
+          id: inc[0] || `inc-${idx}`,
+          name: inc[1] || '',
+          included: Boolean(inc[2]),
+        })),
+        payment: {
+          grandTotal: parsed[11]?.[0] || 0,
+          advanceReceived: parsed[11]?.[1] || 0,
+          advanceType: parsed[11]?.[2] || 'fixed',
+          advancePercentage: parsed[11]?.[3] || 0,
+          balancePayable: parsed[11]?.[4] || 0,
+        },
+        termsAndConditions: parsed[12] || [],
+      };
+    }
+
+    if (parsed && typeof parsed === 'object') {
       return {
         id: parsed.id || `quote-${Date.now()}`,
         quotationNumber: parsed.qN || 'SS-2026',
@@ -121,15 +182,16 @@ export function decodeQuotationData(encodedStr: string): any | null {
 }
 
 /**
- * Generate full portal URL with embedded payload for global cross-device access
+ * Generate ultra-short clean portal URL (`/p/SS-2026-102?p=...`)
  */
 export function generatePortalUrl(quotation: any, originUrl?: string): string {
   const baseUrl = originUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://portal.thesnapservice.com');
+  const shortId = quotation.quotationNumber || quotation.id;
   const encoded = encodeQuotationData(quotation);
   if (encoded) {
-    return `${baseUrl}/portal/${quotation.id}?d=${encoded}`;
+    return `${baseUrl}/p/${shortId}?p=${encoded}`;
   }
-  return `${baseUrl}/portal/${quotation.id}`;
+  return `${baseUrl}/p/${shortId}`;
 }
 
 /**
