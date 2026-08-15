@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { cloudKV } from '@/lib/cloud-kv';
 
-// Server-side in-memory cache
+// Server-side in-memory cache for quotations
 const globalQuotationsStore: Map<string, any> = (globalThis as any).__snap_quotations_store || new Map();
 (globalThis as any).__snap_quotations_store = globalQuotationsStore;
 
@@ -22,9 +21,6 @@ export async function POST(request: Request) {
 
     if (idKey) globalQuotationsStore.set(idKey, quotation);
     if (numKey) globalQuotationsStore.set(numKey, quotation);
-
-    // Persist to Cloud KV store for global cross-device clean short links
-    cloudKV.saveQuotation(quotation).catch(() => {});
 
     return NextResponse.json({ success: true, quotation });
   } catch (error) {

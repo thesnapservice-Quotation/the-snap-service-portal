@@ -15,7 +15,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const isPublic = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/portal');
+    const isPublic = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/portal') || pathname.startsWith('/p/');
     const current = storage.getCurrentUser();
     setUser(current);
 
@@ -27,7 +27,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     setChecking(false);
   }, [pathname, router]);
 
-  const isPublic = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/portal');
+  const isPublic = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/portal') || pathname.startsWith('/p/');
 
   if (checking && !isPublic) {
     return (

@@ -84,13 +84,10 @@ export function QuotationActions({
           <Save className="w-4 h-4 text-slate-500" /> Save Draft
         </button>
 
-        {/* Save Quotation (Draft -> Sent) */}
+        {/* Save & Confirm */}
         <button
           type="button"
-          onClick={() => {
-            const nextStatus = quotation.status === 'draft' ? 'sent' : quotation.status;
-            onSave(nextStatus);
-          }}
+          onClick={() => onSave('confirmed')}
           className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#0D4F4F] hover:bg-[#093A3A] text-[#D4AF37] font-bold transition-all shadow-sm"
         >
           <FileCheck className="w-4 h-4" /> Save Quotation

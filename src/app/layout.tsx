@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const isStandalonePage = pathname === '/login' || pathname === '/signup' || pathname.startsWith('/portal');
+  const isStandalonePage = pathname === '/login' || pathname === '/signup' || pathname.startsWith('/portal') || pathname.startsWith('/p/');
 
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`} suppressHydrationWarning>
