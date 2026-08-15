@@ -182,15 +182,11 @@ export function decodeQuotationData(encodedStr: string): any | null {
 }
 
 /**
- * Generate ultra-short clean portal URL (`/p/SS-2026-102?p=...`)
+ * Generate ultra-clean, short portal URL without any query parameters (e.g. https://portal.thesnapservice.com/p/SS-2026-103)
  */
 export function generatePortalUrl(quotation: any, originUrl?: string): string {
   const baseUrl = originUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://portal.thesnapservice.com');
   const shortId = quotation.quotationNumber || quotation.id;
-  const encoded = encodeQuotationData(quotation);
-  if (encoded) {
-    return `${baseUrl}/p/${shortId}?p=${encoded}`;
-  }
   return `${baseUrl}/p/${shortId}`;
 }
 
