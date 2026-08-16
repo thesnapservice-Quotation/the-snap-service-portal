@@ -159,6 +159,31 @@ export const storage = {
     return list.find((q) => q.id.toLowerCase() === cleanId || q.quotationNumber.toLowerCase() === cleanId) || null;
   },
 
+  saveQuotationLocally: (quotation: Quotation): Quotation => {
+    const list = storage.getQuotations();
+    const existingIndex = list.findIndex((q) => q.id === quotation.id);
+    let updatedList: Quotation[];
+    const now = new Date().toISOString();
+
+    const updatedQuotation = {
+      ...quotation,
+      updatedAt: quotation.updatedAt || now,
+    };
+
+    if (existingIndex >= 0) {
+      updatedList = [...list];
+      updatedList[existingIndex] = updatedQuotation;
+    } else {
+      updatedList = [updatedQuotation, ...list];
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(updatedList));
+      storage.triggerAutoBackup();
+    }
+    return updatedQuotation;
+  },
+
   saveQuotation: (quotation: Quotation): Quotation => {
     const list = storage.getQuotations();
     const existingIndex = list.findIndex((q) => q.id === quotation.id);

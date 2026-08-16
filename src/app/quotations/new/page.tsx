@@ -120,7 +120,7 @@ function NewQuotationContent() {
     }));
   }, [quotation.events, quotation.payment.advanceType, quotation.payment.advancePercentage]);
 
-  const handleSave = (status?: QuotationStatus) => {
+  const handleSave = async (status?: QuotationStatus) => {
     if (isSaving) return;
     setIsSaving(true);
 
@@ -131,7 +131,7 @@ function NewQuotationContent() {
       updatedAt: new Date().toISOString(),
     };
 
-    const saved = saveQuotation(toSave);
+    const saved = await saveQuotation(toSave);
     setQuotation(saved);
 
     // Update browser URL silently so that page refresh (F5 / Cmd+R) loads this saved quotation instead of generating a new one
@@ -146,8 +146,8 @@ function NewQuotationContent() {
     }, 2500);
   };
 
-  const handleDuplicate = () => {
-    const dup = duplicateQuotation(quotation.id);
+  const handleDuplicate = async () => {
+    const dup = await duplicateQuotation(quotation.id);
     if (dup) {
       router.push(`/quotations/new?id=${dup.id}`);
     }
