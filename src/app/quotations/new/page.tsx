@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Quotation, EventItem, PackageInclusion } from '@/lib/types';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Quotation, EventItem, PackageInclusion, QuotationStatus } from '@/lib/types';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
 import { useServices } from '@/hooks/use-services';
@@ -20,8 +20,9 @@ import Link from 'next/link';
 
 function NewQuotationContent() {
   const router = useRouter();
+  const params = useParams();
   const searchParams = useSearchParams();
-  const editId = searchParams.get('id');
+  const editId = (params?.id as string) || searchParams.get('id');
 
   const { saveQuotation, deleteQuotation, duplicateQuotation } = useQuotations();
   const { settings } = useSettings();
@@ -29,6 +30,7 @@ function NewQuotationContent() {
 
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Initial quotation state
   const [quotation, setQuotation] = useState<Quotation>(() => {
@@ -87,6 +89,16 @@ function NewQuotationContent() {
     };
   });
 
+  // Re-synchronize when editId changes
+  useEffect(() => {
+    if (editId) {
+      const existing = storage.getQuotationById(editId);
+      if (existing) {
+        setQuotation(existing);
+      }
+    }
+  }, [editId]);
+
   // Keep grand total and balance calculated automatically whenever events or payment settings change
   useEffect(() => {
     const total = quotation.events.reduce((sum, e) => sum + (e.price || 0), 0);
@@ -108,17 +120,30 @@ function NewQuotationContent() {
     }));
   }, [quotation.events, quotation.payment.advanceType, quotation.payment.advancePercentage]);
 
-  const handleSave = (status?: Quotation['status']) => {
-    const finalStatus = status || quotation.status || 'sent';
+  const handleSave = (status?: QuotationStatus) => {
+    if (isSaving) return;
+    setIsSaving(true);
+
+    const finalStatus = status || quotation.status || 'draft';
     const toSave: Quotation = {
       ...quotation,
       status: finalStatus,
       updatedAt: new Date().toISOString(),
     };
-    saveQuotation(toSave);
-    setQuotation(toSave);
+
+    const saved = saveQuotation(toSave);
+    setQuotation(saved);
+
+    // Update browser URL silently so that page refresh (F5 / Cmd+R) loads this saved quotation instead of generating a new one
+    if (typeof window !== 'undefined' && window.history && !editId) {
+      window.history.replaceState(null, '', `/quotations/new?id=${saved.id}`);
+    }
+
     setSaveSuccessMsg(`Quotation saved as ${finalStatus.toUpperCase().replace('_', ' ')}!`);
-    setTimeout(() => setSaveSuccessMsg(''), 3000);
+    setTimeout(() => {
+      setSaveSuccessMsg('');
+      setIsSaving(false);
+    }, 2500);
   };
 
   const handleDuplicate = () => {
@@ -179,7 +204,7 @@ function NewQuotationContent() {
       </div>
 
       {saveSuccessMsg && (
-        <div className="no-print p-3 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold animate-pulse flex items-center justify-between">
+        <div className="no-print p-3 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold flex items-center justify-between">
           <span>✓ {saveSuccessMsg}</span>
           <Link href="/quotations" className="underline font-bold">View All Quotations</Link>
         </div>

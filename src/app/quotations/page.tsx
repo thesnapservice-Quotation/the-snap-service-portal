@@ -21,7 +21,7 @@ import {
 import { StatusBadge, STATUS_CLASSES } from '@/components/quotation/status-badge';
 
 export default function QuotationsListPage() {
-  const { quotations, loading, deleteQuotation, duplicateQuotation } = useQuotations();
+  const { quotations, loading, saveQuotation, deleteQuotation, duplicateQuotation } = useQuotations();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -175,7 +175,23 @@ export default function QuotationsListPage() {
 
                       {/* Status */}
                       <td className="px-5 py-4">
-                        <StatusBadge status={q.status} />
+                        <select
+                          value={q.status}
+                          onChange={(e) => {
+                            const newStatus = e.target.value as QuotationStatus;
+                            saveQuotation({ ...q, status: newStatus, updatedAt: new Date().toISOString() });
+                          }}
+                          className={`px-2.5 py-1 rounded-full border text-[11px] font-bold uppercase tracking-wider cursor-pointer focus:outline-none ${
+                            STATUS_CLASSES[q.status] || STATUS_CLASSES.draft
+                          }`}
+                        >
+                          <option value="draft">Draft</option>
+                          <option value="sent">Sent</option>
+                          <option value="not_confirmed">Not Confirmed</option>
+                          <option value="confirmed">Confirmed</option>
+                          <option value="completed">Completed</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
                       </td>
 
                       {/* Date */}
