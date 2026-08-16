@@ -16,7 +16,7 @@ export const SEED_USERS: UserAccount[] = [
   {
     id: 'user-super-admin',
     name: 'Zunair Ahmad (Owner)',
-    email: 'admin@snapservice.pk',
+    email: 'admin@snapservice.com',
     password: 'admin123',
     phone: '0323-9244924',
     role: 'super_admin',
@@ -27,7 +27,7 @@ export const SEED_USERS: UserAccount[] = [
   {
     id: 'user-staff-1',
     name: 'Staff Photographer',
-    email: 'staff@snapservice.pk',
+    email: 'staff@snapservice.com',
     password: 'staff123',
     phone: '0300-1234567',
     role: 'user',
@@ -319,9 +319,13 @@ export const storage = {
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(SEED_USERS));
         return SEED_USERS;
       }
-      return JSON.parse(data);
-    } catch (e) {
-      console.error('Error reading users from localStorage', e);
+      const parsed: UserAccount[] = JSON.parse(data);
+      const hasSuperAdmin = parsed.some((u) => u.role === 'super_admin');
+      if (!hasSuperAdmin) {
+        parsed.unshift(SEED_USERS[0]);
+      }
+      return parsed;
+    } catch {
       return SEED_USERS;
     }
   },

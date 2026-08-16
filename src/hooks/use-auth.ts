@@ -21,7 +21,34 @@ export function useAuth() {
 
   const login = async (email: string, pass: string): Promise<{ success: boolean; message: string }> => {
     const allUsers = storage.getUsers();
-    const match = allUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    const cleanEmail = (email || '').trim().toLowerCase();
+
+    const match = allUsers.find((u) => {
+      const uEmail = (u.email || '').trim().toLowerCase();
+      if (uEmail === cleanEmail) return true;
+
+      // Handle common studio email domain variations (.com vs .pk vs thesnapservice.com)
+      if (u.role === 'super_admin') {
+        const isSuperAdminAlias =
+          cleanEmail === 'admin@snapservice.com' ||
+          cleanEmail === 'admin@snapservice.pk' ||
+          cleanEmail === 'admin@thesnapservice.com' ||
+          cleanEmail === 'zunair@snapservice.com' ||
+          cleanEmail === 'zunair@snapservice.pk' ||
+          cleanEmail === 'zunair@thesnapservice.com';
+        return isSuperAdminAlias;
+      }
+
+      if (u.id === 'user-staff-1' || uEmail.startsWith('staff@')) {
+        const isStaffAlias =
+          cleanEmail === 'staff@snapservice.com' ||
+          cleanEmail === 'staff@snapservice.pk' ||
+          cleanEmail === 'staff@thesnapservice.com';
+        return isStaffAlias;
+      }
+
+      return false;
+    });
 
     if (!match) {
       return { success: false, message: 'Invalid email address.' };
