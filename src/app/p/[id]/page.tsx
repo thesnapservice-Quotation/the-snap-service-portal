@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Quotation, AppSettings } from '@/lib/types';
 import { storage } from '@/lib/storage';
+import { apiFetchQuotationById } from '@/lib/api-client';
 import { decompactQuotationData, decodeQuotationData, formatCurrency, formatWhatsAppPhone } from '@/lib/utils';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check } from 'lucide-react';
@@ -37,46 +38,28 @@ function ShortClientPortalContent() {
         return;
       }
 
-      // Tier 1: LocalStorage lookup by ID or Quotation Number
-      let q = storage.getQuotationById(quotationId);
+      // 1. Direct Serverless Database API lookup
+      let q = await apiFetchQuotationById(quotationId);
 
-      // Tier 2: Compact payload lookup `?c=...`
+      // 2. Compact payload lookup `?c=...`
       if (!q && searchParams) {
         const compactStr = searchParams.get('c');
         if (compactStr) {
           const decompacted = decompactQuotationData(compactStr);
           if (decompacted) {
-            storage.saveQuotation(decompacted);
             q = decompacted;
           }
         }
       }
 
-      // Tier 3: Standard base64 payload lookup `?d=...`
+      // 3. Standard base64 payload lookup `?d=...`
       if (!q && searchParams) {
         const encodedStr = searchParams.get('d');
         if (encodedStr) {
           const decoded = decodeQuotationData(encodedStr);
           if (decoded) {
-            storage.saveQuotation(decoded);
             q = decoded;
           }
-        }
-      }
-
-      // Tier 4: Serverless API Endpoint lookup `/api/quotations/[id]`
-      if (!q) {
-        try {
-          const res = await fetch(`/api/quotations/${encodeURIComponent(quotationId)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.quotation) {
-              q = data.quotation;
-              storage.saveQuotation(q!);
-            }
-          }
-        } catch (e) {
-          console.error('API quotation lookup failed', e);
         }
       }
 

@@ -4,7 +4,6 @@ import { getTodayDateString } from './utils';
 import { generateSecureId } from './crypto';
 
 const STORAGE_KEYS = {
-  QUOTATIONS: 'snap_service_quotations',
   SERVICES: 'snap_service_services',
   SETTINGS: 'snap_service_settings',
   USERS: 'snap_service_users',
@@ -37,198 +36,30 @@ export const SEED_USERS: UserAccount[] = [
   },
 ];
 
-// Sample seed quotation so the app is immediately visual and ready to test
-const SEED_QUOTATIONS: Quotation[] = [
-  {
-    id: 'quote-seed-1',
-    quotationNumber: 'SS-2026-101',
-    userId: 'user-super-admin',
-    status: 'sent',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    client: {
-      name: 'Hassan & Zara',
-      phone: '+92 321 9876543',
-      quotationDate: getTodayDateString(),
-      eventDates: '15th Oct - 18th Oct 2026',
-    },
-    packageType: 'multi_event',
-    events: [
-      {
-        id: 'evt-1',
-        name: 'Nikkah',
-        dayNumber: 1,
-        services: [
-          { id: 'es-1', serviceId: 'srv-1', serviceName: 'Photographer', quantity: 1 },
-          { id: 'es-2', serviceId: 'srv-2', serviceName: 'Videographer', quantity: 1 },
-          { id: 'es-3', serviceId: 'srv-13', serviceName: 'Full Event Coverage', quantity: 1 },
-        ],
-        guestCount: 80,
-        price: 35000,
-      },
-      {
-        id: 'evt-2',
-        name: 'Mehndi',
-        dayNumber: 2,
-        services: [
-          { id: 'es-4', serviceId: 'srv-1', serviceName: 'Photographer', quantity: 2 },
-          { id: 'es-5', serviceId: 'srv-2', serviceName: 'Videographer', quantity: 1 },
-          { id: 'es-6', serviceId: 'srv-3', serviceName: 'Drone', quantity: 1 },
-        ],
-        guestCount: 150,
-        price: 45000,
-      },
-      {
-        id: 'evt-3',
-        name: 'Barat',
-        dayNumber: 3,
-        services: [
-          { id: 'es-7', serviceId: 'srv-1', serviceName: 'Photographer', quantity: 2 },
-          { id: 'es-8', serviceId: 'srv-2', serviceName: 'Videographer', quantity: 2 },
-          { id: 'es-9', serviceId: 'srv-3', serviceName: 'Drone', quantity: 1 },
-          { id: 'es-10', serviceId: 'srv-4', serviceName: 'Couple Shoot', quantity: 1 },
-        ],
-        guestCount: 250,
-        price: 65000,
-      },
-      {
-        id: 'evt-4',
-        name: 'Walima',
-        dayNumber: 4,
-        services: [
-          { id: 'es-11', serviceId: 'srv-1', serviceName: 'Photographer', quantity: 2 },
-          { id: 'es-12', serviceId: 'srv-2', serviceName: 'Videographer', quantity: 1 },
-          { id: 'es-13', serviceId: 'srv-3', serviceName: 'Drone', quantity: 1 },
-        ],
-        guestCount: 200,
-        price: 45000,
-      },
-    ],
-    inclusions: DEFAULT_INCLUSIONS,
-    payment: {
-      grandTotal: 190000, // 35000 + 45000 + 65000 + 45000
-      advanceReceived: 50000,
-      advanceType: 'fixed',
-      balancePayable: 140000,
-    },
-    termsAndConditions: DEFAULT_SETTINGS.quotation.defaultTerms,
-  },
-];
-
 export const storage = {
-  // Quotations CRUD
+  // Quotations CRUD (Delegates strictly to central database via API client)
   getQuotations: (): Quotation[] => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.QUOTATIONS);
-      if (!data) return [];
-      const list: Quotation[] = JSON.parse(data);
-
-      const sanitizedList = list.map((q) => ({
-        ...q,
-        userId: q.userId || 'user-super-admin',
-        inclusions: (q.inclusions || []).map((inc) => {
-          const match = inc.name.match(/^(\d+)\s+(.*)$/);
-          if (match) {
-            return {
-              ...inc,
-              quantity: inc.quantity || parseInt(match[1]),
-              name: match[2],
-            };
-          }
-          return inc;
-        }),
-      }));
-
-      return sanitizedList;
-    } catch {
-      return [];
-    }
+    return [];
   },
 
-  setAllQuotations: (quotations: Quotation[]): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(quotations));
+  setAllQuotations: (_quotations: Quotation[]): void => {
+    // No-op: LocalStorage is strictly disabled for quotations
   },
 
-  getQuotationById: (id: string): Quotation | null => {
-    if (!id) return null;
-    const list = storage.getQuotations();
-    const cleanId = id.trim().toLowerCase();
-    return list.find((q) => q.id.toLowerCase() === cleanId || q.quotationNumber.toLowerCase() === cleanId) || null;
+  getQuotationById: (_id: string): Quotation | null => {
+    return null;
   },
 
   saveQuotationLocally: (quotation: Quotation): Quotation => {
-    const list = storage.getQuotations();
-    const existingIndex = list.findIndex((q) => q.id === quotation.id);
-    let updatedList: Quotation[];
-    const now = new Date().toISOString();
-
-    const updatedQuotation = {
-      ...quotation,
-      updatedAt: quotation.updatedAt || now,
-    };
-
-    if (existingIndex >= 0) {
-      updatedList = [...list];
-      updatedList[existingIndex] = updatedQuotation;
-    } else {
-      updatedList = [updatedQuotation, ...list];
-    }
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(updatedList));
-      storage.triggerAutoBackup();
-    }
-    return updatedQuotation;
+    return quotation;
   },
 
   saveQuotation: (quotation: Quotation): Quotation => {
-    const list = storage.getQuotations();
-    const existingIndex = list.findIndex((q) => q.id === quotation.id);
-    let updatedList: Quotation[];
-    const now = new Date().toISOString();
-
-    const updatedQuotation = {
-      ...quotation,
-      updatedAt: now,
-    };
-
-    if (existingIndex >= 0) {
-      updatedList = [...list];
-      updatedList[existingIndex] = updatedQuotation;
-    } else {
-      updatedQuotation.createdAt = now;
-      updatedList = [updatedQuotation, ...list];
-    }
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(updatedList));
-      window.dispatchEvent(new Event('snap_quotation_updated'));
-      storage.triggerAutoBackup();
-
-      // Background API sync so all clients on any IP/device can load the quotation
-      try {
-        fetch('/api/quotations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedQuotation),
-        }).catch(() => {});
-      } catch {
-        // Silent catch for offline or non-blocking network
-      }
-    }
-    return updatedQuotation;
+    return quotation;
   },
 
-  deleteQuotation: (id: string): void => {
-    const list = storage.getQuotations();
-    const updatedList = list.filter((q) => q.id !== id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(updatedList));
-      window.dispatchEvent(new Event('snap_quotation_updated'));
-      storage.triggerAutoBackup();
-    }
+  deleteQuotation: (_id: string): void => {
+    // No-op: handled by central database API
   },
 
   duplicateQuotation: (id: string): Quotation | null => {
@@ -437,7 +268,15 @@ export const storage = {
     if (typeof window === 'undefined' || !backupObj) return false;
     try {
       if (backupObj.quotations && Array.isArray(backupObj.quotations)) {
-        localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(backupObj.quotations));
+        for (const q of backupObj.quotations) {
+          try {
+            fetch('/api/quotations', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(q),
+            }).catch(() => {});
+          } catch {}
+        }
       }
       if (backupObj.services && Array.isArray(backupObj.services)) {
         localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(backupObj.services));

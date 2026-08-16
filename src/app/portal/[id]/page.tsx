@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Quotation, AppSettings } from '@/lib/types';
 import { storage } from '@/lib/storage';
+import { apiFetchQuotationById } from '@/lib/api-client';
 import { formatCurrency, formatWhatsAppPhone, decodeQuotationData } from '@/lib/utils';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check } from 'lucide-react';
@@ -37,34 +38,17 @@ function ClientPortalContent() {
         return;
       }
 
-      // Tier 1: LocalStorage lookup
-      let q = storage.getQuotationById(quotationId);
+      // 1. Direct Serverless Database API lookup
+      let q = await apiFetchQuotationById(quotationId);
 
-      // Tier 2: URL embedded payload `?d=...` lookup
+      // 2. URL embedded payload fallback if shared via offline link
       if (!q) {
         const encodedData = searchParams?.get('d');
         if (encodedData) {
           const decoded = decodeQuotationData(encodedData);
           if (decoded) {
-            storage.saveQuotation(decoded);
             q = decoded;
           }
-        }
-      }
-
-      // Tier 3: Serverless API Endpoint lookup `/api/quotations/[id]`
-      if (!q) {
-        try {
-          const res = await fetch(`/api/quotations/${encodeURIComponent(quotationId)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.quotation) {
-              q = data.quotation;
-              storage.saveQuotation(q!);
-            }
-          }
-        } catch (e) {
-          console.error('API quotation lookup failed', e);
         }
       }
 

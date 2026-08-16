@@ -16,25 +16,26 @@ export default function QuotationDetailPage() {
   const router = useRouter();
   const id = params.id as string;
 
-  const [quotation, setQuotation] = useState<Quotation | null>(() => {
-    if (id) return storage.getQuotationById(id);
-    return null;
-  });
+  const [quotation, setQuotation] = useState<Quotation | null>(null);
+  const [loading, setLoading] = useState(true);
   const { settings } = useSettings();
 
   useEffect(() => {
     if (id) {
-      const item = storage.getQuotationById(id);
-      if (item) setQuotation(item);
-
       apiFetchQuotationById(id).then((fromDb) => {
-        if (fromDb) {
-          setQuotation(fromDb);
-          storage.saveQuotationLocally(fromDb);
-        }
+        setQuotation(fromDb);
+        setLoading(false);
       });
     }
   }, [id]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-16 space-y-4">
+        <p className="text-xs text-slate-400 font-medium animate-pulse">Loading quotation from database...</p>
+      </div>
+    );
+  }
 
   if (!quotation) {
     return (
