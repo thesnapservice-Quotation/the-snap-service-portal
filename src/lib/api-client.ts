@@ -1,15 +1,24 @@
 import { Quotation } from './types';
 
 /**
- * REST API Client for Database Operations
+ * REST API Client for Central Production Database Operations
+ * Enforces strict cache-busting and no-store headers across all devices.
  */
 
 export async function apiFetchQuotations(userId?: string): Promise<Quotation[]> {
   try {
-    const url = userId ? `/api/quotations?userId=${encodeURIComponent(userId)}` : '/api/quotations';
+    const timestamp = Date.now();
+    const url = userId
+      ? `/api/quotations?userId=${encodeURIComponent(userId)}&_t=${timestamp}`
+      : `/api/quotations?_t=${timestamp}`;
+
     const res = await fetch(url, {
       cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
     });
     if (res.ok) {
       const data = await res.json();
@@ -26,8 +35,16 @@ export async function apiFetchQuotations(userId?: string): Promise<Quotation[]> 
 export async function apiFetchQuotationById(id: string): Promise<Quotation | null> {
   if (!id) return null;
   try {
-    const res = await fetch(`/api/quotations/${encodeURIComponent(id)}`, {
+    const timestamp = Date.now();
+    const url = `/api/quotations/${encodeURIComponent(id)}?_t=${timestamp}`;
+
+    const res = await fetch(url, {
       cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
     });
     if (res.ok) {
       const data = await res.json();
@@ -45,7 +62,10 @@ export async function apiSaveQuotation(quotation: Quotation): Promise<Quotation>
   try {
     const res = await fetch('/api/quotations', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
       body: JSON.stringify(quotation),
     });
     if (res.ok) {
@@ -64,6 +84,7 @@ export async function apiDeleteQuotation(id: string): Promise<boolean> {
   try {
     const res = await fetch(`/api/quotations/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      headers: { 'Cache-Control': 'no-cache' },
     });
     return res.ok;
   } catch (e) {
