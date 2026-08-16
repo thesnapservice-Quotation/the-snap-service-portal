@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Quotation } from '@/lib/types';
 import { storage } from '@/lib/storage';
+import { apiFetchQuotationById } from '@/lib/api-client';
 import { useSettings } from '@/hooks/use-settings';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { QuotationActions } from '@/components/quotation/quotation-actions';
@@ -15,13 +16,23 @@ export default function QuotationDetailPage() {
   const router = useRouter();
   const id = params.id as string;
 
-  const [quotation, setQuotation] = useState<Quotation | null>(null);
+  const [quotation, setQuotation] = useState<Quotation | null>(() => {
+    if (id) return storage.getQuotationById(id);
+    return null;
+  });
   const { settings } = useSettings();
 
   useEffect(() => {
     if (id) {
       const item = storage.getQuotationById(id);
-      setQuotation(item);
+      if (item) setQuotation(item);
+
+      apiFetchQuotationById(id).then((fromDb) => {
+        if (fromDb) {
+          setQuotation(fromDb);
+          storage.saveQuotationLocally(fromDb);
+        }
+      });
     }
   }, [id]);
 

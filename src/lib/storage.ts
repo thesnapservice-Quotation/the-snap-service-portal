@@ -118,17 +118,12 @@ const SEED_QUOTATIONS: Quotation[] = [
 export const storage = {
   // Quotations CRUD
   getQuotations: (): Quotation[] => {
-    if (typeof window === 'undefined') return SEED_QUOTATIONS;
+    if (typeof window === 'undefined') return [];
     try {
       const data = localStorage.getItem(STORAGE_KEYS.QUOTATIONS);
-      let list: Quotation[] = SEED_QUOTATIONS;
-      if (data) {
-        list = JSON.parse(data);
-      } else {
-        localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(SEED_QUOTATIONS));
-      }
+      if (!data) return [];
+      const list: Quotation[] = JSON.parse(data);
 
-      // Auto-migration: Ensure every quotation has a userId and clean inclusion names
       const sanitizedList = list.map((q) => ({
         ...q,
         userId: q.userId || 'user-super-admin',
@@ -146,10 +141,14 @@ export const storage = {
       }));
 
       return sanitizedList;
-    } catch (e) {
-      console.error('Error reading quotations from localStorage', e);
-      return SEED_QUOTATIONS;
+    } catch {
+      return [];
     }
+  },
+
+  setAllQuotations: (quotations: Quotation[]): void => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(quotations));
   },
 
   getQuotationById: (id: string): Quotation | null => {

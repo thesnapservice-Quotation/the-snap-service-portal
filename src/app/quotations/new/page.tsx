@@ -9,6 +9,7 @@ import { useServices } from '@/hooks/use-services';
 import { storage } from '@/lib/storage';
 import { getTodayDateString } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
+import { apiFetchQuotationById } from '@/lib/api-client';
 import { ClientDetailsForm } from '@/components/quotation/client-details-form';
 import { EventBuilder } from '@/components/quotation/event-builder';
 import { InclusionsPicker } from '@/components/quotation/inclusions-picker';
@@ -96,6 +97,12 @@ function NewQuotationContent() {
       if (existing) {
         setQuotation(existing);
       }
+      apiFetchQuotationById(editId).then((fromDb) => {
+        if (fromDb) {
+          setQuotation(fromDb);
+          storage.saveQuotationLocally(fromDb);
+        }
+      });
     }
   }, [editId]);
 

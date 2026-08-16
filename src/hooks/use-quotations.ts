@@ -24,26 +24,23 @@ export function useQuotations() {
       return;
     }
 
-    // 1. Initial immediate local cache render
-    const localAll = storage.getQuotations();
-    const userLocal = localAll.filter((q) => q.userId === user.id);
-    if (userLocal.length > 0) {
-      setQuotations(userLocal);
-    }
-
-    // 2. Fetch ground-truth records from persistent Cloud Database
+    // 1. Fetch ground-truth records from persistent Central Cloud Database
     try {
       const dbQuotations = await apiFetchQuotations(user.id);
-      if (dbQuotations && dbQuotations.length > 0) {
-        // Sync database records to local cache so offline works seamlessly
-        for (const q of dbQuotations) {
-          storage.saveQuotationLocally(q);
-        }
+      if (Array.isArray(dbQuotations)) {
+        // Ground truth from database replaces any stale local items on this phone/device
+        storage.setAllQuotations(dbQuotations);
         setQuotations(dbQuotations);
+        return;
       }
     } catch {
-      // Fallback to local cache if network is temporarily unreachable
+      // Fallback to local cache only if network is offline
     }
+
+    // 2. Offline fallback
+    const localAll = storage.getQuotations();
+    const userLocal = localAll.filter((q) => q.userId === user.id);
+    setQuotations(userLocal);
   }, []);
 
   useEffect(() => {
@@ -51,10 +48,10 @@ export function useQuotations() {
 
     const handleUpdate = () => refreshQuotations();
 
-    // Auto-poll database every 3.5 seconds to sync client portal updates across devices
+    // Auto-poll database every 3 seconds to keep MacBook and iPhone 100% in sync
     const interval = setInterval(() => {
       refreshQuotations();
-    }, 3500);
+    }, 3000);
 
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', handleUpdate);
