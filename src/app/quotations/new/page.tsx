@@ -1,4 +1,3 @@
-'use me';
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
@@ -9,6 +8,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useServices } from '@/hooks/use-services';
 import { storage } from '@/lib/storage';
 import { getTodayDateString } from '@/lib/utils';
+import { generateSecureId } from '@/lib/crypto';
 import { ClientDetailsForm } from '@/components/quotation/client-details-form';
 import { EventBuilder } from '@/components/quotation/event-builder';
 import { InclusionsPicker } from '@/components/quotation/inclusions-picker';
@@ -63,7 +63,7 @@ function NewQuotationContent() {
     ];
 
     return {
-      id: `quote-${Date.now()}`,
+      id: generateSecureId('quote'),
       quotationNumber: storage.generateQuotationNumber(),
       status: 'draft',
       createdAt: new Date().toISOString(),

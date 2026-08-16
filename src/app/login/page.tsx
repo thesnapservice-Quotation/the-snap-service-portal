@@ -1,4 +1,3 @@
-'use me';
 'use client';
 
 import React, { useState } from 'react';
@@ -16,12 +15,12 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
-    const res = login(email, password);
+    const res = await login(email, password);
     if (res.success) {
       setSuccessMsg(res.message);
       setTimeout(() => {

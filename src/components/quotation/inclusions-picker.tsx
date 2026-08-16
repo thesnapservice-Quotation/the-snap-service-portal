@@ -1,8 +1,8 @@
-'use me';
 'use client';
 
 import React, { useState } from 'react';
 import { PackageInclusion } from '@/lib/types';
+import { generateSecureId } from '@/lib/crypto';
 import { Check, Plus, Trash2, ShieldCheck } from 'lucide-react';
 
 interface InclusionsPickerProps {
@@ -34,7 +34,7 @@ export function InclusionsPicker({ inclusions, onChange }: InclusionsPickerProps
   const handleAddCustomInclusion = () => {
     if (!newInclusionText.trim()) return;
     const newItem: PackageInclusion = {
-      id: `inc-${Date.now()}`,
+      id: generateSecureId('inc'),
       name: newInclusionText.trim(),
       included: true,
       quantity: 1,

@@ -1,11 +1,10 @@
-'use me';
 'use client';
 
 import React from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { StatusBadge } from '@/app/quotations/page';
+import { StatusBadge } from '@/components/quotation/status-badge';
 import { 
   FileText, 
   CheckCircle2, 

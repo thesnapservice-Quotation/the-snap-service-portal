@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
+import { Quotation } from '@/lib/types';
 
-const globalQuotationsStore: Map<string, any> = (globalThis as any).__snap_quotations_store || new Map();
+const KV_BUCKET = 'https://kvdb.io/snap_service_prod_v2';
+const globalQuotationsStore: Map<string, Quotation> = (globalThis as unknown as { __snap_quotations_store?: Map<string, Quotation> }).__snap_quotations_store || new Map();
+(globalThis as unknown as { __snap_quotations_store?: Map<string, Quotation> }).__snap_quotations_store = globalQuotationsStore;
 
 export async function GET(
   request: Request,
@@ -12,20 +15,44 @@ export async function GET(
   }
 
   const cleanId = id.trim().toLowerCase();
-  const quotation = globalQuotationsStore.get(cleanId);
+
+  // Tier 1: In-memory cache lookup
+  let quotation = globalQuotationsStore.get(cleanId);
+
+  if (!quotation) {
+    for (const q of globalQuotationsStore.values()) {
+      if (
+        (q.id && q.id.toLowerCase() === cleanId) ||
+        (q.quotationNumber && q.quotationNumber.toLowerCase() === cleanId)
+      ) {
+        quotation = q;
+        break;
+      }
+    }
+  }
+
+  // Tier 2: Cloud KV persistent storage lookup
+  if (!quotation) {
+    try {
+      const kvRes = await fetch(`${KV_BUCKET}/${encodeURIComponent(cleanId)}`);
+      if (kvRes.ok) {
+        const textData = await kvRes.text();
+        if (textData) {
+          quotation = JSON.parse(textData) as Quotation;
+          if (quotation) {
+            globalQuotationsStore.set(cleanId, quotation);
+            if (quotation.id) globalQuotationsStore.set(quotation.id.toLowerCase(), quotation);
+            if (quotation.quotationNumber) globalQuotationsStore.set(quotation.quotationNumber.toLowerCase(), quotation);
+          }
+        }
+      }
+    } catch {
+      // Fail silently and return 404
+    }
+  }
 
   if (quotation) {
     return NextResponse.json({ success: true, quotation });
-  }
-
-  // Search by exact ID or Quotation Number
-  for (const q of globalQuotationsStore.values()) {
-    if (
-      (q.id && q.id.toLowerCase() === cleanId) ||
-      (q.quotationNumber && q.quotationNumber.toLowerCase() === cleanId)
-    ) {
-      return NextResponse.json({ success: true, quotation: q });
-    }
   }
 
   return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
@@ -37,7 +64,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const quotation = await request.json();
+    const quotation = (await request.json()) as Quotation;
     if (!quotation) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
@@ -48,8 +75,28 @@ export async function POST(
     if (cleanId) globalQuotationsStore.set(cleanId, quotation);
     if (numKey) globalQuotationsStore.set(numKey, quotation);
 
+    try {
+      const payloadStr = JSON.stringify(quotation);
+      if (cleanId) {
+        fetch(`${KV_BUCKET}/${encodeURIComponent(cleanId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payloadStr,
+        }).catch(() => {});
+      }
+      if (numKey && numKey !== cleanId) {
+        fetch(`${KV_BUCKET}/${encodeURIComponent(numKey)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payloadStr,
+        }).catch(() => {});
+      }
+    } catch {
+      // Non-blocking network sync
+    }
+
     return NextResponse.json({ success: true, quotation });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to update quotation' }, { status: 500 });
   }
 }

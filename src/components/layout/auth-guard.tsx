@@ -1,4 +1,3 @@
-'use me';
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -11,11 +10,11 @@ const PUBLIC_PATHS = ['/login', '/signup'];
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<UserAccount | null>(null);
-  const [checking, setChecking] = useState(true);
+  const [user, setUser] = useState<UserAccount | null>(() => storage.getCurrentUser());
+  const isPublic = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/portal') || pathname.startsWith('/p/');
+  const [checking, setChecking] = useState(() => !isPublic && !storage.getCurrentUser());
 
   useEffect(() => {
-    const isPublic = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/portal');
     const current = storage.getCurrentUser();
     setUser(current);
 
@@ -23,13 +22,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       router.push('/login');
     } else if (current && (pathname === '/login' || pathname === '/signup')) {
       router.push('/');
+    } else {
+      setChecking(false);
     }
-    setChecking(false);
-  }, [pathname, router]);
+  }, [pathname, router, isPublic]);
 
-  const isPublic = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/portal');
-
-  if (checking && !isPublic) {
+  if (checking && !isPublic && !user) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center p-4 font-sans text-slate-800">
         <div className="flex items-center gap-2 text-xs font-bold text-[#0D4F4F]">

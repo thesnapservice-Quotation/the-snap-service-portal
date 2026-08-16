@@ -1,16 +1,13 @@
-import { useState, useEffect } from 'react';
+'use client';
+
+import { useState } from 'react';
 import { Service } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { DEFAULT_SERVICES } from '@/lib/defaults';
+import { generateSecureId } from '@/lib/crypto';
 
 export function useServices() {
-  const [services, setServices] = useState<Service[]>(DEFAULT_SERVICES);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setServices(storage.getServices());
-    setLoading(false);
-  }, []);
+  const [services, setServices] = useState<Service[]>(() => storage.getServices());
+  const [loading] = useState(false);
 
   const saveServices = (newServices: Service[]) => {
     storage.saveServices(newServices);
@@ -20,7 +17,7 @@ export function useServices() {
   const addService = (service: Omit<Service, 'id'>) => {
     const newService: Service = {
       ...service,
-      id: `srv-${Date.now()}`,
+      id: generateSecureId('srv'),
     };
     const updated = [...services, newService];
     saveServices(updated);

@@ -1,20 +1,16 @@
-import { useState, useEffect } from 'react';
+'use client';
+
+import { useState, useCallback } from 'react';
 import { AppSettings } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { DEFAULT_SETTINGS } from '@/lib/defaults';
 
 export function useSettings() {
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<AppSettings>(() => storage.getSettings());
+  const [loading] = useState(false);
 
-  const refreshSettings = () => {
+  const refreshSettings = useCallback(() => {
     const current = storage.getSettings();
     setSettings(current);
-  };
-
-  useEffect(() => {
-    refreshSettings();
-    setLoading(false);
   }, []);
 
   const updateSettings = (newSettings: AppSettings) => {

@@ -1,4 +1,3 @@
-'use me';
 'use client';
 
 import React from 'react';
@@ -15,7 +14,7 @@ interface PaymentSectionProps {
 export function PaymentSection({ payment, grandTotal, onChange }: PaymentSectionProps) {
   const handleAdvanceTypeChange = (type: 'fixed' | 'percentage') => {
     let newAdvance = payment.advanceReceived;
-    let percentage = payment.advancePercentage || 50;
+    const percentage = payment.advancePercentage || 50;
 
     if (type === 'percentage') {
       newAdvance = Math.round((grandTotal * percentage) / 100);

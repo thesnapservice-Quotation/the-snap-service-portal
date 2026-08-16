@@ -1,4 +1,3 @@
-'use me';
 'use client';
 
 import React, { useState } from 'react';
@@ -685,10 +684,10 @@ export default function SettingsPage() {
         <div className="space-y-6 text-xs">
           {/* Direct User Creation Form */}
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (!newUserName.trim() || !newUserEmail.trim() || !newUserPass.trim()) return;
-              const res = createUserDirectly(newUserName, newUserEmail, newUserPass, newUserRole);
+              const res = await createUserDirectly(newUserName, newUserEmail, newUserPass, newUserRole);
               if (res.success) {
                 setSaveSuccessMsg(res.message);
                 setNewUserName('');

@@ -1,28 +1,25 @@
-'use me';
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { UserAccount, UserRole } from '@/lib/types';
 import { storage } from '@/lib/storage';
+import { hashPassword, verifyPassword, generateSecureId } from '@/lib/crypto';
 
 export function useAuth() {
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
-  const [users, setUsers] = useState<UserAccount[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => storage.getCurrentUser());
+  const [users, setUsers] = useState<UserAccount[]>(() => storage.getUsers());
+  const [loading] = useState(false);
 
-  const refreshAuth = () => {
+  const refreshAuth = useCallback(() => {
     const user = storage.getCurrentUser();
     const allUsers = storage.getUsers();
     setCurrentUser(user);
     setUsers(allUsers);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    refreshAuth();
   }, []);
 
-  const login = (email: string, pass: string): { success: boolean; message: string } => {
+  const login = async (email: string, pass: string): Promise<{ success: boolean; message: string }> => {
     const allUsers = storage.getUsers();
     const match = allUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
 
@@ -30,8 +27,11 @@ export function useAuth() {
       return { success: false, message: 'Invalid email address.' };
     }
 
-    if (match.password && match.password !== pass) {
-      return { success: false, message: 'Incorrect password.' };
+    if (match.password) {
+      const isValid = await verifyPassword(pass, match.password);
+      if (!isValid) {
+        return { success: false, message: 'Incorrect password.' };
+      }
     }
 
     if (!match.approved) {
@@ -50,12 +50,12 @@ export function useAuth() {
     return { success: true, message: 'Login successful!' };
   };
 
-  const signup = (
+  const signup = async (
     name: string,
     email: string,
     pass: string,
     phone?: string
-  ): { success: boolean; message: string } => {
+  ): Promise<{ success: boolean; message: string }> => {
     const allUsers = storage.getUsers();
     const existing = allUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
 
@@ -63,11 +63,13 @@ export function useAuth() {
       return { success: false, message: 'An account with this email already exists.' };
     }
 
+    const hashedPassword = await hashPassword(pass);
+
     const newUser: UserAccount = {
-      id: `user-${Date.now()}`,
+      id: generateSecureId('user'),
       name,
       email,
-      password: pass,
+      password: hashedPassword,
       phone,
       role: 'user',
       approved: false, // Requires Super Admin approval
@@ -83,12 +85,12 @@ export function useAuth() {
     };
   };
 
-  const createUserDirectly = (
+  const createUserDirectly = async (
     name: string,
     email: string,
     pass: string,
     role: UserRole = 'user'
-  ): { success: boolean; message: string } => {
+  ): Promise<{ success: boolean; message: string }> => {
     const allUsers = storage.getUsers();
     const existing = allUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
 
@@ -96,11 +98,13 @@ export function useAuth() {
       return { success: false, message: 'An account with this email already exists.' };
     }
 
+    const hashedPassword = await hashPassword(pass);
+
     const newUser: UserAccount = {
-      id: `user-${Date.now()}`,
+      id: generateSecureId('user'),
       name,
       email,
-      password: pass,
+      password: hashedPassword,
       role,
       approved: true, // Super Admin direct creation is pre-approved
       active: true,
@@ -137,7 +141,6 @@ export function useAuth() {
     const targetUser = users.find((u) => u.id === targetUserId);
     if (!targetUser || !currentUser) return;
 
-    // Track real admin ID if not already tracking
     const adminId = currentUser.originalAdminId || currentUser.id;
 
     const switchedSession: UserAccount = {
@@ -147,9 +150,7 @@ export function useAuth() {
 
     storage.setCurrentUser(switchedSession);
     setCurrentUser(switchedSession);
-    if (typeof window !== 'undefined') {
-      window.location.href = '/';
-    }
+    router.push('/');
   };
 
   const returnToSuperAdmin = () => {
@@ -162,18 +163,14 @@ export function useAuth() {
       delete cleanAdmin.originalAdminId;
       storage.setCurrentUser(cleanAdmin);
       setCurrentUser(cleanAdmin);
-      if (typeof window !== 'undefined') {
-        window.location.href = '/settings';
-      }
+      router.push('/settings');
     }
   };
 
   const logout = () => {
     storage.setCurrentUser(null);
     setCurrentUser(null);
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
+    router.push('/login');
   };
 
   const isSuperAdmin = currentUser?.role === 'super_admin';

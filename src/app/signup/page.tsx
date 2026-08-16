@@ -1,4 +1,3 @@
-'use me';
 'use client';
 
 import React, { useState } from 'react';
@@ -16,7 +15,7 @@ export default function SignupPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -26,7 +25,7 @@ export default function SignupPage() {
       return;
     }
 
-    const res = signup(name, email, password, phone);
+    const res = await signup(name, email, password, phone);
     if (res.success) {
       setSuccessMsg(res.message);
       setName('');

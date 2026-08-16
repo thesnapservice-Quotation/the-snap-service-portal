@@ -1,6 +1,7 @@
 import { Quotation, Service, AppSettings, UserAccount } from './types';
 import { DEFAULT_SERVICES, DEFAULT_SETTINGS, DEFAULT_INCLUSIONS } from './defaults';
 import { getTodayDateString } from './utils';
+import { generateSecureId } from './crypto';
 
 const STORAGE_KEYS = {
   QUOTATIONS: 'snap_service_quotations',
@@ -189,7 +190,9 @@ export const storage = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedQuotation),
         }).catch(() => {});
-      } catch (e) {}
+      } catch {
+        // Silent catch for offline or non-blocking network
+      }
     }
     return updatedQuotation;
   },
@@ -212,7 +215,7 @@ export const storage = {
 
     const newQuotation: Quotation = {
       ...target,
-      id: `quote-${Date.now()}`,
+      id: generateSecureId('quote'),
       quotationNumber: nextNum,
       client: {
         ...target.client,
@@ -402,7 +405,7 @@ export const storage = {
     return localStorage.getItem('snap_service_last_auto_backup_time');
   },
 
-  restoreFromBackupData: (backupObj: any): boolean => {
+  restoreFromBackupData: (backupObj: Record<string, unknown> | null | undefined): boolean => {
     if (typeof window === 'undefined' || !backupObj) return false;
     try {
       if (backupObj.quotations && Array.isArray(backupObj.quotations)) {

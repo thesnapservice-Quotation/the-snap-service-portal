@@ -1,30 +1,34 @@
-import { useState, useEffect } from 'react';
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
 import { Quotation } from '@/lib/types';
 import { storage } from '@/lib/storage';
+import { generateSecureId } from '@/lib/crypto';
 
 export function useQuotations() {
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refreshQuotations = () => {
+  const getFilteredQuotations = (): Quotation[] => {
     const user = storage.getCurrentUser();
     const allQuotations = storage.getQuotations();
+    if (!user) return [];
+    return allQuotations.filter((q) => q.userId === user.id);
+  };
 
+  const [quotations, setQuotations] = useState<Quotation[]>(getFilteredQuotations);
+  const [loading, setLoading] = useState(false);
+
+  const refreshQuotations = useCallback(() => {
+    const user = storage.getCurrentUser();
+    const allQuotations = storage.getQuotations();
     if (!user) {
       setQuotations([]);
     } else {
-      // Every account (Super Admin and Standard Users) sees ONLY their own created quotations
       setQuotations(allQuotations.filter((q) => q.userId === user.id));
     }
-  };
+  }, []);
 
   useEffect(() => {
-    refreshQuotations();
-    setLoading(false);
-
     const handleUpdate = () => refreshQuotations();
 
-    // Auto Polling Every 2.5 Seconds: Syncs client portal acceptances instantly to admin panel!
     const interval = setInterval(() => {
       refreshQuotations();
     }, 2500);
@@ -43,7 +47,7 @@ export function useQuotations() {
         window.removeEventListener('focus', handleUpdate);
       }
     };
-  }, []);
+  }, [refreshQuotations]);
 
   const saveQuotation = (quotation: Quotation) => {
     const user = storage.getCurrentUser();
@@ -66,14 +70,13 @@ export function useQuotations() {
     const target = storage.getQuotationById(id);
     if (!target) return null;
 
-    const list = storage.getQuotations();
     const settings = storage.getSettings();
-    const nextNum = settings.quotation.startingNumber + list.length + 1;
+    const nextNum = storage.generateQuotationNumber();
 
     const newQuotation: Quotation = {
       ...target,
-      id: `quote-${Date.now()}`,
-      quotationNumber: `${settings.quotation.prefix}-${nextNum}`,
+      id: generateSecureId('quote'),
+      quotationNumber: nextNum || `${settings.quotation.prefix}-100`,
       userId: user?.id || target.userId || 'user-super-admin',
       client: {
         ...target.client,

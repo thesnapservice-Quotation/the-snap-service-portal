@@ -1,4 +1,3 @@
-'use me';
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,6 +6,7 @@ import Link from 'next/link';
 import { Quotation, AdditionalExpense, Service, SelectedService, CrewMemberCost } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { formatCurrency } from '@/lib/utils';
+import { generateSecureId } from '@/lib/crypto';
 import { sortEventsInSequence } from '@/components/quotation/quotation-preview';
 import { 
   ArrowLeft, 
@@ -211,7 +211,7 @@ export default function QuotationComparePage() {
   // Handler for adding non-service expense
   const handleAddExpense = () => {
     const newExp: AdditionalExpense = {
-      id: `exp-${Date.now()}`,
+      id: generateSecureId('exp'),
       description: 'New Expense (Food / Transport / Lodging)',
       amount: 2000,
     };

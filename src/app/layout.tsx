@@ -1,24 +1,10 @@
-'use me';
 'use client';
 
-import { Inter, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { AuthGuard } from '@/components/layout/auth-guard';
 import { usePathname } from 'next/navigation';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-});
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  variable: '--font-playfair',
-  display: 'swap',
-});
 
 export default function RootLayout({
   children,
@@ -26,10 +12,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const isStandalonePage = pathname === '/login' || pathname === '/signup' || pathname.startsWith('/portal');
+  const isStandalonePage = pathname === '/login' || pathname === '/signup' || pathname.startsWith('/portal') || pathname.startsWith('/p/');
 
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable}`} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <title>The Snap Service — Wedding Studio Operating System</title>
         <meta name="description" content="Official luxury wedding photography quotation studio, booking schedule, and deliverables tracker." />

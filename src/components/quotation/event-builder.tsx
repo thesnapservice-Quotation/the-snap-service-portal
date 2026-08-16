@@ -1,8 +1,8 @@
-'use me';
 'use client';
 
 import React, { useState } from 'react';
 import { EventItem, Service, SelectedService } from '@/lib/types';
+import { generateSecureId } from '@/lib/crypto';
 import { 
   Plus, 
   Trash2, 
@@ -52,7 +52,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
     const initialServices: SelectedService[] = [];
     if (photoSrv) {
       initialServices.push({
-        id: `es-${Date.now()}-1`,
+        id: generateSecureId('es'),
         serviceId: photoSrv.id,
         serviceName: photoSrv.name,
         quantity: 1,
@@ -60,7 +60,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
     }
     if (videoSrv) {
       initialServices.push({
-        id: `es-${Date.now()}-2`,
+        id: generateSecureId('es'),
         serviceId: videoSrv.id,
         serviceName: videoSrv.name,
         quantity: 1,
@@ -68,7 +68,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
     }
 
     const newEvent: EventItem = {
-      id: `evt-${Date.now()}`,
+      id: generateSecureId('evt'),
       name: defaultName,
       dayNumber,
       services: initialServices,
@@ -111,7 +111,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
       updatedServices = [
         ...targetEvent.services,
         {
-          id: `es-${Date.now()}`,
+          id: generateSecureId('es'),
           serviceId: service.id,
           serviceName: service.name,
           quantity: 1,
