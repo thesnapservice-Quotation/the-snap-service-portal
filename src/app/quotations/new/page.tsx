@@ -68,7 +68,7 @@ function NewQuotationContent() {
     return {
       id: generateSecureId('quote'),
       quotationNumber: storage.generateQuotationNumber(),
-      status: 'draft',
+      status: 'sent',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       client: {
@@ -131,7 +131,7 @@ function NewQuotationContent() {
     if (isSaving) return;
     setIsSaving(true);
 
-    const finalStatus = status || quotation.status || 'draft';
+    const finalStatus = status || quotation.status || 'sent';
     const toSave: Quotation = {
       ...quotation,
       status: finalStatus,

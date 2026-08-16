@@ -7,40 +7,31 @@ import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotations, apiSaveQuotation, apiDeleteQuotation } from '@/lib/api-client';
 
 export function useQuotations() {
-  const getFilteredQuotations = (): Quotation[] => {
-    const user = storage.getCurrentUser();
-    const allQuotations = storage.getQuotations();
-    if (!user) return [];
-    return allQuotations.filter((q) => q.userId === user.id);
-  };
-
-  const [quotations, setQuotations] = useState<Quotation[]>(getFilteredQuotations);
-  const [loading, setLoading] = useState(false);
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const refreshQuotations = useCallback(async () => {
     const user = storage.getCurrentUser();
     if (!user) {
       setQuotations([]);
+      setLoading(false);
       return;
     }
 
-    // 1. Fetch ground-truth records from persistent Central Cloud Database
     try {
+      // Direct query to Central Production Database
       const dbQuotations = await apiFetchQuotations(user.id);
       if (Array.isArray(dbQuotations)) {
-        // Ground truth from database replaces any stale local items on this phone/device
-        storage.setAllQuotations(dbQuotations);
         setQuotations(dbQuotations);
-        return;
+        storage.setAllQuotations(dbQuotations);
       }
     } catch {
-      // Fallback to local cache only if network is offline
+      // In case of network disconnection, read local cached copies
+      const cached = storage.getQuotations().filter((q) => q.userId === user.id);
+      setQuotations(cached);
+    } finally {
+      setLoading(false);
     }
-
-    // 2. Offline fallback
-    const localAll = storage.getQuotations();
-    const userLocal = localAll.filter((q) => q.userId === user.id);
-    setQuotations(userLocal);
   }, []);
 
   useEffect(() => {
@@ -48,10 +39,10 @@ export function useQuotations() {
 
     const handleUpdate = () => refreshQuotations();
 
-    // Auto-poll database every 3 seconds to keep MacBook and iPhone 100% in sync
+    // Auto-poll database every 2.5 seconds for real-time cross-device sync between MacBook and Phone
     const interval = setInterval(() => {
       refreshQuotations();
-    }, 3000);
+    }, 2500);
 
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', handleUpdate);
@@ -71,19 +62,21 @@ export function useQuotations() {
 
   const saveQuotation = async (quotation: Quotation): Promise<Quotation> => {
     const user = storage.getCurrentUser();
+    
+    // Explicitly preserve submitted status without overriding to confirmed
+    const finalStatus = quotation.status || 'sent';
+
     const quotationWithUser: Quotation = {
       ...quotation,
+      status: finalStatus,
       userId: quotation.userId || user?.id || 'user-super-admin',
       updatedAt: new Date().toISOString(),
     };
 
-    // 1. Save to local storage for instant responsiveness
-    storage.saveQuotationLocally(quotationWithUser);
-
-    // 2. Persist to central Cloud Database
+    // 1. Persist directly to Central Production Database
     const savedFromDb = await apiSaveQuotation(quotationWithUser);
 
-    // 3. Update state
+    // 2. Update local state
     setQuotations((prev) => {
       const idx = prev.findIndex((q) => q.id === savedFromDb.id);
       if (idx >= 0) {
@@ -94,6 +87,8 @@ export function useQuotations() {
       return [savedFromDb, ...prev];
     });
 
+    storage.saveQuotationLocally(savedFromDb);
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('snap_quotation_updated'));
     }
@@ -102,14 +97,12 @@ export function useQuotations() {
   };
 
   const deleteQuotation = async (id: string): Promise<void> => {
-    // 1. Local delete
-    storage.deleteQuotation(id);
-
-    // 2. Database delete
+    // 1. Delete from Central Production Database
     await apiDeleteQuotation(id);
 
-    // 3. Update state
+    // 2. Update local state
     setQuotations((prev) => prev.filter((q) => q.id !== id));
+    storage.deleteQuotation(id);
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('snap_quotation_updated'));
@@ -118,7 +111,7 @@ export function useQuotations() {
 
   const duplicateQuotation = async (id: string): Promise<Quotation | null> => {
     const user = storage.getCurrentUser();
-    const target = storage.getQuotationById(id) || quotations.find((q) => q.id === id);
+    const target = quotations.find((q) => q.id === id) || storage.getQuotationById(id);
     if (!target) return null;
 
     const settings = storage.getSettings();
