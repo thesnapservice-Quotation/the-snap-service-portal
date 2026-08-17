@@ -81,6 +81,78 @@ export default function SettingsPage() {
   // Terms form state
   const [newTermText, setNewTermText] = useState('');
 
+  // Live Database Test state
+  const [dbTestRunning, setDbTestRunning] = useState(false);
+  const [dbTestResult, setDbTestResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
+
+  const handleTestDatabase = async () => {
+    setDbTestRunning(true);
+    setDbTestResult(null);
+    const startTime = Date.now();
+
+    try {
+      const res = await fetch('/api/db-status');
+      const statusData = await res.json();
+
+      const testQuote = {
+        id: `quote-test-${Date.now()}`,
+        quotationNumber: `TEST-SYNC-${Math.floor(100 + Math.random() * 900)}`,
+        userId: currentUser?.id || 'user-super-admin',
+        status: 'sent' as const,
+        client: {
+          name: 'Supabase Sync Test Client',
+          phone: '+92 323 9244924',
+          quotationDate: new Date().toISOString().split('T')[0],
+          eventDates: '17th Aug 2026',
+        },
+        packageType: 'single_event' as const,
+        events: [
+          {
+            id: 'evt-test-1',
+            name: 'Barat',
+            dayNumber: 1,
+            services: [{ id: 's1', serviceId: 'srv-1', serviceName: 'Photographer', quantity: 1 }],
+            price: 50000,
+          },
+        ],
+        inclusions: [],
+        payment: { grandTotal: 50000, advanceReceived: 25000, advanceType: 'fixed' as const, balancePayable: 25000 },
+        termsAndConditions: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const saveRes = await fetch('/api/quotations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testQuote),
+      });
+      const saveData = await saveRes.json();
+      const elapsed = Date.now() - startTime;
+
+      if (saveRes.ok && saveData?.quotation) {
+        setDbTestResult({
+          success: true,
+          message: `✓ Connected! Real PostgreSQL row (${testQuote.quotationNumber}) created in Supabase in ${elapsed}ms!`,
+          details: statusData,
+        });
+      } else {
+        setDbTestResult({
+          success: false,
+          message: `Database save returned: ${JSON.stringify(saveData)}`,
+          details: statusData,
+        });
+      }
+    } catch (e: any) {
+      setDbTestResult({
+        success: false,
+        message: `Network error connecting to database API: ${e?.message || e}`,
+      });
+    } finally {
+      setDbTestRunning(false);
+    }
+  };
+
   // Sync state when settings load
   React.useEffect(() => {
     setFormData(settings);
@@ -877,7 +949,65 @@ export default function SettingsPage() {
       {/* Tab 7: Backup, Export & Complete Data Restore */}
       {activeTab === 'backup' && (
         <div className="space-y-6 text-xs font-sans">
-          {/* Auto-Backup Status Banner */}
+          {/* Supabase Central Production Database Connection Card */}
+          <div className="bg-white rounded-2xl p-6 border-2 border-emerald-500 shadow-md space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-800 font-bold">
+                  <Database className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif font-bold text-base text-[#0D4F4F]">
+                      Supabase PostgreSQL Production Database
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[10px] uppercase tracking-wider border border-emerald-300 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Connected (Single Source of Truth)
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Target Table: <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[#0D4F4F] font-bold">public.quotations</code> | Endpoint: <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">lwsmgogcxngolukwqnjj.supabase.co</code>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={dbTestRunning}
+                onClick={handleTestDatabase}
+                className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {dbTestRunning ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Testing Database...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-emerald-200" />
+                    <span>⚡ Run 1-Click Database Read & Write Test</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {dbTestResult && (
+              <div
+                className={`p-4 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+                  dbTestResult.success
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                    : 'bg-red-50 border-red-300 text-red-900'
+                }`}
+              >
+                <span>{dbTestResult.message}</span>
+                {dbTestResult.details && (
+                  <span className="text-[11px] font-mono opacity-80">
+                    Status: {dbTestResult.details.status} | DB Count: {dbTestResult.details.totalQuotationsInDb}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
           <div className="bg-gradient-to-r from-[#0D4F4F] to-[#093A3A] text-white p-6 rounded-2xl shadow-md border border-[#D4AF37]/50 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
