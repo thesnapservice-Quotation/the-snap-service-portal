@@ -13,7 +13,6 @@ export function useQuotations() {
   const refreshQuotations = useCallback(async () => {
     const user = storage.getCurrentUser();
     if (!user) {
-      setQuotations([]);
       setLoading(false);
       return;
     }
@@ -23,12 +22,9 @@ export function useQuotations() {
       const dbQuotations = await apiFetchQuotations(user.id);
       if (Array.isArray(dbQuotations)) {
         setQuotations(dbQuotations);
-        storage.setAllQuotations(dbQuotations);
       }
     } catch {
-      // In case of network disconnection, read local cached copies
-      const cached = storage.getQuotations().filter((q) => q.userId === user.id);
-      setQuotations(cached);
+      // Keep existing state on network error
     } finally {
       setLoading(false);
     }
@@ -39,10 +35,10 @@ export function useQuotations() {
 
     const handleUpdate = () => refreshQuotations();
 
-    // Auto-poll database every 2.5 seconds for real-time cross-device sync between MacBook and Phone
+    // Auto-poll database every 5 seconds for real-time cross-device sync between MacBook and Phone
     const interval = setInterval(() => {
       refreshQuotations();
-    }, 2500);
+    }, 5000);
 
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', handleUpdate);
