@@ -14,6 +14,7 @@ import {
   initiateGoogleDriveConnect,
   disconnectGoogleDrive,
   uploadAllQuotationsDirectToDrive,
+  importQuotationsFromGoogleDrive,
   GoogleDriveUser,
 } from '@/lib/google-drive-oauth';
 import { 
@@ -65,7 +66,7 @@ const ICON_OPTIONS = [
 export default function SettingsPage() {
   const { settings, updateSettings } = useSettings();
   const { services, addService, updateService, toggleServiceActive, deleteService } = useServices();
-  const { quotations } = useQuotations();
+  const { quotations, saveQuotation } = useQuotations();
   const { 
     users, 
     currentUser, 
@@ -106,6 +107,7 @@ export default function SettingsPage() {
   const [googleOAuthUser, setGoogleOAuthUser] = useState<GoogleDriveUser | null>(null);
   const [googleConnecting, setGoogleConnecting] = useState(false);
   const [googleDirectSyncRunning, setGoogleDirectSyncRunning] = useState(false);
+  const [googleImportRunning, setGoogleImportRunning] = useState(false);
   const [googleWebhookUrl, setGoogleWebhookUrl] = useState(
     settings.integrations?.googleDriveWebhookUrl || ''
   );
@@ -154,6 +156,34 @@ export default function SettingsPage() {
       setGoogleSyncResult({
         success: false,
         message: res.error || 'Failed to upload to Google Drive.',
+      });
+    }
+  };
+
+  const handleImportFromGoogleDrive = async () => {
+    setGoogleImportRunning(true);
+    setGoogleSyncResult(null);
+
+    const res = await importQuotationsFromGoogleDrive();
+    setGoogleImportRunning(false);
+
+    if (res.success && res.quotations.length > 0) {
+      let savedCount = 0;
+      for (const q of res.quotations) {
+        await saveQuotation(q);
+        savedCount++;
+      }
+      setGoogleSyncResult({
+        success: true,
+        message: `✓ Successfully imported and restored ${savedCount} quotation(s) from your Google Drive folder!`,
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('snap_quotation_updated'));
+      }
+    } else {
+      setGoogleSyncResult({
+        success: false,
+        message: res.error || 'No quotation backup files found in your Google Drive folder.',
       });
     }
   };
@@ -1237,19 +1267,35 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       disabled={googleDirectSyncRunning}
                       onClick={handleDirectSyncAll}
                       className="px-4 py-2 bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs rounded-xl shadow-sm hover:bg-[#093A3A] transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Upload all quotations to Google Drive"
                     >
                       {googleDirectSyncRunning ? (
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                       ) : (
                         <UploadCloud className="w-3.5 h-3.5" />
                       )}
-                      <span>Sync All ({quotations.length}) to Google Drive</span>
+                      <span>Backup All ({quotations.length}) to Drive</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={googleImportRunning}
+                      onClick={handleImportFromGoogleDrive}
+                      className="px-4 py-2 bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs rounded-xl shadow-sm hover:brightness-105 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Restore all quotations directly from Google Drive"
+                    >
+                      {googleImportRunning ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Download className="w-3.5 h-3.5" />
+                      )}
+                      <span>Restore from Google Drive</span>
                     </button>
 
                     <button
@@ -1292,139 +1338,6 @@ export default function SettingsPage() {
                 <span>{googleSyncResult.message}</span>
               </div>
             )}
-          </div>
-          <div className="bg-gradient-to-r from-[#0D4F4F] to-[#093A3A] text-white p-6 rounded-2xl shadow-md border border-[#D4AF37]/50 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-[#D4AF37] text-[#0D4F4F] font-bold">
-                  <Database className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-serif font-bold text-lg text-white">Auto-Backup Engine Active</h3>
-                  <p className="text-xs text-[#C3DFDF]">
-                    A complete system snapshot is automatically created after every quotation save or update.
-                  </p>
-                </div>
-              </div>
-
-              <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-bold text-xs flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" /> Auto-Backup Live
-              </span>
-            </div>
-
-            {storage.getLastAutoBackupTime() && (
-              <div className="pt-2 text-[11px] text-[#D4AF37] font-mono">
-                Last Auto-Backup Snapshot: {new Date(storage.getLastAutoBackupTime()!).toLocaleString()}
-              </div>
-            )}
-          </div>
-
-          {/* Backup Download & Project File Export Card */}
-          <div className="bg-white rounded-2xl p-6 border-2 border-[#E5E0D5] shadow-sm space-y-4">
-            <div className="border-b pb-3">
-              <h3 className="font-serif font-bold text-base text-[#0D4F4F] flex items-center gap-2">
-                <Download className="w-5 h-5 text-[#D4AF37]" /> Export & Download Full System Project File (.json)
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Download a complete standalone backup file containing all client quotations, internal profit analyses, studio settings, service library, and user accounts.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  const data = storage.createBackupData();
-                  if (data) {
-                    const jsonStr = JSON.stringify(data, null, 2);
-                    const blob = new Blob([jsonStr], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    link.href = url;
-                    link.download = `the-snap-service-backup-${todayStr}.json`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(url);
-                  }
-                }}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-extrabold text-xs shadow-lg hover:brightness-110 transition-all flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" /> Download Complete System Backup (.json)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  storage.triggerAutoBackup();
-                  setSaveSuccessMsg('Manual backup snapshot created successfully!');
-                  setTimeout(() => setSaveSuccessMsg(''), 3000);
-                }}
-                className="px-5 py-3 rounded-xl bg-[#0D4F4F] text-white font-bold text-xs shadow-md hover:bg-[#093A3A] transition-all flex items-center gap-2"
-              >
-                <Database className="w-4 h-4 text-[#D4AF37]" /> Take Manual System Snapshot Now
-              </button>
-            </div>
-          </div>
-
-          {/* Full System Data Restore Card */}
-          <div className="bg-white rounded-2xl p-6 border-2 border-amber-300 shadow-sm space-y-4">
-            <div className="border-b pb-3">
-              <h3 className="font-serif font-bold text-base text-[#0D4F4F] flex items-center gap-2">
-                <UploadCloud className="w-5 h-5 text-amber-600" /> Restore System Data from Backup File
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Upload a previously downloaded <span className="font-mono font-bold text-slate-800">.json</span> backup file to restore all client quotations, settings, and studio records.
-              </p>
-            </div>
-
-            {restoreSuccessMsg && (
-              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{restoreSuccessMsg}</span>
-              </div>
-            )}
-
-            <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs space-y-3">
-              <div className="font-bold flex items-center gap-1.5">
-                <span>⚠️ RESTORE INSTRUCTION</span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-amber-900">
-                Select your saved <span className="font-mono font-bold">the-snap-service-backup.json</span> project file below. Uploading will update local storage and restore all studio quotations and configurations.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                      try {
-                        const parsed = JSON.parse(event.target?.result as string);
-                        const success = storage.restoreFromBackupData(parsed);
-                        if (success) {
-                          setRestoreSuccessMsg(`✅ System restored successfully! ${parsed.quotations?.length || 0} Quotation(s) & Studio Settings imported.`);
-                          setTimeout(() => {
-                            setRestoreSuccessMsg('');
-                            window.location.reload();
-                          }, 2000);
-                        } else {
-                          alert('Invalid backup file format.');
-                        }
-                      } catch (err) {
-                        alert('Failed to parse backup JSON file.');
-                      }
-                    };
-                    reader.readAsText(file);
-                  }}
-                  className="block w-full text-xs text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#0D4F4F] file:text-[#D4AF37] hover:file:bg-[#093A3A] cursor-pointer"
-                />
-              </div>
-            </div>
           </div>
         </div>
       )}

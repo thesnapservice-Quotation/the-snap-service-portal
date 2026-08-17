@@ -313,3 +313,70 @@ export async function uploadAllQuotationsDirectToDrive(
 
   return { success: true, count: successCount };
 }
+
+/**
+ * Imports and restores all quotation files from user's Google Drive archive folder
+ */
+export async function importQuotationsFromGoogleDrive(): Promise<{
+  success: boolean;
+  quotations: Quotation[];
+  count: number;
+  error?: string;
+}> {
+  const token = getStoredGoogleDriveToken();
+  if (!token) return { success: false, quotations: [], count: 0, error: 'Not connected to Google Drive. Please sign in first.' };
+
+  const targetFolder = localStorage.getItem(GDRIVE_KEYS.FOLDER_ID) || await ensureGoogleDriveFolder(token, DRIVE_FOLDER_NAME);
+
+  try {
+    // 1. List files in archive folder
+    const listRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
+        `'${targetFolder}' in parents and trashed = false`
+      )}&fields=files(id,name,mimeType)&pageSize=100`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    if (!listRes.ok) {
+      return { success: false, quotations: [], count: 0, error: 'Could not list files from Google Drive.' };
+    }
+
+    const listData = await listRes.json();
+    const files = listData.files || [];
+    const jsonFiles = files.filter((f: any) => f.name.endsWith('.json'));
+
+    if (jsonFiles.length === 0) {
+      return { success: true, quotations: [], count: 0, error: 'No quotation backup files found in Google Drive folder.' };
+    }
+
+    const importedQuotes: Quotation[] = [];
+
+    // 2. Fetch and parse each JSON file
+    for (const file of jsonFiles) {
+      try {
+        const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (fileRes.ok) {
+          const parsed = await fileRes.json();
+          if (parsed && (parsed.id || parsed.quotationNumber)) {
+            importedQuotes.push(parsed);
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to download ${file.name}`, err);
+      }
+    }
+
+    return {
+      success: true,
+      quotations: importedQuotes,
+      count: importedQuotes.length,
+    };
+  } catch (err: any) {
+    console.error('Google Drive import error:', err);
+    return { success: false, quotations: [], count: 0, error: err?.message || String(err) };
+  }
+}
