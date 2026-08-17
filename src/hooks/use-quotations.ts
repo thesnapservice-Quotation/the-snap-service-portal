@@ -5,6 +5,7 @@ import { Quotation } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotations, apiSaveQuotation, apiDeleteQuotation } from '@/lib/api-client';
+import { syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
 
 export function useQuotations() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -86,6 +87,12 @@ export function useQuotations() {
     });
 
     storage.saveQuotationLocally(savedFromDb);
+
+    // 3. Auto-mirror to Google Drive if configured
+    const settings = storage.getSettings();
+    if (settings.integrations?.googleDriveWebhookUrl && settings.integrations?.autoSyncGoogleDrive !== false) {
+      syncQuotationToGoogleDrive(savedFromDb, settings.integrations.googleDriveWebhookUrl).catch(() => {});
+    }
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('snap_quotation_updated'));

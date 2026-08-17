@@ -161,4 +161,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     defaultInclusions: DEFAULT_INCLUSIONS.map((i) => i.name),
     defaultFooter: 'Thank you for choosing The Snap Service for your special moments!',
   },
+  integrations: {
+    googleDriveWebhookUrl: '',
+    autoSyncGoogleDrive: true,
+    googleDriveFolderName: 'Snap Service Quotations Archive',
+  },
 };

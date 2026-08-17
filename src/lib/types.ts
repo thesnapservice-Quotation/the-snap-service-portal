@@ -146,8 +146,15 @@ export interface QuotationSettings {
   defaultFooter: string;
 }
 
+export interface IntegrationsSettings {
+  googleDriveWebhookUrl?: string;
+  autoSyncGoogleDrive?: boolean;
+  googleDriveFolderName?: string;
+}
+
 export interface AppSettings {
   business: BusinessSettings;
   bank: BankDetails;
   quotation: QuotationSettings;
+  integrations?: IntegrationsSettings;
 }

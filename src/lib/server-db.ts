@@ -223,6 +223,18 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
     });
   } catch {}
 
+  // 4. Mirror to Google Drive Webhook if configured
+  const googleWebhook = process.env.GOOGLE_DRIVE_WEBHOOK_URL;
+  if (googleWebhook) {
+    try {
+      fetch(googleWebhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toSave),
+      }).catch(() => {});
+    } catch {}
+  }
+
   return toSave;
 }
 
