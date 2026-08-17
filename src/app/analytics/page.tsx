@@ -2,11 +2,13 @@
 
 import React from 'react';
 import { useQuotations } from '@/hooks/use-quotations';
+import { useProfitPrivacy } from '@/context/profit-privacy-context';
 import { formatCurrency } from '@/lib/utils';
-import { Sparkles, TrendingUp, DollarSign, Camera, Film, BookOpen, HardDrive, Award, PieChart, Plane } from 'lucide-react';
+import { Sparkles, TrendingUp, DollarSign, Camera, Film, BookOpen, HardDrive, Award, PieChart, Plane, Lock, Unlock } from 'lucide-react';
 
 export default function StudioAnalyticsPage() {
   const { quotations } = useQuotations();
+  const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
 
   // Financial metrics & crew deployments calculated ONLY for confirmed & completed bookings
   const confirmedQuotations = quotations.filter((q) => q.status === 'confirmed' || q.status === 'completed');
@@ -75,45 +77,75 @@ export default function StudioAnalyticsPage() {
           </div>
         </div>
 
-        {/* Total Internal Cost */}
-        <div className="bg-white p-5 rounded-2xl border-2 border-[#E5E0D5] shadow-xs flex flex-col justify-between">
+        {/* Total Internal Cost (Password Protected) */}
+        <div 
+          onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
+          className="bg-white p-5 rounded-2xl border-2 border-[#E5E0D5] shadow-xs flex flex-col justify-between cursor-pointer group hover:border-slate-400 transition-all"
+          title={isProfitUnlocked ? "Click to lock cost figures" : "Click to enter password and reveal cost figures"}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-medium">Total Internal Costs</span>
+            <span className="text-slate-500 font-medium flex items-center gap-1.5">
+              Total Internal Costs {isProfitUnlocked ? <Unlock className="w-3.5 h-3.5 text-slate-400" /> : <Lock className="w-3.5 h-3.5 text-slate-400" />}
+            </span>
             <div className="p-2 rounded-lg bg-red-50 text-red-600">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <span className="font-serif font-bold text-2xl text-red-800">{formatCurrency(totalCost)}</span>
-            <span className="text-[10px] text-slate-400 block mt-0.5">Crew payouts & printing</span>
+            <span className="font-serif font-bold text-2xl text-red-800 tracking-wider">
+              {isProfitUnlocked ? formatCurrency(totalCost) : '••••••••'}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">
+              {isProfitUnlocked ? 'Crew payouts & printing' : '🔒 Click to enter password'}
+            </span>
           </div>
         </div>
 
-        {/* Net Profit */}
-        <div className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-5 rounded-2xl border-2 border-[#D4AF37] shadow-xl flex flex-col justify-between">
+        {/* Net Studio Profit (Password Protected) */}
+        <div 
+          onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
+          className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-5 rounded-2xl border-2 border-[#D4AF37] shadow-xl flex flex-col justify-between cursor-pointer group hover:brightness-105 transition-all"
+          title={isProfitUnlocked ? "Click to lock profit figures" : "Click to enter password and reveal profit figures"}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[#D4AF37] font-bold text-xs uppercase tracking-wider">Net Studio Profit</span>
-            <div className="p-1.5 rounded-lg bg-[#D4AF37] text-[#0D4F4F] font-bold">
-              Rs
+            <span className="text-[#D4AF37] font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+              Net Studio Profit {isProfitUnlocked ? <Unlock className="w-3.5 h-3.5 text-emerald-300" /> : <Lock className="w-3.5 h-3.5 text-[#D4AF37]" />}
+            </span>
+            <div className="px-2 py-0.5 rounded-md bg-[#D4AF37] text-[#0D4F4F] font-bold text-[10px]">
+              {isProfitUnlocked ? 'Unlocked' : 'Protected'}
             </div>
           </div>
           <div className="mt-4">
-            <span className="font-serif font-extrabold text-2xl text-emerald-300 block">{formatCurrency(netProfit)}</span>
-            <span className="text-[10px] text-slate-300 block mt-0.5 font-semibold">Pure studio margin</span>
+            <span className="font-serif font-extrabold text-2xl text-emerald-300 block tracking-wider">
+              {isProfitUnlocked ? formatCurrency(netProfit) : '••••••••'}
+            </span>
+            <span className="text-[10px] text-slate-300 block mt-0.5 font-semibold">
+              {isProfitUnlocked ? 'Pure studio margin' : '🔒 Click to enter password'}
+            </span>
           </div>
         </div>
 
-        {/* Average Margin % */}
-        <div className="bg-white p-5 rounded-2xl border-2 border-[#E5E0D5] shadow-xs flex flex-col justify-between">
+        {/* Average Margin % (Password Protected) */}
+        <div 
+          onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
+          className="bg-white p-5 rounded-2xl border-2 border-[#E5E0D5] shadow-xs flex flex-col justify-between cursor-pointer group hover:border-slate-400 transition-all"
+          title={isProfitUnlocked ? "Click to lock profit margin" : "Click to enter password and reveal margin"}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-medium">Average Profit Margin</span>
+            <span className="text-slate-500 font-medium flex items-center gap-1.5">
+              Average Profit Margin {isProfitUnlocked ? <Unlock className="w-3.5 h-3.5 text-slate-400" /> : <Lock className="w-3.5 h-3.5 text-slate-400" />}
+            </span>
             <div className="p-2 rounded-lg bg-amber-50 text-amber-600">
               <Award className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <span className="font-serif font-bold text-2xl text-[#0D4F4F]">{profitMargin.toFixed(1)}%</span>
-            <span className="text-[10px] text-slate-400 block mt-0.5">Target: 40% - 60%</span>
+            <span className="font-serif font-bold text-2xl text-[#0D4F4F] tracking-wider">
+              {isProfitUnlocked ? `${profitMargin.toFixed(1)}%` : '•••• %'}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">
+              {isProfitUnlocked ? 'Target: 40% - 60%' : '🔒 Click to enter password'}
+            </span>
           </div>
         </div>
       </div>
