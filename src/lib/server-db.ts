@@ -98,10 +98,10 @@ export async function getQuotationsFromDb(userId?: string): Promise<Quotation[]>
     if (q.quotationNumber) memoryStore.set(q.quotationNumber.toLowerCase(), q);
   }
 
-  if (!userId || userId === 'user-super-admin') {
-    return finalList;
+  if (userId) {
+    return finalList.filter((q) => q.userId === userId);
   }
-  return finalList.filter((q) => q.userId === userId);
+  return finalList;
 }
 
 /**

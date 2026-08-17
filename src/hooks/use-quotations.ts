@@ -12,7 +12,8 @@ export function useQuotations() {
 
   const refreshQuotations = useCallback(async () => {
     const user = storage.getCurrentUser();
-    if (!user) {
+    if (!user || !user.id) {
+      setQuotations([]);
       setLoading(false);
       return;
     }
@@ -21,7 +22,8 @@ export function useQuotations() {
       // Direct query to Central Production Database
       const dbQuotations = await apiFetchQuotations(user.id);
       if (Array.isArray(dbQuotations)) {
-        setQuotations(dbQuotations);
+        const userOnly = dbQuotations.filter((q) => q.userId === user.id);
+        setQuotations(userOnly);
       }
     } catch {
       // Keep existing state on network error
