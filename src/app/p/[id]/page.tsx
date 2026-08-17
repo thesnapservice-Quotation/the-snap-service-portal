@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Quotation, AppSettings } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { apiFetchQuotationById } from '@/lib/api-client';
+import { apiFetchQuotationById, apiSaveQuotation } from '@/lib/api-client';
 import { decompactQuotationData, decodeQuotationData, formatCurrency, formatWhatsAppPhone } from '@/lib/utils';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check } from 'lucide-react';
@@ -87,16 +87,19 @@ function ShortClientPortalContent() {
     setShowConfirmModal(true);
   };
 
-  const handleStep1Confirm = () => {
+  const handleStep1Confirm = async () => {
     if (!quotation) return;
     const updated: Quotation = {
       ...quotation,
       status: 'confirmed',
       updatedAt: new Date().toISOString(),
     };
-    storage.saveQuotation(updated);
     setQuotation(updated);
+    setAccepted(true);
     setStepConfirmed(true);
+
+    // Save directly to Supabase production database
+    await apiSaveQuotation(updated);
   };
 
   const handleFinalConfirm = () => {
