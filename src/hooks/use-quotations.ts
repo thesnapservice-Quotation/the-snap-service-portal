@@ -6,6 +6,7 @@ import { storage } from '@/lib/storage';
 import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotations, apiSaveQuotation, apiDeleteQuotation } from '@/lib/api-client';
 import { syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
+import { uploadQuotationDirectToDrive } from '@/lib/google-drive-oauth';
 
 export function useQuotations() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -93,6 +94,7 @@ export function useQuotations() {
     if (settings.integrations?.googleDriveWebhookUrl && settings.integrations?.autoSyncGoogleDrive !== false) {
       syncQuotationToGoogleDrive(savedFromDb, settings.integrations.googleDriveWebhookUrl).catch(() => {});
     }
+    uploadQuotationDirectToDrive(savedFromDb).catch(() => {});
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('snap_quotation_updated'));

@@ -8,6 +8,14 @@ import { useQuotations } from '@/hooks/use-quotations';
 import { AppSettings, Service, UserRole, Quotation } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { GOOGLE_APPS_SCRIPT_TEMPLATE, syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
+import {
+  getStoredGoogleDriveUser,
+  getStoredGoogleDriveToken,
+  initiateGoogleDriveConnect,
+  disconnectGoogleDrive,
+  uploadAllQuotationsDirectToDrive,
+  GoogleDriveUser,
+} from '@/lib/google-drive-oauth';
 import { 
   Building2, 
   Landmark, 
@@ -35,7 +43,8 @@ import {
   Copy,
   ExternalLink,
   RefreshCw,
-  Share2
+  Share2,
+  FolderSync
 } from 'lucide-react';
 
 const ICON_OPTIONS = [
@@ -94,6 +103,9 @@ export default function SettingsPage() {
   const [dbTestResult, setDbTestResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
 
   // Google Drive & Sheets Integration state
+  const [googleOAuthUser, setGoogleOAuthUser] = useState<GoogleDriveUser | null>(null);
+  const [googleConnecting, setGoogleConnecting] = useState(false);
+  const [googleDirectSyncRunning, setGoogleDirectSyncRunning] = useState(false);
   const [googleWebhookUrl, setGoogleWebhookUrl] = useState(
     settings.integrations?.googleDriveWebhookUrl || ''
   );
@@ -101,6 +113,50 @@ export default function SettingsPage() {
   const [googleSyncResult, setGoogleSyncResult] = useState<{ success: boolean; message: string } | null>(null);
   const [copiedScript, setCopiedScript] = useState(false);
   const [showScriptModal, setShowScriptModal] = useState(false);
+
+  React.useEffect(() => {
+    setGoogleOAuthUser(getStoredGoogleDriveUser());
+  }, []);
+
+  const handleDirectGoogleConnect = async () => {
+    setGoogleConnecting(true);
+    const res = await initiateGoogleDriveConnect();
+    setGoogleConnecting(false);
+
+    if (res.success && res.user) {
+      setGoogleOAuthUser(res.user);
+      setSaveSuccessMsg(`Connected to Google Drive as ${res.user.email}!`);
+      setTimeout(() => setSaveSuccessMsg(''), 3500);
+    } else if (res.error) {
+      alert(`Google Sign-In: ${res.error}`);
+    }
+  };
+
+  const handleDisconnectGoogle = () => {
+    disconnectGoogleDrive();
+    setGoogleOAuthUser(null);
+    setSaveSuccessMsg('Google Drive disconnected.');
+    setTimeout(() => setSaveSuccessMsg(''), 3000);
+  };
+
+  const handleDirectSyncAll = async () => {
+    setGoogleDirectSyncRunning(true);
+    setGoogleSyncResult(null);
+    const allQuotes = quotations.length > 0 ? quotations : storage.getQuotations();
+    const res = await uploadAllQuotationsDirectToDrive(allQuotes);
+    setGoogleDirectSyncRunning(false);
+    if (res.success) {
+      setGoogleSyncResult({
+        success: true,
+        message: `✓ Saved ${res.count} Quotation(s) directly into your Google Drive folder "The Snap Service — Quotations Archive"!`,
+      });
+    } else {
+      setGoogleSyncResult({
+        success: false,
+        message: res.error || 'Failed to upload to Google Drive.',
+      });
+    }
+  };
 
   const handleTestDatabase = async () => {
     setDbTestRunning(true);
@@ -1119,8 +1175,9 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Google Drive & Google Sheets Real-Time Cloud Sync Card */}
-          <div className="bg-white rounded-2xl p-6 border-2 border-[#D4AF37]/60 shadow-md space-y-5">
+          {/* Google Drive Direct OAuth & Cloud Sync Card */}
+          <div className="bg-white rounded-2xl p-6 border-2 border-[#D4AF37]/60 shadow-md space-y-6">
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-4">
               <div className="flex items-center gap-3">
                 <div className="p-3 rounded-xl bg-[#0D4F4F] text-[#D4AF37] shadow-sm">
@@ -1129,85 +1186,162 @@ export default function SettingsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-serif font-bold text-base text-[#0D4F4F]">
-                      Google Drive & Google Sheets Real-Time Mirror
+                      Google Drive Cloud Storage & Permanent Archival
                     </h3>
-                    {googleWebhookUrl ? (
+                    {googleOAuthUser ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[10px] uppercase tracking-wider border border-emerald-300 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Auto-Sync Active
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Google Drive Connected
+                      </span>
+                    ) : googleWebhookUrl ? (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[10px] uppercase tracking-wider border border-emerald-300 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Webhook Active
                       </span>
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-wider border border-slate-300">
-                        Not Configured
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 font-bold text-[10px] uppercase tracking-wider border border-amber-300">
+                        Not Connected
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Mirror every new quotation directly into your personal Google Drive folder and Google Sheets spreadsheet in real-time.
+                    Connect your personal Google Account to automatically mirror and archive every single quotation directly onto Google Drive.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Option A: Direct 1-Click Google Sign-In & Connect */}
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <span>⚡ 1-Click Direct Google Sign-In</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Sign in with Google to automatically create a dedicated <em>&quot;The Snap Service — Quotations Archive&quot;</em> folder in your Google Drive.
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowScriptModal(true)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
-              >
-                <FileText className="w-4 h-4 text-[#0D4F4F]" />
-                <span>View Google Apps Script Code</span>
-              </button>
+              {googleOAuthUser ? (
+                <div className="p-4 bg-white rounded-xl border border-emerald-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#0D4F4F] text-[#D4AF37] font-bold flex items-center justify-center text-sm shadow-xs uppercase">
+                      {googleOAuthUser.name.charAt(0) || 'G'}
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 text-xs block">{googleOAuthUser.name}</span>
+                      <span className="text-[11px] text-slate-500 block">{googleOAuthUser.email}</span>
+                      <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
+                        📁 Target Folder: The Snap Service — Quotations Archive
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={googleDirectSyncRunning}
+                      onClick={handleDirectSyncAll}
+                      className="px-4 py-2 bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs rounded-xl shadow-sm hover:bg-[#093A3A] transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {googleDirectSyncRunning ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <UploadCloud className="w-3.5 h-3.5" />
+                      )}
+                      <span>Sync All ({quotations.length}) to Google Drive</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDisconnectGoogle}
+                      className="px-3 py-2 border border-red-200 text-red-700 hover:bg-red-50 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={googleConnecting}
+                    onClick={handleDirectGoogleConnect}
+                    className="px-6 py-3 rounded-xl bg-white border-2 border-slate-300 hover:border-[#0D4F4F] text-slate-800 font-bold text-xs shadow-sm hover:shadow-md transition-all flex items-center gap-3 cursor-pointer disabled:opacity-50"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                    </svg>
+                    <span>{googleConnecting ? 'Connecting to Google...' : 'Sign in with Google & Connect Google Drive'}</span>
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Webhook Input Field */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-700">
-                Google Apps Script Webhook URL
-              </label>
+            {/* Option B: Google Sheets / Apps Script Webhook Sync */}
+            <div className="space-y-4 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                    <span>📊 Google Sheets & Apps Script Webhook (Live Spreadsheets)</span>
+                  </h4>
+                  <p className="text-[10px] text-slate-500">
+                    Optionally mirror all quotations into a live Google Sheet table via Apps Script Webhook.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowScriptModal(true)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#0D4F4F]" />
+                  <span>View Script Code</span>
+                </button>
+              </div>
+
               <div className="flex flex-col sm:flex-row items-stretch gap-2">
                 <input
                   type="url"
                   placeholder="https://script.google.com/macros/s/.../exec"
                   value={googleWebhookUrl}
                   onChange={(e) => setGoogleWebhookUrl(e.target.value)}
-                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                  className="flex-1 px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleSaveGoogleDriveWebhook}
-                  className="px-5 py-2.5 bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs rounded-xl shadow-sm hover:bg-[#093A3A] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs rounded-xl shadow-sm hover:bg-[#093A3A] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Save className="w-4 h-4" /> Save Webhook URL
+                  <Save className="w-3.5 h-3.5" /> Save Webhook
                 </button>
               </div>
-              <p className="text-[11px] text-slate-400">
-                Paste your Google Apps Script Web App Deployment URL here to enable permanent cloud mirroring.
-              </p>
-            </div>
 
-            {/* Sync Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <button
-                type="button"
-                disabled={googleSyncRunning || !googleWebhookUrl}
-                onClick={handleTestGoogleDriveSync}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs shadow-md hover:brightness-105 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-              >
-                {googleSyncRunning ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
-                <span>⚡ Test Google Drive Connection</span>
-              </button>
+              {/* Sync Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={googleSyncRunning || !googleWebhookUrl}
+                  onClick={handleTestGoogleDriveSync}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs shadow-sm hover:brightness-105 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {googleSyncRunning ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  <span>Test Webhook</span>
+                </button>
 
-              <button
-                type="button"
-                disabled={googleSyncRunning || !googleWebhookUrl}
-                onClick={handleSyncAllToGoogleDrive}
-                className="px-5 py-2.5 rounded-xl bg-slate-800 text-white font-bold text-xs shadow-md hover:bg-slate-900 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-              >
-                <UploadCloud className="w-4 h-4 text-[#D4AF37]" />
-                <span>Sync All ({quotations.length}) Quotations to Google Drive Now</span>
-              </button>
+                <button
+                  type="button"
+                  disabled={googleSyncRunning || !googleWebhookUrl}
+                  onClick={handleSyncAllToGoogleDrive}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs shadow-sm hover:bg-slate-900 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  <UploadCloud className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>Sync to Sheet Now</span>
+                </button>
+              </div>
             </div>
 
             {googleSyncResult && (
@@ -1221,20 +1355,6 @@ export default function SettingsPage() {
                 <span>{googleSyncResult.message}</span>
               </div>
             )}
-
-            {/* Quick 60-Second Setup Instructions */}
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2.5">
-              <span className="font-bold text-[#0D4F4F] flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-[#D4AF37]" /> 60-Second Google Drive Connection Setup:
-              </span>
-              <ol className="list-decimal list-inside space-y-1.5 text-slate-600 text-[11px] leading-relaxed">
-                <li>Create a new <strong>Google Sheet</strong> in your Google Drive named <em>&quot;The Snap Service Quotations Archive&quot;</em>.</li>
-                <li>In Google Sheets menu, click <strong>Extensions ➔ Apps Script</strong>.</li>
-                <li>Click <strong>&quot;View Google Apps Script Code&quot;</strong> above, copy the code, and paste it into the script editor.</li>
-                <li>Click <strong>Deploy ➔ New deployment ➔ Select type &quot;Web app&quot;</strong> (Execute as: <em>Me</em>, Who has access: <em>Anyone</em>).</li>
-                <li>Copy the resulting Web App URL and paste it in the box above!</li>
-              </ol>
-            </div>
           </div>
           <div className="bg-gradient-to-r from-[#0D4F4F] to-[#093A3A] text-white p-6 rounded-2xl shadow-md border border-[#D4AF37]/50 space-y-2">
             <div className="flex items-center justify-between">
