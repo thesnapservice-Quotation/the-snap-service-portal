@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
+import { useProfitPrivacy } from '@/context/profit-privacy-context';
 import { formatCurrency, formatDate, generateWhatsAppShareUrl, generatePortalUrl } from '@/lib/utils';
 import { QuotationStatus } from '@/lib/types';
 import { 
@@ -15,13 +16,16 @@ import {
   FileText,
   Filter,
   MessageSquare,
-  ExternalLink
+  ExternalLink,
+  Lock,
+  Unlock
 } from 'lucide-react';
 
 import { StatusBadge, STATUS_CLASSES } from '@/components/quotation/status-badge';
 
 export default function QuotationsListPage() {
   const { quotations, loading, saveQuotation, deleteQuotation, duplicateQuotation } = useQuotations();
+  const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -114,7 +118,20 @@ export default function QuotationsListPage() {
                   <th className="px-5 py-3.5">Client Details</th>
                   <th className="px-5 py-3.5">Events Summary</th>
                   <th className="px-5 py-3.5">Selling Price</th>
-                  <th className="px-5 py-3.5">Estimated Profit</th>
+                  <th className="px-5 py-3.5">
+                    <button
+                      onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
+                      className="flex items-center gap-1.5 hover:text-[#D4AF37] transition-colors cursor-pointer group uppercase font-serif"
+                      title={isProfitUnlocked ? "Click to lock profit figures" : "Click to enter password and reveal profits"}
+                    >
+                      <span>Estimated Profit</span>
+                      {isProfitUnlocked ? (
+                        <Unlock className="w-3 h-3 text-[#D4AF37]" />
+                      ) : (
+                        <Lock className="w-3 h-3 text-slate-300 group-hover:text-[#D4AF37]" />
+                      )}
+                    </button>
+                  </th>
                   <th className="px-5 py-3.5">Status</th>
                   <th className="px-5 py-3.5">Date</th>
                   <th className="px-5 py-3.5 text-right">Actions</th>
@@ -165,12 +182,29 @@ export default function QuotationsListPage() {
                         )}
                       </td>
 
-                      {/* Estimated Profit */}
+                      {/* Estimated Profit (Password Protected) */}
                       <td className="px-5 py-4">
-                        <span className={`font-bold text-xs block ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-                          {formatCurrency(netProfit)}
-                        </span>
-                        <span className="text-[10px] text-slate-400 block">Internal Profit</span>
+                        {isProfitUnlocked ? (
+                          <>
+                            <span className={`font-bold text-xs block ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                              {formatCurrency(netProfit)}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block">Internal Profit</span>
+                          </>
+                        ) : (
+                          <button
+                            onClick={openUnlockModal}
+                            className="text-left group cursor-pointer"
+                            title="Click to enter password and reveal profit"
+                          >
+                            <span className="font-bold text-xs block text-slate-400 group-hover:text-[#0D4F4F] transition-colors tracking-widest">
+                              ••••••••
+                            </span>
+                            <span className="text-[10px] text-slate-400 group-hover:text-[#0D4F4F] flex items-center gap-1">
+                              <Lock className="w-2.5 h-2.5" /> Hidden (password)
+                            </span>
+                          </button>
+                        )}
                       </td>
 
                       {/* Status */}

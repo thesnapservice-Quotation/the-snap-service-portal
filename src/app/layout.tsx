@@ -4,6 +4,8 @@ import './globals.css';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { AuthGuard } from '@/components/layout/auth-guard';
+import { ProfitPrivacyProvider } from '@/context/profit-privacy-context';
+import { ProfitUnlockModal } from '@/components/layout/profit-unlock-modal';
 import { usePathname } from 'next/navigation';
 
 export default function RootLayout({
@@ -24,19 +26,22 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/snap-service-logo.png?v=2" />
       </head>
       <body className="font-sans bg-[#FAF9F6] text-slate-800 antialiased min-h-screen" suppressHydrationWarning>
-        <AuthGuard>
-          {isStandalonePage ? (
-            <main className="min-h-screen">{children}</main>
-          ) : (
-            <div className="min-h-screen flex flex-col md:flex-row">
-              <Sidebar />
-              <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-                <Header />
-                <main className="flex-1 p-4 md:p-8 overflow-y-auto">{children}</main>
+        <ProfitPrivacyProvider>
+          <AuthGuard>
+            {isStandalonePage ? (
+              <main className="min-h-screen">{children}</main>
+            ) : (
+              <div className="min-h-screen flex flex-col md:flex-row">
+                <Sidebar />
+                <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+                  <Header />
+                  <main className="flex-1 p-4 md:p-8 overflow-y-auto">{children}</main>
+                </div>
               </div>
-            </div>
-          )}
-        </AuthGuard>
+            )}
+            <ProfitUnlockModal />
+          </AuthGuard>
+        </ProfitPrivacyProvider>
       </body>
     </html>
   );

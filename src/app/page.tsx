@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
+import { useProfitPrivacy } from '@/context/profit-privacy-context';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { StatusBadge } from '@/components/quotation/status-badge';
 import { 
@@ -15,11 +16,14 @@ import {
   ArrowRight,
   Eye,
   Edit3,
-  Sparkles
+  Sparkles,
+  Lock,
+  Unlock
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const { quotations, loading } = useQuotations();
+  const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
 
   // Metrics calculations
   const totalQuotations = quotations.length;
@@ -144,20 +148,26 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Card 6: Total Estimated Net Profit (Strictly Internal) */}
-        <div className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-4 rounded-xl border border-[#D4AF37]/50 shadow-md flex flex-col justify-between">
+        {/* Card 6: Total Estimated Net Profit (Password Protected) */}
+        <div 
+          onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
+          className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-4 rounded-xl border border-[#D4AF37]/50 shadow-md flex flex-col justify-between cursor-pointer group hover:border-[#D4AF37] transition-all relative overflow-hidden"
+          title={isProfitUnlocked ? "Click to lock profit figures" : "Click to enter password and reveal profit figures"}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[#D4AF37] font-bold text-[11px] uppercase tracking-wider">Est. Net Profit</span>
-            <div className="p-1 rounded-md bg-[#D4AF37] text-[#0D4F4F] font-bold text-xs">
-              Rs
+            <span className="text-[#D4AF37] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+              Est. Net Profit {isProfitUnlocked ? <Unlock className="w-3 h-3 text-emerald-300" /> : <Lock className="w-3 h-3 text-[#D4AF37]" />}
+            </span>
+            <div className="px-1.5 py-0.5 rounded-md bg-[#D4AF37] text-[#0D4F4F] font-bold text-[10px] flex items-center gap-1 shadow-2xs">
+              {isProfitUnlocked ? 'Unlocked' : 'Protected'}
             </div>
           </div>
           <div className="mt-3">
-            <span className="font-serif font-extrabold text-base text-emerald-300 block truncate">
-              {formatCurrency(totalNetProfit)}
+            <span className="font-serif font-extrabold text-base text-emerald-300 block truncate tracking-wider">
+              {isProfitUnlocked ? formatCurrency(totalNetProfit) : '••••••••'}
             </span>
-            <span className="text-[9px] text-slate-300 block mt-0.5 font-semibold">
-              Avg Margin: {overallMargin.toFixed(1)}%
+            <span className="text-[9px] text-slate-300 block mt-0.5 font-semibold flex items-center gap-1">
+              {isProfitUnlocked ? `Avg Margin: ${overallMargin.toFixed(1)}%` : '🔒 Click to enter password'}
             </span>
           </div>
         </div>
@@ -192,7 +202,20 @@ export default function DashboardPage() {
                   <th className="px-4 py-3 rounded-l-lg">Client Name</th>
                   <th className="px-4 py-3">Events</th>
                   <th className="px-4 py-3">Selling Price</th>
-                  <th className="px-4 py-3">Est. Profit</th>
+                  <th className="px-4 py-3">
+                    <button
+                      onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
+                      className="flex items-center gap-1.5 hover:text-[#D4AF37] transition-colors cursor-pointer group uppercase font-serif"
+                      title={isProfitUnlocked ? "Click to lock profit" : "Click to enter password and reveal profit"}
+                    >
+                      <span>Est. Profit</span>
+                      {isProfitUnlocked ? (
+                        <Unlock className="w-3 h-3 text-[#0D4F4F]" />
+                      ) : (
+                        <Lock className="w-3 h-3 text-slate-400 group-hover:text-[#0D4F4F]" />
+                      )}
+                    </button>
+                  </th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3 text-right rounded-r-lg">Actions</th>
@@ -218,9 +241,21 @@ export default function DashboardPage() {
                         {formatCurrency(q.payment.grandTotal)}
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className={`font-bold text-xs ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-                          {formatCurrency(netProfit)}
-                        </span>
+                        {isProfitUnlocked ? (
+                          <span className={`font-bold text-xs ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                            {formatCurrency(netProfit)}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={openUnlockModal}
+                            className="text-left group cursor-pointer"
+                            title="Click to enter password and reveal profit"
+                          >
+                            <span className="font-bold text-xs text-slate-400 group-hover:text-[#0D4F4F] transition-colors tracking-widest">
+                              ••••••••
+                            </span>
+                          </button>
+                        )}
                       </td>
                       <td className="px-4 py-3.5">
                         <StatusBadge status={q.status} />
