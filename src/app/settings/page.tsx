@@ -17,6 +17,7 @@ import {
   importQuotationsFromGoogleDrive,
   GoogleDriveUser,
 } from '@/lib/google-drive-oauth';
+import { GoogleDriveRestoreModal } from '@/components/layout/google-drive-restore-modal';
 import { 
   Building2, 
   Landmark, 
@@ -108,6 +109,7 @@ export default function SettingsPage() {
   const [googleConnecting, setGoogleConnecting] = useState(false);
   const [googleDirectSyncRunning, setGoogleDirectSyncRunning] = useState(false);
   const [googleImportRunning, setGoogleImportRunning] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [googleWebhookUrl, setGoogleWebhookUrl] = useState(
     settings.integrations?.googleDriveWebhookUrl || ''
   );
@@ -160,32 +162,20 @@ export default function SettingsPage() {
     }
   };
 
-  const handleImportFromGoogleDrive = async () => {
-    setGoogleImportRunning(true);
-    setGoogleSyncResult(null);
-
-    const res = await importQuotationsFromGoogleDrive();
-    setGoogleImportRunning(false);
-
-    if (res.success && res.quotations.length > 0) {
-      let savedCount = 0;
-      for (const q of res.quotations) {
-        await saveQuotation(q);
-        savedCount++;
-      }
-      setGoogleSyncResult({
-        success: true,
-        message: `✓ Successfully imported and restored ${savedCount} quotation(s) from your Google Drive folder!`,
-      });
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('snap_quotation_updated'));
-      }
-    } else {
-      setGoogleSyncResult({
-        success: false,
-        message: res.error || 'No quotation backup files found in your Google Drive folder.',
-      });
+  const handleImportSelectedQuotations = async (toImport: Quotation[]): Promise<number> => {
+    let savedCount = 0;
+    for (const q of toImport) {
+      await saveQuotation(q);
+      savedCount++;
     }
+    setGoogleSyncResult({
+      success: true,
+      message: `✓ Successfully imported and restored ${savedCount} quotation(s) from your Google Drive folder!`,
+    });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('snap_quotation_updated'));
+    }
+    return savedCount;
   };
 
   const handleTestDatabase = async () => {
@@ -1285,16 +1275,11 @@ export default function SettingsPage() {
 
                     <button
                       type="button"
-                      disabled={googleImportRunning}
-                      onClick={handleImportFromGoogleDrive}
-                      className="px-4 py-2 bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs rounded-xl shadow-sm hover:brightness-105 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      title="Restore all quotations directly from Google Drive"
+                      onClick={() => setShowRestoreModal(true)}
+                      className="px-4 py-2 bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs rounded-xl shadow-sm hover:brightness-105 transition-all flex items-center gap-1.5 cursor-pointer"
+                      title="Select & restore quotations from Google Drive"
                     >
-                      {googleImportRunning ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Download className="w-3.5 h-3.5" />
-                      )}
+                      <Download className="w-3.5 h-3.5" />
                       <span>Restore from Google Drive</span>
                     </button>
 
@@ -1403,6 +1388,14 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Interactive Google Drive Quotations Selection & Restore Modal */}
+      <GoogleDriveRestoreModal
+        isOpen={showRestoreModal}
+        onClose={() => setShowRestoreModal(false)}
+        existingQuotations={quotations}
+        onImportQuotations={handleImportSelectedQuotations}
+      />
     </div>
   );
 }

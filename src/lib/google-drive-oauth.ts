@@ -380,3 +380,71 @@ export async function importQuotationsFromGoogleDrive(): Promise<{
     return { success: false, quotations: [], count: 0, error: err?.message || String(err) };
   }
 }
+
+export interface GoogleDriveQuotationItem {
+  id: string;
+  name: string;
+  quotation: Quotation;
+  modifiedTime?: string;
+}
+
+/**
+ * Fetches list of quotation backup files with parsed data from Google Drive
+ */
+export async function listGoogleDriveQuotationFiles(): Promise<{
+  success: boolean;
+  items: GoogleDriveQuotationItem[];
+  error?: string;
+}> {
+  const token = getStoredGoogleDriveToken();
+  if (!token) return { success: false, items: [], error: 'Not connected to Google Drive. Please sign in first.' };
+
+  const targetFolder = localStorage.getItem(GDRIVE_KEYS.FOLDER_ID) || await ensureGoogleDriveFolder(token, DRIVE_FOLDER_NAME);
+
+  try {
+    const listRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
+        `'${targetFolder}' in parents and trashed = false`
+      )}&fields=files(id,name,mimeType,modifiedTime)&pageSize=100&orderBy=modifiedTime desc`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    if (!listRes.ok) {
+      return { success: false, items: [], error: 'Could not fetch files from Google Drive.' };
+    }
+
+    const listData = await listRes.json();
+    const files = listData.files || [];
+    const jsonFiles = files.filter((f: any) => f.name.endsWith('.json'));
+
+    const items: GoogleDriveQuotationItem[] = [];
+
+    for (const file of jsonFiles) {
+      try {
+        const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (fileRes.ok) {
+          const parsed = await fileRes.json();
+          if (parsed && (parsed.id || parsed.quotationNumber)) {
+            items.push({
+              id: file.id,
+              name: file.name,
+              quotation: parsed,
+              modifiedTime: file.modifiedTime,
+            });
+          }
+        }
+      } catch (e) {
+        console.error(`Failed to parse ${file.name}`, e);
+      }
+    }
+
+    return { success: true, items };
+  } catch (err: any) {
+    console.error('Error listing Google Drive files:', err);
+    return { success: false, items: [], error: err?.message || String(err) };
+  }
+}
