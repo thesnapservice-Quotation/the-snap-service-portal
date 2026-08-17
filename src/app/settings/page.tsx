@@ -1281,69 +1281,6 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Option B: Google Sheets / Apps Script Webhook Sync */}
-            <div className="space-y-4 pt-2 border-t border-slate-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                    <span>📊 Google Sheets & Apps Script Webhook (Live Spreadsheets)</span>
-                  </h4>
-                  <p className="text-[10px] text-slate-500">
-                    Optionally mirror all quotations into a live Google Sheet table via Apps Script Webhook.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowScriptModal(true)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <FileText className="w-3.5 h-3.5 text-[#0D4F4F]" />
-                  <span>View Script Code</span>
-                </button>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch gap-2">
-                <input
-                  type="url"
-                  placeholder="https://script.google.com/macros/s/.../exec"
-                  value={googleWebhookUrl}
-                  onChange={(e) => setGoogleWebhookUrl(e.target.value)}
-                  className="flex-1 px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveGoogleDriveWebhook}
-                  className="px-5 py-2 bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs rounded-xl shadow-sm hover:bg-[#093A3A] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Save className="w-3.5 h-3.5" /> Save Webhook
-                </button>
-              </div>
-
-              {/* Sync Action Buttons */}
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  disabled={googleSyncRunning || !googleWebhookUrl}
-                  onClick={handleTestGoogleDriveSync}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs shadow-sm hover:brightness-105 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                >
-                  {googleSyncRunning ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  <span>Test Webhook</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={googleSyncRunning || !googleWebhookUrl}
-                  onClick={handleSyncAllToGoogleDrive}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs shadow-sm hover:bg-slate-900 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                >
-                  <UploadCloud className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>Sync to Sheet Now</span>
-                </button>
-              </div>
-            </div>
-
             {googleSyncResult && (
               <div
                 className={`p-4 rounded-xl border text-xs font-semibold flex items-center justify-between ${
