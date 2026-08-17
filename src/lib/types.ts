@@ -104,6 +104,7 @@ export interface DeliverableStatus {
 export interface Quotation {
   id: string;
   quotationNumber: string; // e.g., "SS-2026-001"
+  securityPin?: string; // 4-digit secure random access PIN to prevent client ID enumeration
   userId?: string; // ID of the user who created this quotation
   status: QuotationStatus;
   createdAt: string;

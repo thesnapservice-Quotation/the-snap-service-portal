@@ -227,16 +227,51 @@ export function decompactQuotationData(str: string): Quotation | null {
 }
 
 /**
- * Generate ultra-clean portal URL (e.g. portal.thesnapservice.com/portal/SS-2026-103)
+ * Generate a consistent 4-digit security PIN for a quotation
  */
-export function generatePortalUrl(quotation: Quotation, originUrl?: string): string {
-  const baseUrl = originUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://portal.thesnapservice.com');
-  const shortId = quotation.quotationNumber || quotation.id;
-  return `${baseUrl}/portal/${shortId}`;
+export function getQuotationSecurityPin(quotation: Quotation): string {
+  if (quotation.securityPin && /^\d{4}$/.test(quotation.securityPin)) {
+    return quotation.securityPin;
+  }
+  // Deterministic 4-digit hash based on ID/quotationNumber
+  const str = `${quotation.id || ''}-${quotation.quotationNumber || ''}`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const pinNum = Math.abs(hash % 9000) + 1000; // 1000 to 9999
+  return pinNum.toString();
 }
 
 /**
- * Generate luxury personalized WhatsApp share URL with portal link
+ * Generate luxury personalized portal URL with format:
+ * Website Link / Date / Quotation# / Random 4-digit security PIN
+ * e.g. https://portal.thesnapservice.com/portal/2026-08-17/SS-2026-101/4928
+ */
+export function generatePortalUrl(quotation: Quotation, originUrl?: string): string {
+  const baseUrl = originUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://portal.thesnapservice.com');
+  const cleanNumber = (quotation.quotationNumber || quotation.id || 'SS-2026-001').trim();
+  
+  // Format creation date (YYYY-MM-DD)
+  let datePart = '2026-08-17';
+  if (quotation.createdAt) {
+    try {
+      datePart = new Date(quotation.createdAt).toISOString().split('T')[0];
+    } catch {
+      datePart = '2026-08-17';
+    }
+  } else if (quotation.client?.quotationDate) {
+    datePart = quotation.client.quotationDate.split('T')[0];
+  }
+
+  const pin = getQuotationSecurityPin(quotation);
+
+  return `${baseUrl}/portal/${datePart}/${cleanNumber}/${pin}`;
+}
+
+/**
+ * Generate luxury personalized WhatsApp share URL with secure portal link
  */
 export function generateWhatsAppShareUrl(quotation: Quotation, originUrl?: string): string {
   const phone = formatWhatsAppPhone(quotation.client?.phone || '');
