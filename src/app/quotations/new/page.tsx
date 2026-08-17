@@ -6,6 +6,7 @@ import { Quotation, EventItem, PackageInclusion, QuotationStatus } from '@/lib/t
 import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
 import { useServices } from '@/hooks/use-services';
+import { useAuth } from '@/hooks/use-auth';
 import { storage } from '@/lib/storage';
 import { getTodayDateString } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
@@ -28,6 +29,7 @@ function NewQuotationContent() {
   const { saveQuotation, deleteQuotation, duplicateQuotation } = useQuotations();
   const { settings } = useSettings();
   const { services } = useServices();
+  const { currentUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
@@ -35,6 +37,7 @@ function NewQuotationContent() {
 
   // Initial quotation state
   const [quotation, setQuotation] = useState<Quotation>(() => {
+    const activeUserId = currentUser?.id || storage.getCurrentUser()?.id || 'user-super-admin';
     if (editId) {
       const existing = storage.getQuotationById(editId);
       if (existing) return existing;
@@ -68,6 +71,7 @@ function NewQuotationContent() {
     return {
       id: generateSecureId('quote'),
       quotationNumber: storage.generateQuotationNumber(),
+      userId: activeUserId,
       status: 'sent',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -131,9 +135,11 @@ function NewQuotationContent() {
     if (isSaving) return;
     setIsSaving(true);
 
+    const activeUser = currentUser || storage.getCurrentUser();
     const finalStatus = status || quotation.status || 'sent';
     const toSave: Quotation = {
       ...quotation,
+      userId: activeUser?.id || quotation.userId || 'user-super-admin',
       status: finalStatus,
       updatedAt: new Date().toISOString(),
     };

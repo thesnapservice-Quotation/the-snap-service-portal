@@ -67,7 +67,7 @@ export function useQuotations() {
     const quotationWithUser: Quotation = {
       ...quotation,
       status: finalStatus,
-      userId: quotation.userId || user?.id || 'user-super-admin',
+      userId: user?.id || quotation.userId || 'user-super-admin',
       updatedAt: new Date().toISOString(),
     };
 

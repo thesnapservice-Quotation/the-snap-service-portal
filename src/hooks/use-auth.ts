@@ -177,6 +177,11 @@ export function useAuth() {
 
     storage.setCurrentUser(switchedSession);
     setCurrentUser(switchedSession);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('snap_quotation_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
     router.push('/');
   };
 
@@ -190,6 +195,11 @@ export function useAuth() {
       delete cleanAdmin.originalAdminId;
       storage.setCurrentUser(cleanAdmin);
       setCurrentUser(cleanAdmin);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('snap_quotation_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
       router.push('/settings');
     }
   };
@@ -197,6 +207,10 @@ export function useAuth() {
   const logout = () => {
     storage.setCurrentUser(null);
     setCurrentUser(null);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('snap_quotation_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
     router.push('/login');
   };
 
