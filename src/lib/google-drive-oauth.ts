@@ -16,10 +16,10 @@ const GDRIVE_KEYS = {
   CLIENT_ID: 'snap_gdrive_custom_client_id',
 };
 
-// Default Google OAuth Client ID for Web Apps (or configured via environment / settings)
+// Official Google OAuth Client ID for The Snap Service Portal
 const DEFAULT_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-  '365824967394-m1tuvbhsqm9k5o8sfa6312a02b4d9l3l.apps.googleusercontent.com';
+  '212632447065-3h30abfhq1064u9ipmto9dhmd84dll4t.apps.googleusercontent.com';
 
 const DRIVE_FOLDER_NAME = 'The Snap Service — Quotations Archive';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
