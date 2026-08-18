@@ -1,12 +1,13 @@
 import { Quotation } from './types';
+import { supabase } from './supabase';
 
 /**
  * Production Central Database Persistence Engine
- * Direct Supabase / PostgreSQL REST API Integration with high-availability cloud fallback.
+ * Official Supabase SDK Integration with PostgreSQL.
  * Guarantees permanent persistence with 0 data loss across all devices and serverless restarts.
  */
 
-const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').replace(/\/$/, '');
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://lwsmgogcxngolukwqnjj.supabase.co').replace(/\/$/, '');
 const SUPABASE_KEY = (
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
@@ -50,8 +51,22 @@ function parseSupabaseRow(r: any): Quotation {
 export async function getQuotationsFromDb(userId?: string): Promise<Quotation[]> {
   let fetchedList: Quotation[] | null = null;
 
-  // 1. Query Supabase REST API
-  if (SUPABASE_URL && SUPABASE_KEY) {
+  // 1. Query Supabase via official client
+  try {
+    const { data, error } = await supabase
+      .from('quotations')
+      .select('*')
+      .order('updated_at', { ascending: false });
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      fetchedList = data.map(parseSupabaseRow);
+    }
+  } catch (e) {
+    console.error('Supabase SDK fetch error:', e);
+  }
+
+  // 2. Query Supabase REST API fallback
+  if (!fetchedList && SUPABASE_URL && SUPABASE_KEY) {
     try {
       const endpoint = `${SUPABASE_URL}/rest/v1/quotations?select=*&order=updated_at.desc`;
       const res = await fetch(endpoint, {
@@ -69,7 +84,7 @@ export async function getQuotationsFromDb(userId?: string): Promise<Quotation[]>
         }
       }
     } catch (e) {
-      console.error('Supabase fetch exception:', e);
+      console.error('Supabase REST fetch exception:', e);
     }
   }
 
@@ -178,48 +193,40 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
   if (toSave.id) memoryStore.set(toSave.id.toLowerCase(), toSave);
   if (toSave.quotationNumber) memoryStore.set(toSave.quotationNumber.toLowerCase(), toSave);
 
-  // 2. Persist to Supabase Database (with ON CONFLICT upsert + PATCH fallback)
-  if (SUPABASE_URL && SUPABASE_KEY) {
-    const dbPayload = {
-      id: toSave.id,
-      quotation_number: toSave.quotationNumber,
-      user_id: toSave.userId,
-      status: toSave.status,
-      client: toSave.client,
-      events: toSave.events,
-      inclusions: toSave.inclusions,
-      payment: toSave.payment,
-      full_data: toSave,
-      updated_at: now,
-    };
+  // 2. Persist to Supabase Database (Official SDK with REST fallback)
+  const dbPayload = {
+    id: toSave.id,
+    quotation_number: toSave.quotationNumber,
+    user_id: toSave.userId,
+    status: toSave.status,
+    client: toSave.client,
+    events: toSave.events,
+    inclusions: toSave.inclusions,
+    payment: toSave.payment,
+    full_data: toSave,
+    updated_at: now,
+  };
 
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/quotations?on_conflict=id`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates',
-        },
-        body: JSON.stringify(dbPayload),
-      });
-
-      if (!res.ok) {
-        // Fallback: Try PATCH by id
-        await fetch(`${SUPABASE_URL}/rest/v1/quotations?id=eq.${encodeURIComponent(toSave.id)}`, {
-          method: 'PATCH',
+  try {
+    const { error } = await supabase.from('quotations').upsert(dbPayload, { onConflict: 'id' });
+    if (error) {
+      console.error('Supabase SDK upsert error:', error);
+      // Fallback: Try REST API
+      if (SUPABASE_URL && SUPABASE_KEY) {
+        await fetch(`${SUPABASE_URL}/rest/v1/quotations?on_conflict=id`, {
+          method: 'POST',
           headers: {
             'apikey': SUPABASE_KEY,
             'Authorization': `Bearer ${SUPABASE_KEY}`,
             'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates',
           },
           body: JSON.stringify(dbPayload),
         });
       }
-    } catch (e) {
-      console.error('Supabase save exception:', e);
     }
+  } catch (e) {
+    console.error('Supabase save exception:', e);
   }
 
   // 3. Persist to High-Availability Cloud Backup Store
@@ -254,7 +261,13 @@ export async function deleteQuotationFromDb(id: string): Promise<boolean> {
   const cleanId = id.trim().toLowerCase();
   memoryStore.delete(cleanId);
 
-  // 1. Delete from Supabase
+  // 1. Delete from Supabase via SDK & REST
+  try {
+    await supabase.from('quotations').delete().eq('id', id);
+  } catch (e) {
+    console.error('Supabase SDK delete error:', e);
+  }
+
   if (SUPABASE_URL && SUPABASE_KEY) {
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/quotations?id=eq.${encodeURIComponent(id)}`, {
