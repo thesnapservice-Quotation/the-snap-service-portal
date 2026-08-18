@@ -279,19 +279,30 @@ function ShortClientPortalContent() {
               </button>
             </div>
 
-            {/* Advance Amount Summary Box */}
-            <div className="bg-[#FAF9F6] p-4 rounded-2xl border border-[#E5E0D5] flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-medium text-slate-500">Advance Required to Lock:</span>
-                <div className="text-xl font-serif font-bold text-[#0D4F4F]">
-                  {formatCurrency(quotation.payment.advanceReceived || 0)}
-                </div>
+            {/* Payment Plan & Schedule Breakdown Box */}
+            <div className="bg-[#FAF9F6] p-4 rounded-2xl border border-[#E5E0D5] space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-[#0D4F4F] pb-1 border-b border-[#E5E0D5]">
+                <span>Payment Plan & Schedule</span>
+                <span>Amount (PKR)</span>
               </div>
-
-              <div className="text-right">
-                <span className="text-[11px] font-medium text-slate-500">Grand Total:</span>
-                <div className="text-sm font-bold text-slate-700">
-                  {formatCurrency(quotation.payment.grandTotal || 0)}
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600">1. Advance to Lock Booking:</span>
+                  <span className="font-bold text-[#0D4F4F]">
+                    {formatCurrency(quotation.payment.advanceReceived > 0 ? quotation.payment.advanceReceived : Math.round(quotation.payment.grandTotal * 0.5))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600">2. Remaining Balance (On Event):</span>
+                  <span className="font-bold text-slate-700">
+                    {formatCurrency(quotation.payment.advanceReceived > 0 ? quotation.payment.balancePayable : Math.round(quotation.payment.grandTotal * 0.5))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pt-1.5 border-t border-dashed border-[#E5E0D5]">
+                  <span className="font-bold text-slate-900">Total Package Amount:</span>
+                  <span className="text-base font-serif font-extrabold text-[#0D4F4F]">
+                    {formatCurrency(quotation.payment.grandTotal)}
+                  </span>
                 </div>
               </div>
             </div>

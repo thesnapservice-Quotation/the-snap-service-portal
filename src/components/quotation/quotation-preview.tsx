@@ -447,37 +447,39 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
             </div>
           </div>
 
-          {/* ADVANCE BREAKDOWN ROW (If Advance Entered) */}
-          {hasAdvance && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-center text-xs">
-              <div className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
-                  <Wallet className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-left">
-                  <span className="text-[8.5px] text-slate-400 font-bold block uppercase">ADVANCE RECEIVED</span>
-                  <span className="font-bold text-[#0D4F4F] text-xs">{formatCurrency(payment.advanceReceived)}</span>
-                </div>
+          {/* PAYMENT PLAN & ADVANCE BREAKDOWN ROW */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-center text-xs">
+            <div className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
+                <Wallet className="w-3.5 h-3.5" />
               </div>
-
-              <div className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
-                  <Receipt className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-left">
-                  <span className="text-[8.5px] text-slate-400 font-bold block uppercase">BALANCE PAYABLE</span>
-                  <span className="font-bold text-[#0D4F4F] text-xs">{formatCurrency(payment.balancePayable)}</span>
-                </div>
-              </div>
-
-              <div className="bg-[#0D4F4F] text-white p-2 rounded-xl sm:rounded-2xl border border-[#0D4F4F] shadow-2xs flex items-center gap-2">
-                <div className="text-left pl-2">
-                  <span className="text-[8.5px] text-slate-300 font-bold block uppercase">TOTAL AMOUNT</span>
-                  <span className="font-bold text-[#D4AF37] text-xs">{formatCurrency(payment.grandTotal)}</span>
-                </div>
+              <div className="text-left">
+                <span className="text-[8.5px] text-slate-400 font-bold block uppercase">ADVANCE AT BOOKING</span>
+                <span className="font-bold text-[#0D4F4F] text-xs">
+                  {formatCurrency(payment.advanceReceived > 0 ? payment.advanceReceived : Math.round(payment.grandTotal * 0.5))}
+                </span>
               </div>
             </div>
-          )}
+
+            <div className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
+                <Receipt className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-left">
+                <span className="text-[8.5px] text-slate-400 font-bold block uppercase">BALANCE ON EVENT</span>
+                <span className="font-bold text-[#0D4F4F] text-xs">
+                  {formatCurrency(payment.advanceReceived > 0 ? payment.balancePayable : Math.round(payment.grandTotal * 0.5))}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-[#0D4F4F] text-white p-2 rounded-xl sm:rounded-2xl border border-[#0D4F4F] shadow-2xs flex items-center gap-2">
+              <div className="text-left pl-2">
+                <span className="text-[8.5px] text-slate-300 font-bold block uppercase">TOTAL AMOUNT</span>
+                <span className="font-bold text-[#D4AF37] text-xs">{formatCurrency(payment.grandTotal)}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* INCLUDED IN PACKAGE SECTION */}
