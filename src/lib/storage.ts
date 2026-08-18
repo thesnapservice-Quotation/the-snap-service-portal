@@ -5,6 +5,7 @@ import { generateSecureId } from './crypto';
 
 const STORAGE_KEYS = {
   QUOTATIONS: 'snap_service_persistent_quotations_v2',
+  DELETED_IDS: 'snap_service_deleted_quotation_ids',
   SERVICES: 'snap_service_services',
   SETTINGS: 'snap_service_settings',
   USERS: 'snap_service_users',
@@ -45,7 +46,13 @@ export const storage = {
       const data = localStorage.getItem(STORAGE_KEYS.QUOTATIONS);
       if (!data) return [];
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+      const deletedIds = storage.getDeletedIds();
+      return parsed.filter((q: Quotation) => {
+        const idMatch = q.id && deletedIds.has(q.id.toLowerCase());
+        const numMatch = q.quotationNumber && deletedIds.has(q.quotationNumber.toLowerCase());
+        return !idMatch && !numMatch;
+      });
     } catch (e) {
       console.error('Error reading quotations from localStorage', e);
       return [];
@@ -55,10 +62,47 @@ export const storage = {
   setAllQuotations: (quotations: Quotation[]): void => {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(quotations));
+      const deletedIds = storage.getDeletedIds();
+      const cleanList = (quotations || []).filter((q) => {
+        const idMatch = q.id && deletedIds.has(q.id.toLowerCase());
+        const numMatch = q.quotationNumber && deletedIds.has(q.quotationNumber.toLowerCase());
+        return !idMatch && !numMatch;
+      });
+      localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(cleanList));
     } catch (e) {
       console.error('Error writing quotations to localStorage', e);
     }
+  },
+
+  getDeletedIds: (): Set<string> => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.DELETED_IDS);
+      if (!data) return new Set();
+      const arr = JSON.parse(data);
+      return new Set(Array.isArray(arr) ? arr.map((s: string) => String(s).toLowerCase()) : []);
+    } catch {
+      return new Set();
+    }
+  },
+
+  addDeletedId: (id: string, quotationNumber?: string): void => {
+    if (typeof window === 'undefined' || !id) return;
+    try {
+      const set = storage.getDeletedIds();
+      set.add(id.trim().toLowerCase());
+      if (quotationNumber) set.add(quotationNumber.trim().toLowerCase());
+      localStorage.setItem(STORAGE_KEYS.DELETED_IDS, JSON.stringify(Array.from(set)));
+    } catch {}
+  },
+
+  removeDeletedId: (id: string): void => {
+    if (typeof window === 'undefined' || !id) return;
+    try {
+      const set = storage.getDeletedIds();
+      set.delete(id.trim().toLowerCase());
+      localStorage.setItem(STORAGE_KEYS.DELETED_IDS, JSON.stringify(Array.from(set)));
+    } catch {}
   },
 
   getQuotationById: (id: string): Quotation | null => {
@@ -77,6 +121,9 @@ export const storage = {
   saveQuotationLocally: (quotation: Quotation): Quotation => {
     if (typeof window === 'undefined' || !quotation) return quotation;
     try {
+      if (quotation.id) storage.removeDeletedId(quotation.id);
+      if (quotation.quotationNumber) storage.removeDeletedId(quotation.quotationNumber);
+
       const all = storage.getQuotations();
       const idx = all.findIndex((q) => q.id === quotation.id);
       let updated: Quotation[];
@@ -99,10 +146,20 @@ export const storage = {
 
   deleteQuotation: (id: string): void => {
     if (typeof window === 'undefined' || !id) return;
+    const cleanKey = id.trim().toLowerCase();
     try {
       const all = storage.getQuotations();
-      const filtered = all.filter((q) => q.id !== id);
-      storage.setAllQuotations(filtered);
+      const target = all.find(
+        (q) => (q.id && q.id.toLowerCase() === cleanKey) || (q.quotationNumber && q.quotationNumber.toLowerCase() === cleanKey)
+      );
+      const filtered = all.filter(
+        (q) =>
+          q.id.toLowerCase() !== cleanKey &&
+          (!q.quotationNumber || q.quotationNumber.toLowerCase() !== cleanKey)
+      );
+      storage.addDeletedId(cleanKey, target?.quotationNumber);
+      if (target?.id) storage.addDeletedId(target.id);
+      localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(filtered));
     } catch (e) {
       console.error('Error deleting quotation from localStorage', e);
     }

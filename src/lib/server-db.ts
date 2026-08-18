@@ -258,34 +258,58 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
  * Delete quotation from Supabase Central Database
  */
 export async function deleteQuotationFromDb(id: string): Promise<boolean> {
-  const cleanId = id.trim().toLowerCase();
-  memoryStore.delete(cleanId);
+  if (!id) return false;
+  const cleanKey = id.trim().toLowerCase();
 
-  // 1. Delete from Supabase via SDK & REST
+  // 1. Remove from in-memory store
+  for (const [key, q] of Array.from(memoryStore.entries())) {
+    if (
+      key === cleanKey ||
+      (q.id && q.id.toLowerCase() === cleanKey) ||
+      (q.quotationNumber && q.quotationNumber.toLowerCase() === cleanKey)
+    ) {
+      memoryStore.delete(key);
+      if (q.id) memoryStore.delete(q.id.toLowerCase());
+      if (q.quotationNumber) memoryStore.delete(q.quotationNumber.toLowerCase());
+    }
+  }
+
+  // 2. Delete from Supabase via SDK
   try {
-    await supabase.from('quotations').delete().eq('id', id);
+    await supabase
+      .from('quotations')
+      .delete()
+      .or(`id.eq.${id},id.ilike.${id},quotation_number.eq.${id},quotation_number.ilike.${id}`);
   } catch (e) {
     console.error('Supabase SDK delete error:', e);
   }
 
+  // 3. Fallback: Delete from Supabase REST API
   if (SUPABASE_URL && SUPABASE_KEY) {
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/quotations?id=eq.${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-        },
-      });
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/quotations?or=(id.eq.${encodeURIComponent(id)},quotation_number.ilike.${encodeURIComponent(id)})`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+          },
+        }
+      );
     } catch (e) {
-      console.error('Supabase delete exception:', e);
+      console.error('Supabase REST delete exception:', e);
     }
   }
 
-  // 2. Sync deletion to High-Availability Cloud Backup Store
+  // 4. Sync deletion to High-Availability Cloud Backup Store
   try {
     const all = Array.from(new Set(memoryStore.values())).filter(
-      (q) => q.id !== id && q.id.toLowerCase() !== cleanId
+      (q) =>
+        q.id !== id &&
+        q.id.toLowerCase() !== cleanKey &&
+        q.quotationNumber !== id &&
+        q.quotationNumber.toLowerCase() !== cleanKey
     );
     await fetch(PRIMARY_CLOUD_DB, {
       method: 'PUT',

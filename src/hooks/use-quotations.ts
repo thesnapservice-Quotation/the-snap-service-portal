@@ -30,33 +30,32 @@ export function useQuotations() {
     try {
       // 1. Direct query to Central Production Database
       const dbQuotations = await apiFetchQuotations(user.id);
-      const local = storage.getQuotations();
+      const deletedIds = storage.getDeletedIds();
 
-      if (Array.isArray(dbQuotations) && dbQuotations.length > 0) {
-        // Merge DB with local storage seamlessly
-        const map = new Map<string, Quotation>();
-        for (const q of local) {
-          if (q.id) map.set(q.id, q);
-        }
-        for (const q of dbQuotations) {
-          if (q.id) map.set(q.id, q);
-        }
-        const merged = Array.from(map.values()).sort(
-          (a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
-        );
-        storage.setAllQuotations(merged);
+      if (Array.isArray(dbQuotations)) {
+        // Filter out any deleted items from DB results
+        const validDbQuotations = dbQuotations.filter((q) => {
+          const idMatch = q.id && deletedIds.has(q.id.toLowerCase());
+          const numMatch = q.quotationNumber && deletedIds.has(q.quotationNumber.toLowerCase());
+          return !idMatch && !numMatch;
+        });
+
+        // Set DB as authoritative
+        storage.setAllQuotations(validDbQuotations);
 
         if (user.role === 'super_admin' || user.id === 'user-super-admin') {
-          setQuotations(merged);
+          setQuotations(validDbQuotations);
         } else {
-          setQuotations(merged.filter((q) => q.userId === user.id));
+          setQuotations(validDbQuotations.filter((q) => q.userId === user.id));
         }
-      } else if (local.length > 0) {
-        // If DB is initializing or temporarily empty, DO NOT wipe existing quotations!
-        if (user.role === 'super_admin' || user.id === 'user-super-admin') {
-          setQuotations(local);
-        } else {
-          setQuotations(local.filter((q) => q.userId === user.id));
+      } else {
+        const local = storage.getQuotations();
+        if (local.length > 0) {
+          if (user.role === 'super_admin' || user.id === 'user-super-admin') {
+            setQuotations(local);
+          } else {
+            setQuotations(local.filter((q) => q.userId === user.id));
+          }
         }
       }
     } catch {
@@ -136,12 +135,33 @@ export function useQuotations() {
   };
 
   const deleteQuotation = async (id: string): Promise<void> => {
-    // 1. Delete from Central Production Database
-    await apiDeleteQuotation(id);
+    const target =
+      quotations.find(
+        (q) => q.id === id || q.quotationNumber === id || q.id.toLowerCase() === id.toLowerCase()
+      ) || storage.getQuotationById(id);
+    const targetId = target?.id || id;
+    const targetNum = target?.quotationNumber;
 
-    // 2. Update local state
-    setQuotations((prev) => prev.filter((q) => q.id !== id));
-    storage.deleteQuotation(id);
+    // 1. Immediately delete from local storage and update React state
+    storage.deleteQuotation(targetId);
+    if (targetNum) storage.deleteQuotation(targetNum);
+
+    setQuotations((prev) =>
+      prev.filter(
+        (q) =>
+          q.id !== targetId &&
+          q.id !== id &&
+          (!targetNum || q.quotationNumber !== targetNum)
+      )
+    );
+
+    // 2. Delete from Central Production Database / Supabase
+    try {
+      await apiDeleteQuotation(targetId);
+      if (targetNum && targetNum !== targetId) {
+        await apiDeleteQuotation(targetNum);
+      }
+    } catch {}
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('snap_quotation_updated'));
