@@ -47,7 +47,7 @@ export function Sidebar() {
               <h1 className="font-serif font-bold text-lg tracking-wider text-[#FAF9F6] flex items-center gap-1.5">
                 THE SNAP SERVICE
               </h1>
-              <p className="text-[10px] text-[#A5C8C8] tracking-widest uppercase font-medium">Studio Studio v2.0</p>
+              <p className="text-[10px] text-[#A5C8C8] tracking-widest uppercase font-medium">Wedding Quotation Studio</p>
             </div>
           </Link>
         </div>

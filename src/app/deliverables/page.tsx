@@ -57,10 +57,10 @@ function getDeliveryDeadline(quotation: Quotation) {
 }
 
 export default function DeliverablesPage() {
-  const { quotations, refreshQuotations } = useQuotations();
+  const { quotations, saveQuotation } = useQuotations();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
-  const updateDeliverableStatus = (
+  const updateDeliverableStatus = async (
     quotation: Quotation,
     field: keyof DeliverableStatus,
     val: string
@@ -93,8 +93,7 @@ export default function DeliverablesPage() {
       updatedAt: new Date().toISOString(),
     };
 
-    storage.saveQuotation(updatedQuotation);
-    refreshQuotations();
+    await saveQuotation(updatedQuotation);
   };
 
   const filteredQuotations = quotations.filter((q) => {
