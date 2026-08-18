@@ -265,26 +265,48 @@ function ClientPortalContent() {
               </button>
             </div>
 
-            {/* Payment Plan & Schedule Breakdown Box */}
+            {/* 3-Stage Milestone Payment Schedule Box */}
             <div className="bg-[#FAF9F6] p-4 rounded-2xl border border-[#E5E0D5] space-y-2">
               <div className="flex items-center justify-between text-xs font-bold text-[#0D4F4F] pb-1 border-b border-[#E5E0D5]">
-                <span>Payment Plan & Schedule</span>
+                <span>Payment Plan & Milestone Schedule</span>
                 <span>Amount (PKR)</span>
               </div>
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-600">1. Advance to Lock Booking:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-[#0D4F4F] text-[#D4AF37] font-bold text-[9px] flex items-center justify-center">1</span>
+                    <span className="text-slate-700 font-medium">50% Advance to confirm booking</span>
+                  </div>
                   <span className="font-bold text-[#0D4F4F]">
                     {formatCurrency(quotation.payment.advanceReceived > 0 ? quotation.payment.advanceReceived : Math.round(quotation.payment.grandTotal * 0.5))}
                   </span>
                 </div>
+
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-600">2. Remaining Balance (On Event):</span>
-                  <span className="font-bold text-slate-700">
-                    {formatCurrency(quotation.payment.advanceReceived > 0 ? quotation.payment.balancePayable : Math.round(quotation.payment.grandTotal * 0.5))}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-[#0D4F4F] text-[#D4AF37] font-bold text-[9px] flex items-center justify-center">2</span>
+                    <span className="text-slate-700 font-medium">25% After event completion</span>
+                  </div>
+                  <span className="font-bold text-slate-800">
+                    {formatCurrency(Math.round(quotation.payment.grandTotal * 0.25))}
                   </span>
                 </div>
-                <div className="flex justify-between items-center pt-1.5 border-t border-dashed border-[#E5E0D5]">
+
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-[#0D4F4F] text-[#D4AF37] font-bold text-[9px] flex items-center justify-center">3</span>
+                    <span className="text-slate-700 font-medium">25% Before final delivery</span>
+                  </div>
+                  <span className="font-bold text-slate-800">
+                    {formatCurrency(
+                      quotation.payment.grandTotal -
+                      (quotation.payment.advanceReceived > 0 ? quotation.payment.advanceReceived : Math.round(quotation.payment.grandTotal * 0.5)) -
+                      Math.round(quotation.payment.grandTotal * 0.25)
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pt-2 border-t border-dashed border-[#E5E0D5]">
                   <span className="font-bold text-slate-900">Total Package Amount:</span>
                   <span className="text-base font-serif font-extrabold text-[#0D4F4F]">
                     {formatCurrency(quotation.payment.grandTotal)}

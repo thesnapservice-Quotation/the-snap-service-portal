@@ -11,7 +11,8 @@ import {
   Phone, 
   MapPin, 
   Wallet, 
-  Receipt
+  Receipt,
+  PackageCheck
 } from 'lucide-react';
 
 interface QuotationPreviewProps {
@@ -447,36 +448,48 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
             </div>
           </div>
 
-          {/* PAYMENT PLAN & ADVANCE BREAKDOWN ROW */}
+          {/* 3-STAGE MILESTONE PAYMENT PLAN ROW */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-center text-xs">
+            {/* Stage 1: 50% Advance to confirm booking */}
             <div className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
-                <Wallet className="w-3.5 h-3.5" />
+                <Wallet className="w-3.5 h-3.5 text-[#D4AF37]" />
               </div>
               <div className="text-left">
-                <span className="text-[8.5px] text-slate-400 font-bold block uppercase">ADVANCE AT BOOKING</span>
+                <span className="text-[8px] sm:text-[8.5px] text-slate-400 font-bold block uppercase">50% ADVANCE TO CONFIRM BOOKING</span>
                 <span className="font-bold text-[#0D4F4F] text-xs">
                   {formatCurrency(payment.advanceReceived > 0 ? payment.advanceReceived : Math.round(payment.grandTotal * 0.5))}
                 </span>
               </div>
             </div>
 
+            {/* Stage 2: 25% After event completion */}
             <div className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
-                <Receipt className="w-3.5 h-3.5" />
+                <Calendar className="w-3.5 h-3.5 text-[#D4AF37]" />
               </div>
               <div className="text-left">
-                <span className="text-[8.5px] text-slate-400 font-bold block uppercase">BALANCE ON EVENT</span>
+                <span className="text-[8px] sm:text-[8.5px] text-slate-400 font-bold block uppercase">25% AFTER EVENT COMPLETION</span>
                 <span className="font-bold text-[#0D4F4F] text-xs">
-                  {formatCurrency(payment.advanceReceived > 0 ? payment.balancePayable : Math.round(payment.grandTotal * 0.5))}
+                  {formatCurrency(Math.round(payment.grandTotal * 0.25))}
                 </span>
               </div>
             </div>
 
-            <div className="bg-[#0D4F4F] text-white p-2 rounded-xl sm:rounded-2xl border border-[#0D4F4F] shadow-2xs flex items-center gap-2">
-              <div className="text-left pl-2">
-                <span className="text-[8.5px] text-slate-300 font-bold block uppercase">TOTAL AMOUNT</span>
-                <span className="font-bold text-[#D4AF37] text-xs">{formatCurrency(payment.grandTotal)}</span>
+            {/* Stage 3: 25% Before final delivery */}
+            <div className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-[#0D4F4F] text-white flex items-center justify-center shrink-0">
+                <PackageCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
+              </div>
+              <div className="text-left">
+                <span className="text-[8px] sm:text-[8.5px] text-slate-400 font-bold block uppercase">25% BEFORE FINAL DELIVERY</span>
+                <span className="font-bold text-[#0D4F4F] text-xs">
+                  {formatCurrency(
+                    payment.grandTotal -
+                    (payment.advanceReceived > 0 ? payment.advanceReceived : Math.round(payment.grandTotal * 0.5)) -
+                    Math.round(payment.grandTotal * 0.25)
+                  )}
+                </span>
               </div>
             </div>
           </div>
