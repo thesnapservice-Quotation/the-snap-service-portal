@@ -4,6 +4,7 @@ import { getTodayDateString } from './utils';
 import { generateSecureId } from './crypto';
 
 const STORAGE_KEYS = {
+  QUOTATIONS: 'snap_service_persistent_quotations_v2',
   SERVICES: 'snap_service_services',
   SETTINGS: 'snap_service_settings',
   USERS: 'snap_service_users',
@@ -37,29 +38,74 @@ export const SEED_USERS: UserAccount[] = [
 ];
 
 export const storage = {
-  // Quotations CRUD (Delegates strictly to central database via API client)
+  // Persistent Offline-First Quotations CRUD
   getQuotations: (): Quotation[] => {
-    return [];
+    if (typeof window === 'undefined') return [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.QUOTATIONS);
+      if (!data) return [];
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error('Error reading quotations from localStorage', e);
+      return [];
+    }
   },
 
-  setAllQuotations: (_quotations: Quotation[]): void => {
-    // No-op: LocalStorage is strictly disabled for quotations
+  setAllQuotations: (quotations: Quotation[]): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(quotations));
+    } catch (e) {
+      console.error('Error writing quotations to localStorage', e);
+    }
   },
 
-  getQuotationById: (_id: string): Quotation | null => {
-    return null;
+  getQuotationById: (id: string): Quotation | null => {
+    if (!id) return null;
+    const cleanId = id.trim().toLowerCase();
+    const all = storage.getQuotations();
+    return (
+      all.find(
+        (q) =>
+          (q.id && q.id.toLowerCase() === cleanId) ||
+          (q.quotationNumber && q.quotationNumber.toLowerCase() === cleanId)
+      ) || null
+    );
   },
 
   saveQuotationLocally: (quotation: Quotation): Quotation => {
+    if (typeof window === 'undefined' || !quotation) return quotation;
+    try {
+      const all = storage.getQuotations();
+      const idx = all.findIndex((q) => q.id === quotation.id);
+      let updated: Quotation[];
+      if (idx >= 0) {
+        updated = [...all];
+        updated[idx] = quotation;
+      } else {
+        updated = [quotation, ...all];
+      }
+      storage.setAllQuotations(updated);
+    } catch (e) {
+      console.error('Error saving quotation locally', e);
+    }
     return quotation;
   },
 
   saveQuotation: (quotation: Quotation): Quotation => {
-    return quotation;
+    return storage.saveQuotationLocally(quotation);
   },
 
-  deleteQuotation: (_id: string): void => {
-    // No-op: handled by central database API
+  deleteQuotation: (id: string): void => {
+    if (typeof window === 'undefined' || !id) return;
+    try {
+      const all = storage.getQuotations();
+      const filtered = all.filter((q) => q.id !== id);
+      storage.setAllQuotations(filtered);
+    } catch (e) {
+      console.error('Error deleting quotation from localStorage', e);
+    }
   },
 
   duplicateQuotation: (id: string): Quotation | null => {

@@ -9,23 +9,55 @@ import { syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
 import { uploadQuotationDirectToDrive } from '@/lib/google-drive-oauth';
 
 export function useQuotations() {
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [quotations, setQuotations] = useState<Quotation[]>(() => {
+    if (typeof window === 'undefined') return [];
+    const local = storage.getQuotations();
+    const user = storage.getCurrentUser();
+    if (!user) return local;
+    if (user.role === 'super_admin' || user.id === 'user-super-admin') {
+      return local;
+    }
+    return local.filter((q) => q.userId === user.id);
+  });
+  const [loading, setLoading] = useState(false);
 
   const refreshQuotations = useCallback(async () => {
     const user = storage.getCurrentUser();
     if (!user || !user.id) {
-      setQuotations([]);
-      setLoading(false);
       return;
     }
 
     try {
-      // Direct query to Central Production Database
+      // 1. Direct query to Central Production Database
       const dbQuotations = await apiFetchQuotations(user.id);
-      if (Array.isArray(dbQuotations)) {
-        const userOnly = dbQuotations.filter((q) => q.userId === user.id);
-        setQuotations(userOnly);
+      const local = storage.getQuotations();
+
+      if (Array.isArray(dbQuotations) && dbQuotations.length > 0) {
+        // Merge DB with local storage seamlessly
+        const map = new Map<string, Quotation>();
+        for (const q of local) {
+          if (q.id) map.set(q.id, q);
+        }
+        for (const q of dbQuotations) {
+          if (q.id) map.set(q.id, q);
+        }
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+        );
+        storage.setAllQuotations(merged);
+
+        if (user.role === 'super_admin' || user.id === 'user-super-admin') {
+          setQuotations(merged);
+        } else {
+          setQuotations(merged.filter((q) => q.userId === user.id));
+        }
+      } else if (local.length > 0) {
+        // If DB is initializing or temporarily empty, DO NOT wipe existing quotations!
+        if (user.role === 'super_admin' || user.id === 'user-super-admin') {
+          setQuotations(local);
+        } else {
+          setQuotations(local.filter((q) => q.userId === user.id));
+        }
       }
     } catch {
       // Keep existing state on network error
