@@ -109,36 +109,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Quick Demo Access Chips */}
-        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 space-y-2 text-[11px]">
-          <span className="block font-bold text-slate-600 uppercase tracking-wider text-[10px]">
-            Demo Quick Login Credentials:
-          </span>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setEmail('admin@snapservice.com');
-                setPassword('admin123');
-              }}
-              className="flex-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-[#0D4F4F] hover:bg-[#0D4F4F]/5 text-slate-800 font-semibold transition-all text-left flex items-center justify-between"
-            >
-              <span>👑 Super Admin</span>
-              <span className="text-[10px] text-slate-400">admin123</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEmail('staff@snapservice.com');
-                setPassword('staff123');
-              }}
-              className="flex-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-[#0D4F4F] hover:bg-[#0D4F4F]/5 text-slate-800 font-semibold transition-all text-left flex items-center justify-between"
-            >
-              <span>📸 Staff Member</span>
-              <span className="text-[10px] text-slate-400">staff123</span>
-            </button>
-          </div>
-        </div>
+
 
         {/* Signup Redirect Link */}
         <div className="text-center text-xs text-slate-500 pt-1 border-t border-slate-100">
