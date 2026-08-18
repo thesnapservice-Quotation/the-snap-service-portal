@@ -7,7 +7,13 @@ import { Quotation } from './types';
  */
 
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').replace(/\/$/, '');
-const SUPABASE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || '').trim();
+const SUPABASE_KEY = (
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_KEY ||
+  ''
+).trim();
 
 // High-Availability Central Cloud Backup Endpoints
 const PRIMARY_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315584';
