@@ -120,9 +120,6 @@ export async function getQuotationsFromDb(userId?: string): Promise<Quotation[]>
   }
 
   if (userId) {
-    if (userId === 'user-super-admin') {
-      return finalList;
-    }
     return finalList.filter((q) => q.userId === userId);
   }
   return finalList;

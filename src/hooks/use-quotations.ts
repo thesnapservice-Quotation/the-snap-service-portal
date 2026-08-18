@@ -13,10 +13,7 @@ export function useQuotations() {
     if (typeof window === 'undefined') return [];
     const local = storage.getQuotations();
     const user = storage.getCurrentUser();
-    if (!user) return local;
-    if (user.role === 'super_admin' || user.id === 'user-super-admin') {
-      return local;
-    }
+    if (!user || !user.id) return [];
     return local.filter((q) => q.userId === user.id);
   });
   const [loading, setLoading] = useState(false);
@@ -24,6 +21,7 @@ export function useQuotations() {
   const refreshQuotations = useCallback(async () => {
     const user = storage.getCurrentUser();
     if (!user || !user.id) {
+      setQuotations([]);
       return;
     }
 
@@ -33,29 +31,22 @@ export function useQuotations() {
       const deletedIds = storage.getDeletedIds();
 
       if (Array.isArray(dbQuotations)) {
-        // Filter out any deleted items from DB results
+        // Filter out any deleted items from DB results and strictly isolate to user's own quotations
         const validDbQuotations = dbQuotations.filter((q) => {
           const idMatch = q.id && deletedIds.has(q.id.toLowerCase());
           const numMatch = q.quotationNumber && deletedIds.has(q.quotationNumber.toLowerCase());
-          return !idMatch && !numMatch;
+          const userMatch = q.userId === user.id;
+          return !idMatch && !numMatch && userMatch;
         });
 
         // Set DB as authoritative
         storage.setAllQuotations(validDbQuotations);
-
-        if (user.role === 'super_admin' || user.id === 'user-super-admin') {
-          setQuotations(validDbQuotations);
-        } else {
-          setQuotations(validDbQuotations.filter((q) => q.userId === user.id));
-        }
+        setQuotations(validDbQuotations);
       } else {
         const local = storage.getQuotations();
-        if (local.length > 0) {
-          if (user.role === 'super_admin' || user.id === 'user-super-admin') {
-            setQuotations(local);
-          } else {
-            setQuotations(local.filter((q) => q.userId === user.id));
-          }
+        const userOnly = local.filter((q) => q.userId === user.id);
+        if (userOnly.length > 0) {
+          setQuotations(userOnly);
         }
       }
     } catch {
