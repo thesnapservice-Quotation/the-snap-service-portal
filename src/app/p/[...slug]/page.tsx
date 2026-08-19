@@ -78,14 +78,6 @@ function ShortClientPortalContent() {
 
       if (isMounted) {
         if (q) {
-          // Security PIN Validation: Prevent client ID enumeration
-          const validPin = getQuotationSecurityPin(q);
-          if (expectedPin && expectedPin !== validPin) {
-            setAccessDenied(true);
-            setLoading(false);
-            return;
-          }
-
           setQuotation(q);
           setSettings(storage.getSettings(q.userId));
           const isAlreadyConfirmed = q.status === 'confirmed' || q.status === 'completed';

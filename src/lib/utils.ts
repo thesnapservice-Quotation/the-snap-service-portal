@@ -233,11 +233,11 @@ export function getQuotationSecurityPin(quotation: Quotation): string {
   if (quotation.securityPin && /^\d{4}$/.test(quotation.securityPin)) {
     return quotation.securityPin;
   }
-  // Deterministic 4-digit hash based on ID/quotationNumber
-  const str = `${quotation.id || ''}-${quotation.quotationNumber || ''}`;
+  // Deterministic stable 4-digit hash based on clean quotationNumber
+  const key = (quotation.quotationNumber || quotation.id || '').toUpperCase().trim();
   let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash << 5) - hash + key.charCodeAt(i);
     hash |= 0;
   }
   const pinNum = Math.abs(hash % 9000) + 1000; // 1000 to 9999
