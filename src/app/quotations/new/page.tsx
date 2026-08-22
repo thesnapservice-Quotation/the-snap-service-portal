@@ -52,11 +52,11 @@ function NewQuotationContent() {
       })
     );
 
-    // Initial default events (Barat)
+    // Initial default events (Mehndi)
     const initialEvents: EventItem[] = [
       {
         id: `evt-1`,
-        name: 'Barat',
+        name: 'Mehndi',
         dayNumber: 1,
         services: [
           { id: 'es-1', serviceId: 'srv-1', serviceName: 'Photographer', quantity: 2 },
