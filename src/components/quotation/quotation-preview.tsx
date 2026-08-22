@@ -12,7 +12,11 @@ import {
   MapPin, 
   Wallet, 
   Receipt,
-  PackageCheck
+  PackageCheck,
+  Music,
+  Sparkles,
+  CheckCircle2,
+  Heart
 } from 'lucide-react';
 
 interface QuotationPreviewProps {
@@ -160,52 +164,20 @@ function FilmEditingIcon({ className = "w-4 h-4 text-[#0D4F4F]" }: { className?:
   );
 }
 
-// 7. Couple Shoot Songs / Music Note SVG
-function MusicSongIcon({ className = "w-4 h-4 text-[#0D4F4F]" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18V5l12-2v13" />
-      <circle cx="6" cy="18" r="3" />
-      <circle cx="18" cy="16" r="3" />
-    </svg>
-  );
-}
-
-// 8. Photo Layers / Sheets Spreads SVG
-function PhotoLayersIcon({ className = "w-4 h-4 text-[#0D4F4F]" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 2 7 12 12 22 7 12 2" />
-      <polyline points="2 17 12 22 22 17" />
-      <polyline points="2 12 12 17 22 12" />
-    </svg>
-  );
-}
-
-// 9. Full Event Coverage Shield SVG
-function ShieldCoverageIcon({ className = "w-4 h-4 text-[#0D4F4F]" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
-  );
-}
-
 /**
  * Returns exact wedding equipment icon based on service name
  */
 function getEquipmentIcon(serviceName: string, className = "w-4 h-4 text-[#0D4F4F] shrink-0") {
   const n = serviceName.toLowerCase();
   if (n.includes('drone')) return <DroneEquipmentIcon className={className} />;
-  if (n.includes('song') || n.includes('music')) return <MusicSongIcon className={className} />;
-  if (n.includes('highlight')) return <FilmEditingIcon className={className} />;
+  if (n.includes('song') || n.includes('music') || n.includes('audio')) return <Music className={className} />;
+  if (n.includes('highlight') || n.includes('reel') || n.includes('teaser')) return <Sparkles className={className} />;
+  if (n.includes('couple shoot') || n.includes('couple')) return <Heart className={className} />;
   if (n.includes('video') || n.includes('videographer')) return <CinemaCameraIcon className={className} />;
   if (n.includes('edit') || n.includes('film')) return <FilmEditingIcon className={className} />;
-  if (n.includes('album') || n.includes('krizma')) return <PhotoAlbumIcon className={className} />;
-  if (n.includes('sheet') || n.includes('spread')) return <PhotoLayersIcon className={className} />;
-  if (n.includes('drive') || n.includes('data') || n.includes('hard') || n.includes('usb')) return <HardDriveIcon className={className} />;
-  if (n.includes('coverage') || n.includes('full event')) return <ShieldCoverageIcon className={className} />;
+  if (n.includes('album') || n.includes('krizma') || n.includes('sheet') || n.includes('book')) return <PhotoAlbumIcon className={className} />;
+  if (n.includes('drive') || n.includes('data') || n.includes('hard') || n.includes('usb') || n.includes('raw')) return <HardDriveIcon className={className} />;
+  if (n.includes('coverage') || n.includes('full event')) return <CheckCircle2 className={className} />;
   return <DSLRCameraIcon className={className} />;
 }
 
@@ -530,20 +502,8 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
                 .map((inc) => {
                   const qty = inc.quantity || 1;
                   const isAlbum = inc.name.toLowerCase().includes('album');
-
-                  // Dynamic name formatting for Complete Video Editing based on video coverage days
-                  let cleanName = inc.name;
-                  if (inc.name.toLowerCase() === 'complete video editing' || inc.name.toLowerCase().includes('video editing')) {
-                    const videoEventsCount = (events || []).filter(e => e.services && e.services.some(s => s.serviceName.toLowerCase().includes('video'))).length;
-                    if (videoEventsCount > 1) {
-                      cleanName = `Complete Video Editing (${videoEventsCount} Days Films)`;
-                    } else if (videoEventsCount === 1) {
-                      cleanName = `Complete Video Editing (1 Day Film)`;
-                    }
-                  }
-
-                  // Always show quantity for Albums (e.g. "1 KRIZMA ALBUM", "2 FAMILY ALBUMS") or if qty > 1
-                  const displayName = (isAlbum || (qty > 1 && !cleanName.match(/^\d+/))) ? `${qty} ${cleanName}` : cleanName;
+                  // Always show quantity for Albums (e.g. "1 KRIZMA ALBUM", "3 FAMILY ALBUMS") or if qty > 1
+                  const displayName = (isAlbum || qty > 1) ? `${qty} ${inc.name}` : inc.name;
 
                   return (
                     <div key={inc.id} className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex flex-col items-center justify-center">

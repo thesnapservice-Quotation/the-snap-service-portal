@@ -277,6 +277,7 @@ function NewQuotationContent() {
           {/* Inclusions Picker */}
           <InclusionsPicker
             inclusions={quotation.inclusions}
+            events={quotation.events}
             onChange={(inclusions) => setQuotation((prev) => ({ ...prev, inclusions }))}
           />
 
