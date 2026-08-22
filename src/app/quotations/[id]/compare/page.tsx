@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Quotation, AdditionalExpense, Service, SelectedService, CrewMemberCost } from '@/lib/types';
+import { Quotation, AdditionalExpense, Service, SelectedService, CrewMemberCost, VideoEditingEventCost, AlbumItemCost } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { formatCurrency } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
@@ -27,8 +27,35 @@ import {
   Film, 
   PieChart,
   User,
-  Users
+  Users,
+  Sparkles,
+  CheckCircle2,
+  Layers
 } from 'lucide-react';
+
+// Pricing formula as specified by user:
+// 2000 for single camera, 2500 for single camera with drone, 2500 for double camera, 3000 for double camera with drone
+const computeDefaultVideoEditingCost = (videoCount: number, droneCount: number): { tierDescription: string; cost: number } => {
+  if (videoCount <= 0) return { tierDescription: 'No Video Coverage', cost: 0 };
+  if (videoCount === 1) {
+    if (droneCount >= 1) return { tierDescription: 'Single Camera + Drone', cost: 2500 };
+    return { tierDescription: 'Single Camera', cost: 2000 };
+  }
+  // 2 or more videographers
+  if (droneCount >= 1) return { tierDescription: 'Double Camera + Drone', cost: 3000 };
+  return { tierDescription: 'Double Camera', cost: 2500 };
+};
+
+const getDefaultAlbumUnitCost = (name: string, srvs: Service[]): number => {
+  const n = name.toLowerCase();
+  const matched = srvs.find(s => s.name.toLowerCase().includes(n) || n.includes(s.name.toLowerCase()));
+  if (matched?.defaultInternalCost) return matched.defaultInternalCost;
+  if (n.includes('krizma')) return 8000;
+  if (n.includes('family')) return 3000;
+  if (n.includes('couple')) return 5000;
+  if (n.includes('extra')) return 4000;
+  return 5000;
+};
 
 export default function QuotationComparePage() {
   const params = useParams();
@@ -36,6 +63,8 @@ export default function QuotationComparePage() {
 
   const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
+  const [videoEditingCosts, setVideoEditingCosts] = useState<VideoEditingEventCost[]>([]);
+  const [albumCosts, setAlbumCosts] = useState<AlbumItemCost[]>([]);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
   const prepareQuotationData = (q: Quotation, srvs: Service[]): Quotation => {
@@ -76,6 +105,48 @@ export default function QuotationComparePage() {
         };
       }),
     }));
+
+    // Sync Day-by-Day Video Editing Costs based on camera & drone counts
+    const existingVideoBreakdown = q.internalAnalysis?.videoEditingBreakdown || [];
+    const initialVideoCosts: VideoEditingEventCost[] = updatedEvents.map((evt) => {
+      const vQty = evt.services
+        .filter((s) => s.serviceName.toLowerCase().includes('video') || s.serviceName.toLowerCase().includes('videographer'))
+        .reduce((sum, s) => sum + (s.quantity || 1), 0);
+      const dQty = evt.services
+        .filter((s) => s.serviceName.toLowerCase().includes('drone'))
+        .reduce((sum, s) => sum + (s.quantity || 1), 0);
+
+      const computed = computeDefaultVideoEditingCost(vQty, dQty);
+      const existing = existingVideoBreakdown.find((v) => v.eventId === evt.id);
+
+      return {
+        eventId: evt.id,
+        eventName: evt.name,
+        dayNumber: evt.dayNumber,
+        cameraCount: vQty,
+        droneCount: dQty,
+        tierDescription: existing?.tierDescription || computed.tierDescription,
+        cost: existing?.cost !== undefined ? existing.cost : computed.cost,
+      };
+    });
+    setVideoEditingCosts(initialVideoCosts);
+
+    // Sync Album Costs with package inclusions
+    const existingAlbumBreakdown = q.internalAnalysis?.albumBreakdown || [];
+    const includedAlbums = (q.inclusions || []).filter((i) => i.included && (i.name.toLowerCase().includes('album') || i.name.toLowerCase().includes('book')));
+    const initialAlbumCosts: AlbumItemCost[] = includedAlbums.map((inc) => {
+      const existing = existingAlbumBreakdown.find((a) => a.id === inc.id || a.name.toLowerCase() === inc.name.toLowerCase());
+      const qty = inc.quantity || 1;
+      const unitCost = existing?.unitCost !== undefined ? existing.unitCost : getDefaultAlbumUnitCost(inc.name, srvs);
+      return {
+        id: inc.id,
+        name: inc.name,
+        quantity: qty,
+        unitCost,
+        totalCost: qty * unitCost,
+      };
+    });
+    setAlbumCosts(initialAlbumCosts);
 
     return {
       ...q,
@@ -153,12 +224,18 @@ export default function QuotationComparePage() {
 
   const totalEventCost = eventCosts.reduce((sum, e) => sum + e.internalCost, 0);
 
+  // Total Video Editing Cost (Day-by-Day)
+  const totalVideoEditingCost = videoEditingCosts.reduce((sum, v) => sum + (v.cost || 0), 0);
+
+  // Total Album Printing Cost (Synced with Inclusions)
+  const totalAlbumCost = albumCosts.reduce((sum, a) => sum + (a.totalCost || 0), 0);
+
   // Additional Non-Service Expenses
   const additionalExpenses = quotation.additionalExpenses || [];
   const totalAdditionalExpenses = additionalExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
-  // Grand Total Internal Cost
-  const totalInternalCost = totalEventCost + totalAdditionalExpenses;
+  // Grand Total Internal Cost = Event Crew Cost + Video Editing Cost + Album Cost + Additional Expenses
+  const totalInternalCost = totalEventCost + totalVideoEditingCost + totalAlbumCost + totalAdditionalExpenses;
 
   // Net Profit & Profit Margin
   const netProfit = clientPrice - totalInternalCost;
@@ -168,8 +245,6 @@ export default function QuotationComparePage() {
   let photoCost = 0;
   let videoCost = 0;
   let droneCost = 0;
-  let albumCost = 0;
-  let editingCost = 0;
   let otherCost = totalAdditionalExpenses;
 
   sortedEvents.forEach((evt) => {
@@ -178,8 +253,6 @@ export default function QuotationComparePage() {
       const name = s.serviceName.toLowerCase();
       if (name.includes('drone')) droneCost += cost;
       else if (name.includes('video') || name.includes('videographer')) videoCost += cost;
-      else if (name.includes('edit') || name.includes('film')) editingCost += cost;
-      else if (name.includes('album')) albumCost += cost;
       else if (name.includes('photo') || name.includes('photographer')) photoCost += cost;
       else otherCost += cost;
     });
@@ -234,6 +307,22 @@ export default function QuotationComparePage() {
     });
   };
 
+  // Handler for updating video editing cost for an event day
+  const handleUpdateVideoEditingCost = (eventId: string, cost: number) => {
+    const updated = videoEditingCosts.map((v) =>
+      v.eventId === eventId ? { ...v, cost } : v
+    );
+    setVideoEditingCosts(updated);
+  };
+
+  // Handler for updating album unit cost
+  const handleUpdateAlbumUnitCost = (albumId: string, unitCost: number) => {
+    const updated = albumCosts.map((a) =>
+      a.id === albumId ? { ...a, unitCost, totalCost: a.quantity * unitCost } : a
+    );
+    setAlbumCosts(updated);
+  };
+
   // Handler for adding non-service expense
   const handleAddExpense = () => {
     const newExp: AdditionalExpense = {
@@ -278,6 +367,10 @@ export default function QuotationComparePage() {
         profitMargin,
         additionalExpenses,
         eventBreakdown: eventCosts,
+        videoEditingBreakdown: videoEditingCosts,
+        totalVideoEditingCost,
+        albumBreakdown: albumCosts,
+        totalAlbumCost,
       },
       updatedAt: new Date().toISOString(),
     };
@@ -558,7 +651,166 @@ export default function QuotationComparePage() {
         })}
       </div>
 
-      {/* ADDITIONAL NON-SERVICE EXPENSES SECTION */}
+      {/* SECTION 2: POST-PRODUCTION VIDEO EDITING COST BREAKDOWN (DAY-BY-DAY) */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+          <div>
+            <h3 className="font-serif font-bold text-base text-[#0D4F4F] uppercase tracking-wider flex items-center gap-2">
+              <Film className="w-5 h-5 text-[#D4AF37]" />
+              Post-Production Video Editing Cost Breakdown
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Auto-synced day-by-day: <span className="font-semibold text-slate-700">1 Cam (Rs. 2,000)</span> • <span className="font-semibold text-slate-700">1 Cam + Drone (Rs. 2,500)</span> • <span className="font-semibold text-slate-700">2 Cam (Rs. 2,500)</span> • <span className="font-semibold text-slate-700">2 Cam + Drone (Rs. 3,000)</span>
+            </p>
+          </div>
+
+          <div className="text-right">
+            <span className="text-[10px] text-slate-400 block uppercase font-bold">Total Editing Cost</span>
+            <span className="font-serif font-bold text-lg text-[#0D4F4F]">
+              {formatCurrency(totalVideoEditingCost)}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {videoEditingCosts.length === 0 ? (
+            <p className="text-slate-400 text-xs col-span-2">No event days configured for video editing.</p>
+          ) : (
+            videoEditingCosts.map((vCost) => {
+              const hasVideo = vCost.cameraCount > 0;
+              return (
+                <div
+                  key={vCost.eventId}
+                  className={`p-4 rounded-xl border transition-all ${
+                    hasVideo
+                      ? 'bg-slate-50/80 border-slate-200'
+                      : 'bg-slate-50/40 border-slate-100 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-200/60 pb-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${hasVideo ? 'bg-[#0D4F4F] text-[#D4AF37]' : 'bg-slate-200 text-slate-500'}`}>
+                        <Film className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-[#0D4F4F] uppercase">{vCost.eventName}</h4>
+                        <span className="text-[10px] text-slate-400">
+                          {vCost.cameraCount} Videographer(s) • {vCost.droneCount} Drone(s)
+                        </span>
+                      </div>
+                    </div>
+
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      hasVideo
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-slate-100 text-slate-500 border-slate-200'
+                    }`}>
+                      {vCost.tierDescription}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[11px] font-semibold text-slate-600">Editing Payout:</span>
+                    <div className="relative w-36">
+                      <span className="absolute left-2.5 top-1.5 font-bold text-[11px] text-slate-400">Rs.</span>
+                      <input
+                        type="number"
+                        value={vCost.cost !== undefined ? vCost.cost : ''}
+                        onChange={(e) =>
+                          handleUpdateVideoEditingCost(
+                            vCost.eventId,
+                            parseFloat(e.target.value) || 0
+                          )
+                        }
+                        className="w-full pl-8 pr-2 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                        placeholder="Cost"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* SECTION 3: ALBUM PRINTING & PRODUCTION COSTS (SYNCED WITH INCLUSIONS) */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+          <div>
+            <h3 className="font-serif font-bold text-base text-[#0D4F4F] uppercase tracking-wider flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-[#D4AF37]" />
+              Album Printing & Binding Production Costs
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Automatically synced with package inclusions (Krizma, Family Albums, Couple Shoots)
+            </p>
+          </div>
+
+          <div className="text-right">
+            <span className="text-[10px] text-slate-400 block uppercase font-bold">Total Album Cost</span>
+            <span className="font-serif font-bold text-lg text-[#0D4F4F]">
+              {formatCurrency(totalAlbumCost)}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {albumCosts.length === 0 ? (
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center text-xs text-slate-500">
+              No albums included in this quotation's package inclusions.
+            </div>
+          ) : (
+            albumCosts.map((album) => (
+              <div
+                key={album.id}
+                className="flex flex-wrap items-center justify-between gap-3 bg-slate-50/80 p-3 rounded-xl border border-slate-200 text-xs"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#0D4F4F]/10 text-[#0D4F4F] flex items-center justify-center font-bold">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 block text-xs">{album.name}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">
+                      Quantity: <span className="font-bold text-[#0D4F4F]">{album.quantity} unit(s)</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-500 font-medium">Unit Cost:</span>
+                    <div className="relative w-28">
+                      <span className="absolute left-2 top-1.5 font-bold text-[10px] text-slate-400">Rs.</span>
+                      <input
+                        type="number"
+                        value={album.unitCost || ''}
+                        onChange={(e) =>
+                          handleUpdateAlbumUnitCost(
+                            album.id,
+                            parseFloat(e.target.value) || 0
+                          )
+                        }
+                        className="w-full pl-7 pr-2 py-1 border border-slate-300 rounded-md text-xs font-bold text-slate-900 bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right min-w-24">
+                    <span className="text-[9px] text-slate-400 uppercase block font-bold">Line Total</span>
+                    <span className="font-serif font-bold text-xs text-[#0D4F4F]">
+                      {formatCurrency(album.totalCost)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* SECTION 4: ADDITIONAL NON-SERVICE EXPENSES SECTION */}
       <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b pb-3">
           <h3 className="font-serif font-bold text-base text-[#0D4F4F] uppercase tracking-wider flex items-center gap-2">
@@ -645,21 +897,21 @@ export default function QuotationComparePage() {
             <span className="text-slate-300 font-semibold flex items-center gap-1.5">
               <BookOpen className="w-4 h-4 text-[#D4AF37]" /> Album Cost
             </span>
-            <span className="font-bold text-white text-sm">{formatCurrency(albumCost)}</span>
+            <span className="font-bold text-white text-sm">{formatCurrency(totalAlbumCost)}</span>
           </div>
 
           <div className="bg-[#093A3A] p-3 rounded-xl border border-[#156060] flex items-center justify-between">
             <span className="text-slate-300 font-semibold flex items-center gap-1.5">
               <Film className="w-4 h-4 text-[#D4AF37]" /> Video Editing Cost
             </span>
-            <span className="font-bold text-white text-sm">{formatCurrency(editingCost)}</span>
+            <span className="font-bold text-white text-sm">{formatCurrency(totalVideoEditingCost)}</span>
           </div>
 
           <div className="bg-[#093A3A] p-3 rounded-xl border border-[#156060] flex items-center justify-between">
             <span className="text-slate-300 font-semibold flex items-center gap-1.5">
               <Building2 className="w-4 h-4 text-[#D4AF37]" /> Other Expenses
             </span>
-            <span className="font-bold text-white text-sm">{formatCurrency(otherCost)}</span>
+            <span className="font-bold text-white text-sm">{formatCurrency(totalAdditionalExpenses)}</span>
           </div>
         </div>
 

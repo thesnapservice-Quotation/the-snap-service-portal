@@ -104,12 +104,34 @@ export interface EventProfitAnalysis {
   marginPercentage: number;
 }
 
+export interface VideoEditingEventCost {
+  eventId: string;
+  eventName: string;
+  dayNumber?: number;
+  cameraCount: number;
+  droneCount: number;
+  tierDescription: string;
+  cost: number;
+}
+
+export interface AlbumItemCost {
+  id: string;
+  name: string;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+}
+
 export interface InternalAnalysis {
   totalInternalCost: number;
   netProfit: number;
   profitMargin: number;
   additionalExpenses: AdditionalExpense[];
   eventBreakdown: EventProfitAnalysis[];
+  videoEditingBreakdown?: VideoEditingEventCost[];
+  totalVideoEditingCost?: number;
+  albumBreakdown?: AlbumItemCost[];
+  totalAlbumCost?: number;
 }
 
 export interface DeliverableStatus {
