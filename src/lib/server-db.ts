@@ -317,3 +317,70 @@ export async function deleteQuotationFromDb(id: string): Promise<boolean> {
 
   return true;
 }
+
+import { AppSettings } from './types';
+import { DEFAULT_SETTINGS } from './defaults';
+
+const PRIMARY_SETTINGS_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315585';
+let cachedSettings: AppSettings | null = null;
+
+export async function getSettingsFromDb(): Promise<AppSettings> {
+  if (cachedSettings) return cachedSettings;
+
+  // 1. Try fetching from Supabase table 'app_settings'
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('*')
+      .limit(1)
+      .single();
+
+    if (!error && data && data.settings_data) {
+      cachedSettings = data.settings_data;
+      return cachedSettings as AppSettings;
+    }
+  } catch {}
+
+  // 2. Try fetching from secondary Cloud DB
+  try {
+    const res = await fetch(PRIMARY_SETTINGS_CLOUD_DB, {
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.bank) {
+        cachedSettings = data;
+        return data as AppSettings;
+      }
+    }
+  } catch {}
+
+  return DEFAULT_SETTINGS;
+}
+
+export async function saveSettingsToDb(settings: AppSettings): Promise<AppSettings> {
+  cachedSettings = settings;
+
+  // 1. Save to Supabase
+  try {
+    await supabase
+      .from('app_settings')
+      .upsert({
+        id: 'global-settings',
+        settings_data: settings,
+        updated_at: new Date().toISOString(),
+      });
+  } catch {}
+
+  // 2. Save to Cloud DB
+  try {
+    await fetch(PRIMARY_SETTINGS_CLOUD_DB, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(settings),
+    });
+  } catch {}
+
+  return settings;
+}

@@ -150,7 +150,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     bank: 'Meezan Bank',
     branch: 'PMC Branch',
     accountNumber: '04240104676435',
-    iban: 'PK36MEZN0004240104676435',
+    iban: 'PK84MEZN0004240104676435',
   },
   quotation: {
     startingNumber: 101,

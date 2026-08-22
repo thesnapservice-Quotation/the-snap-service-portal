@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Quotation, AppSettings } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { apiFetchQuotationById, apiSaveQuotation } from '@/lib/api-client';
+import { apiFetchQuotationById, apiSaveQuotation, apiFetchSettings } from '@/lib/api-client';
 import { decompactQuotationData, decodeQuotationData, formatCurrency, formatWhatsAppPhone, getQuotationSecurityPin } from '@/lib/utils';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check, ShieldAlert, Wallet } from 'lucide-react';
@@ -54,6 +54,7 @@ function ShortClientPortalContent() {
     async function loadQuotationData() {
       // 1. Direct Serverless Database API lookup
       let q = quoteKey ? await apiFetchQuotationById(quoteKey) : null;
+      const liveSettings = await apiFetchSettings();
 
       // 2. Compact payload in query params fallback
       if (!q) {
@@ -80,7 +81,11 @@ function ShortClientPortalContent() {
       if (isMounted) {
         if (q) {
           setQuotation(q);
-          setSettings(storage.getSettings(q.userId));
+          if (liveSettings && liveSettings.bank) {
+            setSettings(liveSettings);
+          } else {
+            setSettings(storage.getSettings(q.userId));
+          }
           const isAlreadyConfirmed = q.status === 'confirmed' || q.status === 'completed';
           setAccepted(isAlreadyConfirmed);
           setStepConfirmed(isAlreadyConfirmed);
@@ -476,11 +481,11 @@ function ShortClientPortalContent() {
                   <span className="text-slate-500">IBAN:</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold font-mono text-[11px] text-slate-800 select-all">
-                      {settings.bank.iban || 'PK36MEZN0004240104676435'}
+                      {settings.bank.iban || 'PK84MEZN0004240104676435'}
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleCopyText(settings.bank.iban || 'PK36MEZN0004240104676435', 'iban')}
+                      onClick={() => handleCopyText(settings.bank.iban || 'PK84MEZN0004240104676435', 'iban')}
                       className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all flex items-center gap-1 border shadow-2xs ${
                         copiedField === 'iban'
                           ? 'bg-emerald-600 text-white border-emerald-600'

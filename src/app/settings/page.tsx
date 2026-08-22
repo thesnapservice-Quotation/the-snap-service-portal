@@ -664,7 +664,7 @@ export default function SettingsPage() {
                     bank: { ...formData.bank, iban: e.target.value },
                   })
                 }
-                placeholder="e.g. PK36MEZN0004240104676435"
+                placeholder="e.g. PK84MEZN0004240104676435"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
               />
             </div>

@@ -92,3 +92,48 @@ export async function apiDeleteQuotation(id: string): Promise<boolean> {
     return false;
   }
 }
+
+import { AppSettings } from './types';
+
+export async function apiFetchSettings(): Promise<AppSettings | null> {
+  try {
+    const timestamp = Date.now();
+    const res = await fetch(`/api/settings?_t=${timestamp}`, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.bank) {
+        return data as AppSettings;
+      }
+    }
+  } catch (e) {
+    console.error('API Fetch Settings Error:', e);
+  }
+  return null;
+}
+
+export async function apiSaveSettings(settings: AppSettings): Promise<AppSettings> {
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      body: JSON.stringify(settings),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (e) {
+    console.error('API Save Settings Error:', e);
+  }
+  return settings;
+}
