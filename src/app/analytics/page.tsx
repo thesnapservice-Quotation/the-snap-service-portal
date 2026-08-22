@@ -67,16 +67,10 @@ export default function StudioAnalyticsPage() {
     return Number(q.payment?.advanceReceived) || 0;
   };
 
-  // Filter quotations based on status filter
-  const targetQuotations = quotations.filter((q) => {
-    if (selectedStatusFilter === 'confirmed_completed') {
-      return q.status === 'confirmed' || q.status === 'completed';
-    }
-    if (selectedStatusFilter === 'sent') {
-      return q.status === 'sent' || q.status === 'draft';
-    }
-    return true; // 'all'
-  });
+  // Strictly filter to ONLY confirmed and completed bookings (no sent or draft quotations)
+  const targetQuotations = quotations.filter(
+    (q) => q.status === 'confirmed' || q.status === 'completed'
+  );
 
   // Filtered list for the data table based on search
   const filteredQuotationsList = targetQuotations.filter((q) => {
@@ -135,42 +129,14 @@ export default function StudioAnalyticsPage() {
               Studio Financial Intelligence
             </h1>
             <p className="text-xs md:text-sm text-[#C3DFDF] mt-1 max-w-2xl leading-relaxed">
-              Real-time Single Source of Truth synchronized directly with Live Payment Ledgers, Event Expenses, Profit Forecasts, and Equipment Deployments.
+              Real-time Single Source of Truth for confirmed studio bookings — synchronized with Live Payment Ledgers, Event Expenses, Profit Forecasts, and Equipment Deployments.
             </p>
           </div>
 
-          {/* Scope Filter Switch */}
-          <div className="flex items-center bg-black/30 backdrop-blur-md p-1 rounded-xl border border-white/10 text-xs font-semibold">
-            <button
-              onClick={() => setSelectedStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                selectedStatusFilter === 'all'
-                  ? 'bg-[#D4AF37] text-[#0D4F4F] shadow-sm font-bold'
-                  : 'text-white/80 hover:text-white'
-              }`}
-            >
-              All Events ({quotations.length})
-            </button>
-            <button
-              onClick={() => setSelectedStatusFilter('confirmed_completed')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                selectedStatusFilter === 'confirmed_completed'
-                  ? 'bg-[#D4AF37] text-[#0D4F4F] shadow-sm font-bold'
-                  : 'text-white/80 hover:text-white'
-              }`}
-            >
-              Confirmed & Completed
-            </button>
-            <button
-              onClick={() => setSelectedStatusFilter('sent')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                selectedStatusFilter === 'sent'
-                  ? 'bg-[#D4AF37] text-[#0D4F4F] shadow-sm font-bold'
-                  : 'text-white/80 hover:text-white'
-              }`}
-            >
-              Sent / Drafts
-            </button>
+          {/* Confirmed Bookings Badge */}
+          <div className="flex items-center gap-2 bg-emerald-950/60 backdrop-blur-md px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-bold text-emerald-300 shadow-md">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{targetQuotations.length} Confirmed Bookings</span>
           </div>
         </div>
       </div>
@@ -322,7 +288,7 @@ export default function StudioAnalyticsPage() {
               Event-by-Event Financial Ledger & ROI Breakdown
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Live calculation of Event Total ➔ Expenses ➔ Profit ➔ Received (Ledger) ➔ Pending.
+              Live calculation of Event Total ➔ Expenses ➔ Profit ➔ Received (Ledger) ➔ Pending (Confirmed bookings only).
             </p>
           </div>
 
