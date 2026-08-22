@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { EventItem, Service, SelectedService } from '@/lib/types';
 import { generateSecureId } from '@/lib/crypto';
+import { sortEventsInSequence } from '@/lib/utils';
 import { 
   Plus, 
   Trash2, 
@@ -12,7 +13,8 @@ import {
   Check, 
   DollarSign,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowUpDown
 } from 'lucide-react';
 
 interface EventBuilderProps {
@@ -21,7 +23,7 @@ interface EventBuilderProps {
   onChange: (events: EventItem[]) => void;
 }
 
-const EVENT_PRESETS = ['Nikkah', 'Ubtan', 'Mehndi', 'Barat', 'Walima', 'Engagement', 'Couple Shoot', 'Single Day Package'];
+const EVENT_PRESETS = ['Mehndi', 'Barat', 'Walima', 'Nikkah', 'Mayun', 'Ubtan', 'Engagement', 'Couple Shoot', 'Single Day Package'];
 
 export function EventBuilder({ events, availableServices, onChange }: EventBuilderProps) {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(
@@ -42,8 +44,15 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
 
   // Add new blank event card
   const handleAddEvent = (namePreset?: string) => {
-    const dayNumber = events.length + 1;
-    const defaultName = namePreset || (dayNumber === 1 ? 'Barat' : `Day ${dayNumber}`);
+    const count = events.length;
+    const dayNumber = count + 1;
+    let defaultName = namePreset;
+    if (!defaultName) {
+      if (count === 0) defaultName = 'Mehndi';
+      else if (count === 1) defaultName = 'Barat';
+      else if (count === 2) defaultName = 'Walima';
+      else defaultName = `Day ${dayNumber}`;
+    }
 
     // Default basic services (1 Photographer, 1 Videographer)
     const photoSrv = activeServices.find((s) => s.name.toLowerCase().includes('photographer'));

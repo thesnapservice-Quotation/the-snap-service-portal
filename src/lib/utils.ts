@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Quotation } from './types';
+import { Quotation, EventItem } from './types';
 import { generateSecureId } from './crypto';
 
 export function cn(...inputs: ClassValue[]) {
@@ -271,13 +271,48 @@ export function generatePortalUrl(quotation: Quotation, originUrl?: string): str
 }
 
 /**
+ * Chronological Pakistani Wedding Event Sequence Ordering:
+ * 1. Engagement / Baat Pakki (1)
+ * 2. Nikkah / Mayun (2)
+ * 3. Ubtan / Dholki / Haldi (3)
+ * 4. Mehndi / Sangeet / Qawwali (4)
+ * 5. Barat / Shaadi / Wedding Day / Rukhsati (5)
+ * 6. Walima / Reception (6)
+ * 7. Couple Shoot / Outdoor (7)
+ * 8. Other Events (8)
+ */
+export function getEventOrderScore(name: string): number {
+  const n = (name || '').toLowerCase();
+  if (n.includes('engagement') || n.includes('baat pakki') || n.includes('ring')) return 1;
+  if (n.includes('nikkah')) return 2;
+  if (n.includes('mayun') || n.includes('ubtan') || n.includes('dholki') || n.includes('haldi')) return 3;
+  if (n.includes('mehndi') || n.includes('mehendi') || n.includes('sangeet') || n.includes('qawwali') || n.includes('dance')) return 4;
+  if (n.includes('barat') || n.includes('baraat') || n.includes('shaadi') || n.includes('shadi') || n.includes('wedding') || n.includes('rukhsati')) return 5;
+  if (n.includes('walima') || n.includes('valima') || n.includes('reception') || n.includes('dinner')) return 6;
+  if (n.includes('couple') || n.includes('shoot') || n.includes('outdoor') || n.includes('post')) return 7;
+  return 8;
+}
+
+export function sortEventsInSequence(events: EventItem[]): EventItem[] {
+  if (!events || !Array.isArray(events)) return [];
+  return [...events]
+    .sort((a, b) => {
+      const scoreDiff = getEventOrderScore(a.name) - getEventOrderScore(b.name);
+      if (scoreDiff !== 0) return scoreDiff;
+      return (a.dayNumber || 0) - (b.dayNumber || 0);
+    })
+    .map((evt, idx) => ({ ...evt, dayNumber: idx + 1 }));
+}
+
+/**
  * Generate luxury personalized WhatsApp share URL with secure portal link
  */
 export function generateWhatsAppShareUrl(quotation: Quotation, originUrl?: string): string {
   const phone = formatWhatsAppPhone(quotation.client?.phone || '');
   const portalUrl = generatePortalUrl(quotation, originUrl);
 
-  const eventNames = (quotation.events || []).map((e) => e.name).join(', ');
+  const sortedEvents = sortEventsInSequence(quotation.events || []);
+  const eventNames = sortedEvents.map((e) => e.name).join(', ');
 
   const message = `THE SNAP SERVICE\n\nAssalam-o-Alaikum ${quotation.client?.name || 'Valued Client'},\nHere is your official wedding quotation (#${quotation.quotationNumber || 'SS-2026'}).\n\nEvents Covered: ${eventNames || 'Wedding Package'}\nEvent Dates: ${quotation.client?.eventDates || 'As Discussed'}\nGrand Total: ${formatCurrency(quotation.payment?.grandTotal)}\nAdvance Paid: ${formatCurrency(quotation.payment?.advanceReceived)}\nBalance Payable: ${formatCurrency(quotation.payment?.balancePayable)}\n\nView Interactive Quotation & Lock Your Dates Online:\n${portalUrl}\n\nThank you for choosing The Snap Service.`;
 

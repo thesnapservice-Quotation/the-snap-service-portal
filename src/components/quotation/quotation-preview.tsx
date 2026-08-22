@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Quotation, AppSettings, EventItem } from '@/lib/types';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, sortEventsInSequence } from '@/lib/utils';
 import { 
   User, 
   Calendar, 
@@ -21,25 +21,7 @@ interface QuotationPreviewProps {
   previewRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-// Chronological Pakistani Wedding Event Order:
-// 1. Engagement, 2. Nikkah, 3. Ubtan/Mayun, 4. Mehndi, 5. Barat, 6. Walima, 7. Couple Shoot
-function getEventOrderScore(name: string): number {
-  const n = name.toLowerCase();
-  if (n.includes('engagement')) return 1;
-  if (n.includes('nikkah')) return 2;
-  if (n.includes('ubtan') || n.includes('mayun')) return 3;
-  if (n.includes('mehndi')) return 4;
-  if (n.includes('barat')) return 5;
-  if (n.includes('walima')) return 6;
-  if (n.includes('couple') || n.includes('shoot')) return 7;
-  return 8;
-}
-
-export function sortEventsInSequence(events: EventItem[]): EventItem[] {
-  return [...events]
-    .sort((a, b) => getEventOrderScore(a.name) - getEventOrderScore(b.name))
-    .map((evt, idx) => ({ ...evt, dayNumber: idx + 1 }));
-}
+export { sortEventsInSequence };
 
 // 🌿 Luxury Botanical Vine Top Left Corner SVG (Gold Accent #D4AF37)
 function BotanicalVineTopLeft() {

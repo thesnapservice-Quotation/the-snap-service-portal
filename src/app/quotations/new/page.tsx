@@ -8,7 +8,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useServices } from '@/hooks/use-services';
 import { useAuth } from '@/hooks/use-auth';
 import { storage } from '@/lib/storage';
-import { getTodayDateString } from '@/lib/utils';
+import { getTodayDateString, sortEventsInSequence } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotationById } from '@/lib/api-client';
 import { ClientDetailsForm } from '@/components/quotation/client-details-form';
@@ -137,8 +137,11 @@ function NewQuotationContent() {
 
     const activeUser = currentUser || storage.getCurrentUser();
     const finalStatus = status || quotation.status || 'sent';
+    const sortedEvents = sortEventsInSequence(quotation.events || []);
+
     const toSave: Quotation = {
       ...quotation,
+      events: sortedEvents,
       userId: activeUser?.id || quotation.userId || 'user-super-admin',
       status: finalStatus,
       updatedAt: new Date().toISOString(),
