@@ -96,7 +96,14 @@ export default function StudioAnalyticsPage() {
   // 4. Received Amount = Synced from Live Payment Ledger
   const aggregateReceived = targetQuotations.reduce((sum, q) => sum + getReceivedAmount(q), 0);
 
-  // 5. Pending Amount = Event Total - Total Received
+  // 5. Profit Amount Received (Realized Cash Profit in Hand = max(0, Received - Expenses))
+  const aggregateProfitReceived = targetQuotations.reduce((sum, q) => {
+    const evExp = getEventExpenses(q);
+    const evRec = getReceivedAmount(q);
+    return sum + Math.max(0, evRec - evExp);
+  }, 0);
+
+  // 6. Pending Amount = Event Total - Total Received
   const aggregatePending = Math.max(0, aggregateEventTotal - aggregateReceived);
 
   // Count crew deployments
@@ -141,7 +148,7 @@ export default function StudioAnalyticsPage() {
         </div>
       </div>
 
-      {/* 5-Step Financial Workflow Pipeline Cards (In Exact Flow Sequence) */}
+      {/* 6-Step Financial Workflow Pipeline Cards (In Exact Flow Sequence) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -149,7 +156,7 @@ export default function StudioAnalyticsPage() {
               Financial Workflow Pipeline
             </span>
             <span className="text-[11px] text-slate-400 font-medium">
-              (Event ➔ Expenses ➔ Profit ➔ Received ➔ Pending)
+              (Event ➔ Expenses ➔ Profit ➔ Received ➔ Profit Received ➔ Pending)
             </span>
           </div>
           <button
@@ -168,22 +175,22 @@ export default function StudioAnalyticsPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
           {/* STEP 1: EVENT TOTAL AMOUNT */}
-          <div className="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-xs flex flex-col justify-between relative overflow-hidden">
+          <div className="bg-white p-3.5 rounded-2xl border-2 border-slate-200 shadow-xs flex flex-col justify-between relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                1. Event Total Amount
+              <span className="text-slate-500 font-bold uppercase tracking-wider text-[9.5px]">
+                1. Event Total
               </span>
-              <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
-                <TrendingUp className="w-4 h-4" />
+              <div className="p-1 rounded-lg bg-blue-50 text-blue-600">
+                <TrendingUp className="w-3.5 h-3.5" />
               </div>
             </div>
-            <div className="mt-3">
-              <span className="font-serif font-bold text-xl text-slate-900 block">
+            <div className="mt-2.5">
+              <span className="font-serif font-bold text-lg text-slate-900 block">
                 {formatCurrency(aggregateEventTotal)}
               </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+              <span className="text-[9.5px] text-slate-400 block mt-0.5 font-medium">
                 Total Booked Packages
               </span>
             </div>
@@ -192,23 +199,23 @@ export default function StudioAnalyticsPage() {
           {/* STEP 2: TOTAL EVENT EXPENSES */}
           <div 
             onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
-            className="bg-white p-4 rounded-2xl border-2 border-red-100 shadow-xs flex flex-col justify-between cursor-pointer group hover:border-red-300 transition-all relative overflow-hidden"
+            className="bg-white p-3.5 rounded-2xl border-2 border-red-100 shadow-xs flex flex-col justify-between cursor-pointer group hover:border-red-300 transition-all relative overflow-hidden"
             title={isProfitUnlocked ? "Click to lock cost figures" : "Click to unlock cost figures"}
           >
             <div className="flex items-center justify-between">
-              <span className="text-red-700 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
-                2. Total Event Expenses {isProfitUnlocked ? <Unlock className="w-3 h-3 text-red-500" /> : <Lock className="w-3 h-3 text-red-500" />}
+              <span className="text-red-700 font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
+                2. Expenses {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-red-500" /> : <Lock className="w-2.5 h-2.5 text-red-500" />}
               </span>
-              <div className="p-1.5 rounded-lg bg-red-50 text-red-600">
-                <Receipt className="w-4 h-4" />
+              <div className="p-1 rounded-lg bg-red-50 text-red-600">
+                <Receipt className="w-3.5 h-3.5" />
               </div>
             </div>
-            <div className="mt-3">
-              <span className="font-serif font-bold text-xl text-red-700 block tracking-wider">
+            <div className="mt-2.5">
+              <span className="font-serif font-bold text-lg text-red-700 block tracking-wider">
                 {isProfitUnlocked ? formatCurrency(aggregateExpenses) : '••••••••'}
               </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
-                {isProfitUnlocked ? 'Crew, Albums & Editing' : '🔒 Password Protected'}
+              <span className="text-[9.5px] text-slate-400 block mt-0.5 font-medium">
+                {isProfitUnlocked ? 'Crew & Printing' : '🔒 Protected'}
               </span>
             </div>
           </div>
@@ -216,62 +223,86 @@ export default function StudioAnalyticsPage() {
           {/* STEP 3: REMAINING / PROFIT AMOUNT */}
           <div 
             onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
-            className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-4 rounded-2xl border-2 border-[#D4AF37] shadow-md flex flex-col justify-between cursor-pointer group hover:brightness-105 transition-all relative overflow-hidden"
+            className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-3.5 rounded-2xl border-2 border-[#D4AF37] shadow-md flex flex-col justify-between cursor-pointer group hover:brightness-105 transition-all relative overflow-hidden"
             title={isProfitUnlocked ? "Click to lock profit figures" : "Click to unlock profit figures"}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[#D4AF37] font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
-                3. Profit Amount {isProfitUnlocked ? <Unlock className="w-3 h-3 text-emerald-300" /> : <Lock className="w-3 h-3 text-[#D4AF37]" />}
+              <span className="text-[#D4AF37] font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
+                3. Total Profit {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-emerald-300" /> : <Lock className="w-2.5 h-2.5 text-[#D4AF37]" />}
               </span>
-              <div className="p-1.5 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37]">
-                <Sparkles className="w-4 h-4 fill-[#D4AF37]" />
+              <div className="p-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37]">
+                <Sparkles className="w-3.5 h-3.5 fill-[#D4AF37]" />
               </div>
             </div>
-            <div className="mt-3">
-              <span className="font-serif font-extrabold text-xl text-emerald-300 block tracking-wider">
+            <div className="mt-2.5">
+              <span className="font-serif font-extrabold text-lg text-emerald-300 block tracking-wider">
                 {isProfitUnlocked ? formatCurrency(aggregateProfit) : '••••••••'}
               </span>
-              <span className="text-[10px] text-[#C3DFDF] block mt-0.5 font-medium">
-                {isProfitUnlocked ? `Margin: ${aggregateProfitMargin.toFixed(1)}%` : '🔒 Total − Expenses'}
+              <span className="text-[9.5px] text-[#C3DFDF] block mt-0.5 font-medium">
+                {isProfitUnlocked ? `Margin: ${aggregateProfitMargin.toFixed(0)}%` : '🔒 Expected'}
               </span>
             </div>
           </div>
 
           {/* STEP 4: RECEIVED AMOUNT (LIVE PAYMENT LEDGER SYNCED) */}
-          <div className="bg-white p-4 rounded-2xl border-2 border-emerald-200 shadow-xs flex flex-col justify-between relative overflow-hidden">
+          <div className="bg-white p-3.5 rounded-2xl border-2 border-emerald-200 shadow-xs flex flex-col justify-between relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <span className="text-emerald-800 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
-                4. Received Amount
+              <span className="text-emerald-800 font-bold uppercase tracking-wider text-[9.5px]">
+                4. Received Total
               </span>
-              <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700">
-                <Wallet className="w-4 h-4" />
+              <div className="p-1 rounded-lg bg-emerald-50 text-emerald-700">
+                <Wallet className="w-3.5 h-3.5" />
               </div>
             </div>
-            <div className="mt-3">
-              <span className="font-serif font-bold text-xl text-emerald-800 block">
+            <div className="mt-2.5">
+              <span className="font-serif font-bold text-lg text-emerald-800 block">
                 {formatCurrency(aggregateReceived)}
               </span>
-              <span className="text-[10px] text-emerald-600 block mt-0.5 font-medium flex items-center gap-1">
-                ⚡ Live Ledger Synced
+              <span className="text-[9.5px] text-emerald-600 block mt-0.5 font-medium">
+                ⚡ Ledger Synced
               </span>
             </div>
           </div>
 
-          {/* STEP 5: PENDING AMOUNT */}
-          <div className="bg-white p-4 rounded-2xl border-2 border-amber-200 shadow-xs flex flex-col justify-between relative overflow-hidden">
+          {/* STEP 5: PROFIT AMOUNT RECEIVED (REALIZED IN-HAND PROFIT) */}
+          <div 
+            onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
+            className="bg-emerald-950 text-white p-3.5 rounded-2xl border-2 border-emerald-400 shadow-md flex flex-col justify-between cursor-pointer group hover:brightness-110 transition-all relative overflow-hidden"
+            title={isProfitUnlocked ? "Click to lock profit figures" : "Click to unlock profit figures"}
+          >
             <div className="flex items-center justify-between">
-              <span className="text-amber-800 font-bold uppercase tracking-wider text-[10px]">
-                5. Pending Amount
+              <span className="text-emerald-300 font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
+                5. Profit Received {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-emerald-300" /> : <Lock className="w-2.5 h-2.5 text-emerald-300" />}
               </span>
-              <div className="p-1.5 rounded-lg bg-amber-50 text-amber-700">
-                <Clock className="w-4 h-4" />
+              <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-300">
+                <DollarSign className="w-3.5 h-3.5" />
               </div>
             </div>
-            <div className="mt-3">
-              <span className="font-serif font-bold text-xl text-amber-800 block">
+            <div className="mt-2.5">
+              <span className="font-serif font-extrabold text-lg text-[#D4AF37] block tracking-wider">
+                {isProfitUnlocked ? formatCurrency(aggregateProfitReceived) : '••••••••'}
+              </span>
+              <span className="text-[9.5px] text-emerald-300/80 block mt-0.5 font-medium">
+                {isProfitUnlocked ? 'In-Hand Realized' : '🔒 Protected'}
+              </span>
+            </div>
+          </div>
+
+          {/* STEP 6: PENDING AMOUNT */}
+          <div className="bg-white p-3.5 rounded-2xl border-2 border-amber-200 shadow-xs flex flex-col justify-between relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <span className="text-amber-800 font-bold uppercase tracking-wider text-[9.5px]">
+                6. Pending Amount
+              </span>
+              <div className="p-1 rounded-lg bg-amber-50 text-amber-700">
+                <Clock className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <span className="font-serif font-bold text-lg text-amber-800 block">
                 {formatCurrency(aggregatePending)}
               </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+              <span className="text-[9.5px] text-slate-400 block mt-0.5 font-medium">
                 Total − Received
               </span>
             </div>
@@ -288,7 +319,7 @@ export default function StudioAnalyticsPage() {
               Event-by-Event Financial Ledger & ROI Breakdown
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Live calculation of Event Total ➔ Expenses ➔ Profit ➔ Received (Ledger) ➔ Pending (Confirmed bookings only).
+              Live calculation of Event Total ➔ Expenses ➔ Profit ➔ Received (Ledger) ➔ Profit Received ➔ Pending (Confirmed bookings only).
             </p>
           </div>
 
@@ -309,22 +340,23 @@ export default function StudioAnalyticsPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-y border-slate-200 text-slate-600 font-bold text-[10.5px] uppercase tracking-wider">
-                <th className="py-2.5 px-3">Quotation / Client</th>
-                <th className="py-2.5 px-3">Dates & Status</th>
-                <th className="py-2.5 px-3 text-right">Event Total</th>
-                <th className="py-2.5 px-3 text-right">Expenses</th>
-                <th className="py-2.5 px-3 text-right">Profit</th>
-                <th className="py-2.5 px-3 text-right">Received (Ledger)</th>
-                <th className="py-2.5 px-3 text-right">Pending</th>
-                <th className="py-2.5 px-3 text-center">Action</th>
+              <tr className="bg-slate-50 border-y border-slate-200 text-slate-600 font-bold text-[10px] uppercase tracking-wider">
+                <th className="py-2.5 px-2.5">Quotation / Client</th>
+                <th className="py-2.5 px-2.5">Dates & Status</th>
+                <th className="py-2.5 px-2.5 text-right">Event Total</th>
+                <th className="py-2.5 px-2.5 text-right">Expenses</th>
+                <th className="py-2.5 px-2.5 text-right">Total Profit</th>
+                <th className="py-2.5 px-2.5 text-right">Received (Ledger)</th>
+                <th className="py-2.5 px-2.5 text-right">Profit Received</th>
+                <th className="py-2.5 px-2.5 text-right">Pending</th>
+                <th className="py-2.5 px-2.5 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {filteredQuotationsList.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400 italic">
-                    No bookings found matching the search criteria.
+                  <td colSpan={9} className="py-8 text-center text-slate-400 italic">
+                    No confirmed bookings found matching the search criteria.
                   </td>
                 </tr>
               ) : (
@@ -333,16 +365,14 @@ export default function StudioAnalyticsPage() {
                   const evExp = getEventExpenses(q);
                   const evProfit = evTotal - evExp;
                   const evReceived = getReceivedAmount(q);
+                  const evProfitReceived = Math.max(0, evReceived - evExp);
                   const evPending = Math.max(0, evTotal - evReceived);
                   const txCount = q.payment?.transactions?.length || (q.payment?.advanceReceived ? 1 : 0);
-
-                  const isFullyPaid = evReceived >= evTotal && evTotal > 0;
-                  const isPartiallyPaid = evReceived > 0 && !isFullyPaid;
 
                   return (
                     <tr key={q.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* Quotation & Client */}
-                      <td className="py-3 px-3">
+                      <td className="py-2.5 px-2.5">
                         <div className="font-bold text-slate-900">
                           {q.client?.name || 'Unnamed Client'}
                         </div>
@@ -352,17 +382,15 @@ export default function StudioAnalyticsPage() {
                       </td>
 
                       {/* Dates & Status */}
-                      <td className="py-3 px-3">
-                        <div className="text-slate-700 text-[11px]">
+                      <td className="py-2.5 px-2.5">
+                        <div className="text-slate-700 text-[10.5px]">
                           {q.client?.eventDates || 'Dates Pending'}
                         </div>
                         <span
-                          className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider mt-0.5 ${
+                          className={`inline-block px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider mt-0.5 ${
                             q.status === 'confirmed'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : q.status === 'completed'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-blue-50 text-blue-700 border border-blue-200'
                           }`}
                         >
                           {q.status}
@@ -370,43 +398,54 @@ export default function StudioAnalyticsPage() {
                       </td>
 
                       {/* Event Total */}
-                      <td className="py-3 px-3 text-right font-bold font-mono text-slate-900">
+                      <td className="py-2.5 px-2.5 text-right font-bold font-mono text-slate-900">
                         {formatCurrency(evTotal)}
                       </td>
 
                       {/* Expenses (Protected) */}
-                      <td className="py-3 px-3 text-right font-mono text-red-700 font-bold">
+                      <td className="py-2.5 px-2.5 text-right font-mono text-red-700 font-bold">
                         {isProfitUnlocked ? formatCurrency(evExp) : '••••••'}
                       </td>
 
-                      {/* Profit (Protected) */}
-                      <td className="py-3 px-3 text-right font-mono text-emerald-700 font-bold">
+                      {/* Total Profit (Protected) */}
+                      <td className="py-2.5 px-2.5 text-right font-mono text-emerald-700 font-bold">
                         {isProfitUnlocked ? formatCurrency(evProfit) : '••••••'}
                       </td>
 
                       {/* Received (Ledger Synced) */}
-                      <td className="py-3 px-3 text-right">
+                      <td className="py-2.5 px-2.5 text-right">
                         <div className="font-bold font-mono text-emerald-800">
                           {formatCurrency(evReceived)}
                         </div>
-                        <span className="text-[9.5px] text-slate-400 inline-flex items-center gap-0.5">
+                        <span className="text-[9px] text-slate-400 inline-flex items-center gap-0.5">
                           {txCount} receipt{txCount === 1 ? '' : 's'}
                         </span>
                       </td>
 
+                      {/* Profit Received (Protected) */}
+                      <td className="py-2.5 px-2.5 text-right font-mono text-[#0D4F4F] font-bold">
+                        {isProfitUnlocked ? (
+                          <span className={evProfitReceived > 0 ? 'text-emerald-700 font-extrabold' : 'text-slate-400'}>
+                            {formatCurrency(evProfitReceived)}
+                          </span>
+                        ) : (
+                          '••••••'
+                        )}
+                      </td>
+
                       {/* Pending */}
-                      <td className="py-3 px-3 text-right">
+                      <td className="py-2.5 px-2.5 text-right">
                         <span className={`font-bold font-mono ${evPending > 0 ? 'text-amber-800' : 'text-slate-400'}`}>
                           {formatCurrency(evPending)}
                         </span>
                       </td>
 
                       {/* Action: Open Live Ledger */}
-                      <td className="py-3 px-3 text-center">
+                      <td className="py-2.5 px-2.5 text-center">
                         <button
                           type="button"
                           onClick={() => setLedgerModalQuotation(q)}
-                          className="px-2.5 py-1 rounded-lg bg-[#0D4F4F]/10 hover:bg-[#0D4F4F] text-[#0D4F4F] hover:text-white font-bold text-[10.5px] transition-colors inline-flex items-center gap-1 border border-[#0D4F4F]/30 shadow-2xs"
+                          className="px-2 py-1 rounded-lg bg-[#0D4F4F]/10 hover:bg-[#0D4F4F] text-[#0D4F4F] hover:text-white font-bold text-[10px] transition-colors inline-flex items-center gap-1 border border-[#0D4F4F]/30 shadow-2xs"
                         >
                           <CreditCard className="w-3 h-3" />
                           Ledger
