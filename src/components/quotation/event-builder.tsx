@@ -56,6 +56,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
         serviceId: photoSrv.id,
         serviceName: photoSrv.name,
         quantity: 1,
+        internalCostPerUnit: photoSrv.defaultInternalCost || 5000,
       });
     }
     if (videoSrv) {
@@ -64,6 +65,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
         serviceId: videoSrv.id,
         serviceName: videoSrv.name,
         quantity: 1,
+        internalCostPerUnit: videoSrv.defaultInternalCost || 5000,
       });
     }
 
@@ -107,7 +109,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
       // Remove service
       updatedServices = targetEvent.services.filter((s) => s.serviceId !== service.id);
     } else {
-      // Add service
+      // Add service with snapshot cost
       updatedServices = [
         ...targetEvent.services,
         {
@@ -115,6 +117,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
           serviceId: service.id,
           serviceName: service.name,
           quantity: 1,
+          internalCostPerUnit: service.defaultInternalCost || 5000,
         },
       ];
     }

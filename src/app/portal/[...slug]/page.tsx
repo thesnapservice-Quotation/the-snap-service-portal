@@ -7,7 +7,7 @@ import { storage } from '@/lib/storage';
 import { apiFetchQuotationById, apiSaveQuotation } from '@/lib/api-client';
 import { formatCurrency, formatWhatsAppPhone, decodeQuotationData, getQuotationSecurityPin } from '@/lib/utils';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
-import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check, ShieldAlert, Wallet } from 'lucide-react';
 
 function ClientPortalContent() {
   const params = useParams();
@@ -40,6 +40,7 @@ function ClientPortalContent() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [stepConfirmed, setStepConfirmed] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [customAdvanceAmount, setCustomAdvanceAmount] = useState<number | ''>('');
 
   const handleCopyText = (text: string, fieldKey: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -78,6 +79,8 @@ function ClientPortalContent() {
           const isAlreadyConfirmed = q.status === 'confirmed' || q.status === 'completed';
           setAccepted(isAlreadyConfirmed);
           setStepConfirmed(isAlreadyConfirmed);
+          const initialAdv = q.payment.clientProposedAdvance || (q.payment.advanceReceived > 0 ? q.payment.advanceReceived : Math.round((q.payment.grandTotal || 0) * 0.5));
+          setCustomAdvanceAmount(initialAdv);
         } else {
           setQuotation(null);
         }
@@ -90,20 +93,30 @@ function ClientPortalContent() {
   }, [quoteKey, expectedPin, searchParams]);
 
   const handleOpenModal = () => {
+    if (quotation) {
+      const initialAdv = quotation.payment.clientProposedAdvance || (quotation.payment.advanceReceived > 0 ? quotation.payment.advanceReceived : Math.round((quotation.payment.grandTotal || 0) * 0.5));
+      setCustomAdvanceAmount(initialAdv);
+    }
     setShowConfirmModal(true);
   };
 
   const handleStep1Confirm = async () => {
     if (!quotation) return;
+    const proposed = Number(customAdvanceAmount) || Math.round((quotation.payment.grandTotal || 0) * 0.5);
     const updated: Quotation = {
       ...quotation,
       status: 'confirmed',
+      payment: {
+        ...quotation.payment,
+        clientProposedAdvance: proposed,
+      },
       updatedAt: new Date().toISOString(),
     };
     setQuotation(updated);
     setAccepted(true);
     setStepConfirmed(true);
 
+    storage.saveQuotationLocally(updated);
     // Save directly to Supabase production database
     await apiSaveQuotation(updated);
   };
@@ -152,9 +165,15 @@ function ClientPortalContent() {
   const businessPhone = settings.business.phone || '0323-9244924';
   const formattedWhatsApp = formatWhatsAppPhone(businessPhone);
 
+  const proposedAdv = Number(customAdvanceAmount) || quotation.payment.clientProposedAdvance || (quotation.payment.advanceReceived > 0 ? quotation.payment.advanceReceived : Math.round((quotation.payment.grandTotal || 0) * 0.5));
+
   const whatsappMessage = encodeURIComponent(
-    `Assalam-o-Alaikum! I have confirmed booking for Quotation #${quotation.quotationNumber} (${quotation.client.name}). Here is my payment receipt screenshot!`
+    `Assalam-o-Alaikum! I have confirmed booking for Quotation #${quotation.quotationNumber} (${quotation.client.name}). Advance Amount: ${formatCurrency(proposedAdv)} (Bank Transfer / Cash). Here is my payment receipt screenshot!`
   );
+
+  const txList = quotation.payment?.transactions || [];
+  const totalVerifiedPaid = txList.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const liveRemainingBalance = Math.max(0, (quotation.payment?.grandTotal || 0) - totalVerifiedPaid);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] font-sans text-slate-800 pb-16 relative">
@@ -199,6 +218,63 @@ function ClientPortalContent() {
             settings={settings}
           />
         </div>
+
+        {/* Live Verified Payment Ledger & Receipt History (If payments recorded by studio) */}
+        {txList.length > 0 && (
+          <div className="bg-white p-6 rounded-3xl border-2 border-[#E5E0D5] shadow-lg space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-sm text-[#0D4F4F]">
+                    Verified Payment Receipts & Ledger
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-medium">
+                    Official record of payments received by The Snap Service
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 font-bold block uppercase">Remaining Due</span>
+                <span className="font-serif font-bold text-sm text-[#0D4F4F]">
+                  {formatCurrency(liveRemainingBalance)}
+                </span>
+              </div>
+            </div>
+
+            <div className="divide-y divide-slate-100 text-xs">
+              {txList.map((tx) => (
+                <div key={tx.id} className="py-2.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-emerald-700 font-bold">✓</span>
+                    <div>
+                      <span className="font-bold text-slate-800 block">
+                        {tx.method === 'cash' ? '💵 Cash Payment' : tx.method === 'bank_transfer' ? '🏦 Bank Transfer' : '📱 Online Transfer'}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {tx.notes ? ` • ${tx.notes}` : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-bold text-emerald-800 font-mono">
+                    {formatCurrency(tx.amount)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t flex items-center justify-between text-xs font-bold bg-[#FAF9F6] p-3 rounded-2xl">
+              <span className="text-slate-700">Total Amount Received to Date:</span>
+              <span className="text-emerald-800 font-serif text-sm">
+                {formatCurrency(totalVerifiedPaid)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Bottom Booking Action Bar */}
         <div className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-6 md:p-8 rounded-3xl shadow-2xl border border-[#D4AF37]/50 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -304,6 +380,33 @@ function ClientPortalContent() {
                     {formatCurrency(quotation.payment.grandTotal)}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Client Custom Advance Amount Input */}
+            <div className="bg-[#FAF9F6] p-4 rounded-2xl border-2 border-[#D4AF37] space-y-2 shadow-xs">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-[#0D4F4F] flex items-center gap-1.5">
+                  <Wallet className="w-4 h-4 text-[#D4AF37]" />
+                  Advance Amount You Are Transferring (PKR)
+                </label>
+                <span className="text-[10px] text-slate-500 font-medium">Editable amount</span>
+              </div>
+              <div className="relative">
+                <span className="absolute left-3.5 top-2.5 font-bold text-sm text-[#0D4F4F]">Rs.</span>
+                <input
+                  type="number"
+                  min="1000"
+                  max={quotation.payment.grandTotal}
+                  value={customAdvanceAmount}
+                  onChange={(e) => setCustomAdvanceAmount(e.target.value ? Number(e.target.value) : '')}
+                  className="w-full pl-11 pr-3 py-2 bg-white border-2 border-[#D4AF37]/60 rounded-xl font-bold text-slate-900 text-base focus:ring-2 focus:ring-[#0D4F4F] focus:border-[#0D4F4F] outline-hidden shadow-2xs"
+                  placeholder="e.g. 20000"
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium pt-0.5">
+                <span>Standard 50%: {formatCurrency(Math.round(quotation.payment.grandTotal * 0.5))}</span>
+                <span>Remaining Balance: {formatCurrency(Math.max(0, quotation.payment.grandTotal - (Number(customAdvanceAmount) || 0)))}</span>
               </div>
             </div>
 

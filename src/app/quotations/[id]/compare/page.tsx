@@ -7,6 +7,7 @@ import { Quotation, AdditionalExpense, Service, SelectedService, CrewMemberCost 
 import { storage } from '@/lib/storage';
 import { formatCurrency } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
+import { apiFetchQuotationById, apiSaveQuotation } from '@/lib/api-client';
 import { sortEventsInSequence } from '@/components/quotation/quotation-preview';
 import { 
   ArrowLeft, 
@@ -37,47 +38,72 @@ export default function QuotationComparePage() {
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
+  const prepareQuotationData = (q: Quotation, srvs: Service[]): Quotation => {
+    // Preserve existing crew breakdown, custom cost units, and existing profit analysis
+    const updatedEvents = q.events.map((evt) => ({
+      ...evt,
+      services: evt.services.map((s) => {
+        const qty = Math.max(1, s.quantity || 1);
+        const defaultMatch = srvs.find(
+          (srv) => srv.id === s.serviceId || srv.name.toLowerCase() === s.serviceName.toLowerCase()
+        );
+        // STRICT SNAPSHOT PRESERVATION: If quotation already has internalCostPerUnit, use it!
+        const existingCost = s.internalCostPerUnit !== undefined && s.internalCostPerUnit !== null
+          ? s.internalCostPerUnit
+          : (defaultMatch?.defaultInternalCost ?? 5000);
+
+        let crew = s.crewBreakdown ? [...s.crewBreakdown] : [];
+        if (crew.length === 0) {
+          crew = Array.from({ length: qty }).map((_, idx) => ({
+            id: `crew-${idx + 1}`,
+            name: `${s.serviceName} #${idx + 1}`,
+            cost: existingCost,
+          }));
+        } else if (crew.length < qty) {
+          while (crew.length < qty) {
+            crew.push({
+              id: `crew-${crew.length + 1}`,
+              name: `${s.serviceName} #${crew.length + 1}`,
+              cost: existingCost,
+            });
+          }
+        }
+
+        return {
+          ...s,
+          internalCostPerUnit: existingCost,
+          crewBreakdown: crew,
+        };
+      }),
+    }));
+
+    return {
+      ...q,
+      events: updatedEvents,
+      additionalExpenses: q.additionalExpenses || q.internalAnalysis?.additionalExpenses || [
+        { id: 'exp-1', description: 'Transport & Logistics', amount: 3000 },
+      ],
+    };
+  };
+
   // Load quotation and service defaults
   useEffect(() => {
     if (id) {
-      const q = storage.getQuotationById(id);
       const srvs = storage.getServices();
       setAvailableServices(srvs);
 
-      if (q) {
-        // Ensure each service has initialized crewBreakdown if missing
-        const updatedEvents = q.events.map((evt) => ({
-          ...evt,
-          services: evt.services.map((s) => {
-            const qty = Math.max(1, s.quantity || 1);
-            const defaultMatch = srvs.find((srv) => srv.id === s.serviceId || srv.name.toLowerCase() === s.serviceName.toLowerCase());
-            const defaultCost = s.internalCostPerUnit ?? defaultMatch?.defaultInternalCost ?? 5000;
-
-            let crew = s.crewBreakdown;
-            if (!crew || crew.length === 0) {
-              crew = Array.from({ length: qty }).map((_, idx) => ({
-                id: `crew-${idx + 1}`,
-                name: `${s.serviceName} #${idx + 1}`,
-                cost: defaultCost,
-              }));
-            }
-
-            return {
-              ...s,
-              internalCostPerUnit: defaultCost,
-              crewBreakdown: crew,
-            };
-          }),
-        }));
-
-        setQuotation({
-          ...q,
-          events: updatedEvents,
-          additionalExpenses: q.additionalExpenses || [
-            { id: 'exp-1', description: 'Transport & Logistics', amount: 3000 },
-          ],
-        });
+      const localQ = storage.getQuotationById(id);
+      if (localQ) {
+        setQuotation(prepareQuotationData(localQ, srvs));
       }
+
+      // Also fetch latest cloud data from Supabase PostgreSQL
+      apiFetchQuotationById(id).then((cloudQ) => {
+        if (cloudQ) {
+          setQuotation(prepareQuotationData(cloudQ, srvs));
+          storage.saveQuotationLocally(cloudQ);
+        }
+      });
     }
   }, [id]);
 
@@ -240,10 +266,12 @@ export default function QuotationComparePage() {
     });
   };
 
-  // Save changes to storage
-  const handleSaveAnalysis = () => {
+  // Save changes to storage and cloud database
+  const handleSaveAnalysis = async () => {
     const updatedQuotation: Quotation = {
       ...quotation,
+      events: quotation.events,
+      additionalExpenses,
       internalAnalysis: {
         totalInternalCost,
         netProfit,
@@ -251,9 +279,20 @@ export default function QuotationComparePage() {
         additionalExpenses,
         eventBreakdown: eventCosts,
       },
+      updatedAt: new Date().toISOString(),
     };
-    storage.saveQuotation(updatedQuotation);
-    setSaveSuccessMsg('Internal profit analysis saved successfully!');
+    storage.saveQuotationLocally(updatedQuotation);
+    setQuotation(updatedQuotation);
+    setSaveSuccessMsg('Saving profit analysis to cloud database...');
+
+    try {
+      await apiSaveQuotation(updatedQuotation);
+      setSaveSuccessMsg('✅ Internal profit analysis saved to database successfully!');
+    } catch (e) {
+      console.error('Error syncing profit analysis to database', e);
+      setSaveSuccessMsg('✅ Profit analysis saved locally!');
+    }
+
     setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
 

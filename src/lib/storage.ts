@@ -1,4 +1,4 @@
-import { Quotation, Service, AppSettings, UserAccount } from './types';
+import { Quotation, Service, AppSettings, UserAccount, PaymentTransaction } from './types';
 import { DEFAULT_SERVICES, DEFAULT_SETTINGS, DEFAULT_INCLUSIONS } from './defaults';
 import { getTodayDateString } from './utils';
 import { generateSecureId } from './crypto';
@@ -402,5 +402,98 @@ export const storage = {
       console.error('Error restoring backup data', e);
       return false;
     }
+  },
+  recordPaymentTransaction: (quotationId: string, transaction: PaymentTransaction): Quotation | null => {
+    const q = storage.getQuotationById(quotationId);
+    if (!q) return null;
+
+    const existingTx = q.payment?.transactions || [];
+    const updatedTx = [...existingTx, transaction];
+    const totalPaid = updatedTx.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const grandTotal = q.payment?.grandTotal || 0;
+    const balance = Math.max(0, grandTotal - totalPaid);
+
+    let status: 'unpaid' | 'partially_paid' | 'paid_in_full' = 'unpaid';
+    if (totalPaid >= grandTotal && grandTotal > 0) status = 'paid_in_full';
+    else if (totalPaid > 0) status = 'partially_paid';
+
+    const updatedQuotation: Quotation = {
+      ...q,
+      payment: {
+        ...q.payment,
+        advanceReceived: totalPaid,
+        balancePayable: balance,
+        transactions: updatedTx,
+        paymentStatus: status,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    storage.saveQuotationLocally(updatedQuotation);
+    return updatedQuotation;
+  },
+
+  updatePaymentTransaction: (
+    quotationId: string,
+    transactionId: string,
+    updatedFields: Partial<PaymentTransaction>
+  ): Quotation | null => {
+    const q = storage.getQuotationById(quotationId);
+    if (!q) return null;
+
+    const existingTx = q.payment?.transactions || [];
+    const updatedTx = existingTx.map((t) => (t.id === transactionId ? { ...t, ...updatedFields } : t));
+    const totalPaid = updatedTx.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const grandTotal = q.payment?.grandTotal || 0;
+    const balance = Math.max(0, grandTotal - totalPaid);
+
+    let status: 'unpaid' | 'partially_paid' | 'paid_in_full' = 'unpaid';
+    if (totalPaid >= grandTotal && grandTotal > 0) status = 'paid_in_full';
+    else if (totalPaid > 0) status = 'partially_paid';
+
+    const updatedQuotation: Quotation = {
+      ...q,
+      payment: {
+        ...q.payment,
+        advanceReceived: totalPaid,
+        balancePayable: balance,
+        transactions: updatedTx,
+        paymentStatus: status,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    storage.saveQuotationLocally(updatedQuotation);
+    return updatedQuotation;
+  },
+
+  deletePaymentTransaction: (quotationId: string, transactionId: string): Quotation | null => {
+    const q = storage.getQuotationById(quotationId);
+    if (!q) return null;
+
+    const existingTx = q.payment?.transactions || [];
+    const updatedTx = existingTx.filter((t) => t.id !== transactionId);
+    const totalPaid = updatedTx.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const grandTotal = q.payment?.grandTotal || 0;
+    const balance = Math.max(0, grandTotal - totalPaid);
+
+    let status: 'unpaid' | 'partially_paid' | 'paid_in_full' = 'unpaid';
+    if (totalPaid >= grandTotal && grandTotal > 0) status = 'paid_in_full';
+    else if (totalPaid > 0) status = 'partially_paid';
+
+    const updatedQuotation: Quotation = {
+      ...q,
+      payment: {
+        ...q.payment,
+        advanceReceived: totalPaid,
+        balancePayable: balance,
+        transactions: updatedTx,
+        paymentStatus: status,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    storage.saveQuotationLocally(updatedQuotation);
+    return updatedQuotation;
   },
 };

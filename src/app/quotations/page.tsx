@@ -18,16 +18,20 @@ import {
   MessageSquare,
   ExternalLink,
   Lock,
-  Unlock
+  Unlock,
+  Receipt
 } from 'lucide-react';
 
 import { StatusBadge, STATUS_CLASSES } from '@/components/quotation/status-badge';
+import { PaymentLedgerModal } from '@/components/quotation/payment-ledger-modal';
+import { Quotation } from '@/lib/types';
 
 export default function QuotationsListPage() {
   const { quotations, loading, saveQuotation, deleteQuotation, duplicateQuotation } = useQuotations();
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedLedgerQuote, setSelectedLedgerQuote] = useState<Quotation | null>(null);
 
   const filtered = quotations.filter((q) => {
     const matchesSearch =
@@ -256,6 +260,16 @@ export default function QuotationsListPage() {
                             <ExternalLink className="w-4 h-4" />
                           </a>
 
+                          <button
+                            type="button"
+                            onClick={() => setSelectedLedgerQuote(q)}
+                            className="p-1.5 rounded-lg text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200 border border-emerald-300 transition-colors shadow-2xs flex items-center gap-1 text-[11px] font-bold"
+                            title="Live Payment Ledger & Bill Management"
+                          >
+                            <Receipt className="w-4 h-4 text-emerald-800" />
+                            <span className="hidden xl:inline">Ledger</span>
+                          </button>
+
                           <Link
                             href={`/quotations/${q.id}/compare`}
                             className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-[11px] shadow-2xs hover:brightness-105 transition-all flex items-center gap-1"
@@ -306,6 +320,19 @@ export default function QuotationsListPage() {
           </div>
         )}
       </div>
+
+      {/* Live Payment Ledger Modal */}
+      {selectedLedgerQuote && (
+        <PaymentLedgerModal
+          isOpen={!!selectedLedgerQuote}
+          quotation={selectedLedgerQuote}
+          onClose={() => setSelectedLedgerQuote(null)}
+          onQuotationUpdate={(updated) => {
+            saveQuotation(updated);
+            setSelectedLedgerQuote(updated);
+          }}
+        />
+      )}
     </div>
   );
 }

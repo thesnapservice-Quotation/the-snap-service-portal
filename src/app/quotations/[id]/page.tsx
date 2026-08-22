@@ -8,7 +8,8 @@ import { apiFetchQuotationById } from '@/lib/api-client';
 import { useSettings } from '@/hooks/use-settings';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { QuotationActions } from '@/components/quotation/quotation-actions';
-import { ArrowLeft, Edit3, Sparkles } from 'lucide-react';
+import { PaymentLedgerModal } from '@/components/quotation/payment-ledger-modal';
+import { ArrowLeft, Edit3, Sparkles, Receipt } from 'lucide-react';
 import Link from 'next/link';
 
 export default function QuotationDetailPage() {
@@ -18,6 +19,7 @@ export default function QuotationDetailPage() {
 
   const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showLedgerModal, setShowLedgerModal] = useState(false);
   const { settings } = useSettings();
 
   useEffect(() => {
@@ -94,12 +96,23 @@ export default function QuotationDetailPage() {
           </div>
         </div>
 
-        <Link
-          href={`/quotations/new?id=${quotation.id}`}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D4F4F] text-[#D4AF37] text-xs font-bold hover:bg-[#093A3A] transition-all shadow-sm"
-        >
-          <Edit3 className="w-4 h-4" /> Edit Quotation
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowLedgerModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-100/90 text-emerald-900 border border-emerald-300 text-xs font-bold hover:bg-emerald-200 transition-all shadow-xs"
+            title="Live Payment Ledger & Bill Management"
+          >
+            <Receipt className="w-4 h-4 text-emerald-800" /> Payment Ledger
+          </button>
+
+          <Link
+            href={`/quotations/new?id=${quotation.id}`}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D4F4F] text-[#D4AF37] text-xs font-bold hover:bg-[#093A3A] transition-all shadow-sm"
+          >
+            <Edit3 className="w-4 h-4" /> Edit Quotation
+          </Link>
+        </div>
       </div>
 
       {/* Floating Action Buttons */}
@@ -114,6 +127,19 @@ export default function QuotationDetailPage() {
       <div className="bg-white p-2 md:p-6 rounded-xl border border-slate-200 shadow-md">
         <QuotationPreview quotation={quotation} settings={settings} />
       </div>
+
+      {/* Payment Ledger Modal */}
+      {showLedgerModal && (
+        <PaymentLedgerModal
+          isOpen={showLedgerModal}
+          quotation={quotation}
+          onClose={() => setShowLedgerModal(false)}
+          onQuotationUpdate={(updated) => {
+            setQuotation(updated);
+            storage.saveQuotationLocally(updated);
+          }}
+        />
+      )}
     </div>
   );
 }

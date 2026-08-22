@@ -65,12 +65,28 @@ export interface ClientDetails {
   eventDates: string; // e.g. "12th Oct - 15th Oct 2026"
 }
 
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'other';
+
+export interface PaymentTransaction {
+  id: string;
+  date: string; // YYYY-MM-DD format (e.g. "2026-08-23")
+  amount: number;
+  method: PaymentMethod;
+  notes?: string;
+  recordedBy?: string;
+  receiptUrl?: string;
+  createdAt: string;
+}
+
 export interface PaymentDetails {
   grandTotal: number; // Sum of all event prices
   advanceReceived: number;
   advanceType: 'fixed' | 'percentage';
   advancePercentage?: number;
   balancePayable: number;
+  transactions?: PaymentTransaction[]; // Live ledger payment history
+  clientProposedAdvance?: number; // Custom advance entered by client on portal link
+  paymentStatus?: 'unpaid' | 'partially_paid' | 'paid_in_full';
 }
 
 export interface AdditionalExpense {

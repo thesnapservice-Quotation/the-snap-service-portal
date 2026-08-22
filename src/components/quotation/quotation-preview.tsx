@@ -530,6 +530,50 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
           </div>
         )}
 
+        {/* VERIFIED PAYMENT RECEIPTS LEDGER (If any payments recorded) */}
+        {payment.transactions && payment.transactions.length > 0 && (
+          <div className="my-2.5 sm:my-3 relative z-10 bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs space-y-2">
+            <div className="flex items-center justify-between border-b pb-2">
+              <span className="font-serif font-bold text-xs text-[#0D4F4F] flex items-center gap-1.5 uppercase tracking-wider">
+                <Receipt className="w-3.5 h-3.5 text-[#D4AF37]" />
+                Payment Receipts & Balance Ledger
+              </span>
+              <span className="text-[9.5px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                Verified Records
+              </span>
+            </div>
+
+            <div className="divide-y divide-slate-100 text-[10px] sm:text-[11px]">
+              {payment.transactions.map((tx) => (
+                <div key={tx.id} className="py-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#0D4F4F] font-bold">✓</span>
+                    <span className="font-bold text-slate-800">
+                      {tx.method === 'cash' ? 'Cash' : tx.method === 'bank_transfer' ? 'Bank Transfer' : 'Online'}
+                    </span>
+                    <span className="text-slate-400">
+                      ({new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})
+                    </span>
+                    {tx.notes && <span className="text-slate-500 italic hidden sm:inline">- {tx.notes}</span>}
+                  </div>
+                  <span className="font-bold text-emerald-800 font-mono">
+                    {formatCurrency(tx.amount)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t flex items-center justify-between text-[10px] sm:text-[11px] font-bold">
+              <span className="text-slate-600">
+                Total Paid: <span className="text-emerald-800">{formatCurrency(payment.advanceReceived || 0)}</span>
+              </span>
+              <span className="text-slate-900">
+                Remaining Balance Due: <span className="text-[#0D4F4F] font-serif text-xs">{formatCurrency(payment.balancePayable)}</span>
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* TERMS & CONDITIONS + BANK DETAILS GRID (Rounded Corners) */}
         <div className="my-2.5 sm:my-3 pt-2 border-t border-[#E5E0D5] relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-xs">
