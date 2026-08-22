@@ -6,6 +6,7 @@ import { useProfitPrivacy } from '@/context/profit-privacy-context';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Quotation } from '@/lib/types';
 import { PaymentLedgerModal } from '@/components/quotation/payment-ledger-modal';
+import { DateRangePicker, DateRange, computePresetRange } from '@/components/analytics/date-range-picker';
 import { 
   Sparkles, 
   TrendingUp, 
@@ -25,7 +26,8 @@ import {
   AlertCircle,
   ArrowRight,
   Filter,
-  ExternalLink
+  ExternalLink,
+  Calendar
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -33,9 +35,15 @@ export default function StudioAnalyticsPage() {
   const { quotations, refreshQuotations } = useQuotations();
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
 
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'confirmed_completed' | 'sent'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [ledgerModalQuotation, setLedgerModalQuotation] = useState<Quotation | null>(null);
+
+  // Date Range filter state (Default to Maximum / All Time so all confirmed bookings are visible immediately)
+  const [dateRange, setDateRange] = useState<DateRange>(() => ({
+    startDate: null,
+    endDate: null,
+    preset: 'all_time',
+  }));
 
   // Helper functions for Single Source of Truth financial calculations
   const getEventTotal = (q: Quotation): number => {
@@ -67,9 +75,63 @@ export default function StudioAnalyticsPage() {
     return Number(q.payment?.advanceReceived) || 0;
   };
 
-  // Strictly filter to ONLY confirmed and completed bookings (no sent or draft quotations)
+  // Date range filter helper
+  const isQuotationInDateRange = (q: Quotation): boolean => {
+    if (!dateRange.startDate && !dateRange.endDate) return true;
+
+    const startMs = dateRange.startDate ? new Date(dateRange.startDate).setHours(0, 0, 0, 0) : 0;
+    const endMs = dateRange.endDate ? new Date(dateRange.endDate).setHours(23, 59, 59, 999) : Infinity;
+
+    // 1. Check event dates in q.events
+    if (q.events && q.events.length > 0) {
+      const hasMatchingEvent = q.events.some((e) => {
+        if (!e.eventDate) return false;
+        const d = new Date(e.eventDate).getTime();
+        return !isNaN(d) && d >= startMs && d <= endMs;
+      });
+      if (hasMatchingEvent) return true;
+    }
+
+    // 2. Check quotationDate
+    if (q.client?.quotationDate) {
+      const d = new Date(q.client.quotationDate).getTime();
+      if (!isNaN(d) && d >= startMs && d <= endMs) return true;
+    }
+
+    // 3. Check createdAt
+    if (q.createdAt) {
+      const d = new Date(q.createdAt).getTime();
+      if (!isNaN(d) && d >= startMs && d <= endMs) return true;
+    }
+
+    // 4. Check payment transactions dates
+    if (q.payment?.transactions && q.payment.transactions.length > 0) {
+      const hasMatchingTx = q.payment.transactions.some((tx) => {
+        if (!tx.date) return false;
+        const d = new Date(tx.date).getTime();
+        return !isNaN(d) && d >= startMs && d <= endMs;
+      });
+      if (hasMatchingTx) return true;
+    }
+
+    // 5. Try parsing dates in q.client.eventDates
+    if (q.client?.eventDates) {
+      const words = q.client.eventDates.match(/\d{4}-\d{2}-\d{2}/g);
+      if (words && words.length > 0) {
+        const match = words.some((w) => {
+          const d = new Date(w).getTime();
+          return !isNaN(d) && d >= startMs && d <= endMs;
+        });
+        if (match) return true;
+      }
+    }
+
+    return false;
+  };
+
+  // Strictly filter to ONLY confirmed and completed bookings (no sent or draft quotations) & apply date range filter
   const targetQuotations = quotations.filter(
-    (q) => q.status === 'confirmed' || q.status === 'completed'
+    (q) => (q.status === 'confirmed' || q.status === 'completed') && isQuotationInDateRange(q)
   );
 
   // Filtered list for the data table based on search
@@ -150,29 +212,40 @@ export default function StudioAnalyticsPage() {
 
       {/* 6-Step Financial Workflow Pipeline Cards (In Exact Flow Sequence) */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
             <span className="font-serif font-bold text-sm text-[#0D4F4F] uppercase tracking-wider">
               Financial Workflow Pipeline
             </span>
-            <span className="text-[11px] text-slate-400 font-medium">
+            <span className="text-[11px] text-slate-400 font-medium hidden md:inline">
               (Event ➔ Expenses ➔ Profit ➔ Received ➔ Profit Received ➔ Pending)
             </span>
           </div>
-          <button
-            onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
-            className="text-xs font-bold px-3 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs transition-colors"
-          >
-            {isProfitUnlocked ? (
-              <>
-                <Unlock className="w-3.5 h-3.5 text-emerald-600" /> Lock Cost & Profit
-              </>
-            ) : (
-              <>
-                <Lock className="w-3.5 h-3.5 text-amber-600" /> Unlock Cost & Profit
-              </>
-            )}
-          </button>
+
+          {/* Top Controls: Date Range Picker + Lock Cost & Profit */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* Google / Meta Ads style Date Range Picker */}
+            <DateRangePicker 
+              dateRange={dateRange} 
+              onChange={setDateRange} 
+            />
+
+            {/* Lock / Unlock Cost & Profit */}
+            <button
+              onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
+              className="text-xs font-bold px-3 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs transition-colors shrink-0"
+            >
+              {isProfitUnlocked ? (
+                <>
+                  <Unlock className="w-3.5 h-3.5 text-emerald-600" /> Lock Cost & Profit
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-amber-600" /> Unlock Cost & Profit
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
