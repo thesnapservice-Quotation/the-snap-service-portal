@@ -13,12 +13,10 @@ interface InclusionsPickerProps {
 
 const PREDEFINED_EXTRA_ITEMS = [
   'Extra Album',
-  'Extra Album Sheets (10 Pages)',
-  'External Hard Drive (1TB / 2TB)',
-  'Custom Wooden / Crystal USB Box',
-  'Raw Footage on Storage Drive',
-  'Krizma Lay-Flat Album',
-  'Signature Canvas Print / Frame',
+  'Extra Sheets',
+  'Hard Drive',
+  'USB',
+  'Coffee table Album Box',
   'Instagram Reels & Teasers Package',
   'Same Day Edit (SDE Teaser)',
 ];
@@ -27,6 +25,46 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [newInclusionText, setNewInclusionText] = useState('');
   const [selectedDropdownValue, setSelectedDropdownValue] = useState('');
+
+  // Automatic cleanup of legacy default inclusions in drafts
+  useEffect(() => {
+    if (!inclusions || inclusions.length === 0) return;
+
+    const hasOldDefaults = inclusions.some(
+      (i) => i.name === 'Raw Footage' || i.name === 'Hard Drive' || i.name === 'Krizma Album'
+    );
+    const hasHighlights = inclusions.some((i) => i.name.toLowerCase().includes('highlight'));
+    const hasSongs = inclusions.some((i) => i.name.toLowerCase().includes('song'));
+
+    if (hasOldDefaults && (!hasHighlights || !hasSongs)) {
+      const cleaned = inclusions.filter(
+        (i) =>
+          i.name !== 'Raw Footage' &&
+          i.name !== 'Hard Drive' &&
+          i.name !== 'Krizma Album' &&
+          i.name !== 'Extra Album'
+      );
+
+      if (!cleaned.some((i) => i.name.toLowerCase().includes('highlight'))) {
+        cleaned.splice(1, 0, {
+          id: generateSecureId('inc'),
+          name: 'Events Highlights for each day',
+          included: true,
+          quantity: 1,
+        });
+      }
+      if (!cleaned.some((i) => i.name.toLowerCase().includes('song'))) {
+        cleaned.splice(2, 0, {
+          id: generateSecureId('inc'),
+          name: 'Couple Shoot Songs',
+          included: true,
+          quantity: 1,
+        });
+      }
+
+      onChange(cleaned);
+    }
+  }, []);
 
   // Auto-sync Complete Video Editing quantity with event days that have video coverage
   useEffect(() => {

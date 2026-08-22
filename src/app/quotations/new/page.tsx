@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { storage } from '@/lib/storage';
 import { getTodayDateString, sortEventsInSequence } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
+import { DEFAULT_INCLUSIONS } from '@/lib/defaults';
 import { apiFetchQuotationById } from '@/lib/api-client';
 import { ClientDetailsForm } from '@/components/quotation/client-details-form';
 import { EventBuilder } from '@/components/quotation/event-builder';
@@ -43,14 +44,8 @@ function NewQuotationContent() {
       if (existing) return existing;
     }
 
-    // Default template inclusions from settings
-    const defaultIncList: PackageInclusion[] = settings.quotation.defaultInclusions.map(
-      (name, i) => ({
-        id: `inc-${i}`,
-        name,
-        included: true,
-      })
-    );
+    // Default template inclusions (Standard 6 Deliverables)
+    const defaultIncList: PackageInclusion[] = DEFAULT_INCLUSIONS.map((item) => ({ ...item }));
 
     // Initial default events (Mehndi)
     const initialEvents: EventItem[] = [
