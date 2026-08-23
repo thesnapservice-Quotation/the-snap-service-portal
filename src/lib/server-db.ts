@@ -325,26 +325,55 @@ import { AppSettings } from './types';
 import { DEFAULT_SETTINGS } from './defaults';
 
 const PRIMARY_SETTINGS_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315585';
-let cachedSettings: AppSettings | null = null;
+const cachedSettingsMap = new Map<string, AppSettings>();
 
-export async function getSettingsFromDb(): Promise<AppSettings> {
-  if (cachedSettings) return cachedSettings;
+export async function getSettingsFromDb(userId?: string): Promise<AppSettings> {
+  const targetId = userId || 'global';
+  if (cachedSettingsMap.has(targetId)) {
+    return cachedSettingsMap.get(targetId)!;
+  }
 
-  // 1. Try fetching from Supabase table 'app_settings'
+  // 1. Try fetching from Supabase 'quotations' table with sys_settings_{userId}
+  try {
+    const sysId = `sys_settings_${targetId}`;
+    const { data } = await supabase
+      .from('quotations')
+      .select('full_data')
+      .eq('id', sysId)
+      .single();
+
+    if (data?.full_data?.settings?.bank) {
+      const parsed = data.full_data.settings as AppSettings;
+      cachedSettingsMap.set(targetId, parsed);
+      return parsed;
+    }
+  } catch {}
+
+  // 2. Try fetching from Supabase table 'app_settings'
   try {
     const { data, error } = await supabase
       .from('app_settings')
       .select('*')
+      .eq('id', targetId === 'global' ? 'global-settings' : targetId)
       .limit(1)
       .single();
 
-    if (!error && data && data.settings_data) {
-      cachedSettings = data.settings_data;
-      return cachedSettings as AppSettings;
+    if (!error && data && data.settings_data?.bank) {
+      const parsed = data.settings_data as AppSettings;
+      cachedSettingsMap.set(targetId, parsed);
+      return parsed;
     }
   } catch {}
 
-  // 2. Try fetching from secondary Cloud DB
+  // If user-specific settings not found, try falling back to global/admin template
+  if (targetId !== 'global' && targetId !== 'user-super-admin') {
+    const adminSettings = await getSettingsFromDb('user-super-admin');
+    if (adminSettings && adminSettings.bank) {
+      return adminSettings;
+    }
+  }
+
+  // 3. Fallback to secondary Cloud DB for global
   try {
     const res = await fetch(PRIMARY_SETTINGS_CLOUD_DB, {
       headers: { 'Accept': 'application/json' },
@@ -353,7 +382,7 @@ export async function getSettingsFromDb(): Promise<AppSettings> {
     if (res.ok) {
       const data = await res.json();
       if (data && data.bank) {
-        cachedSettings = data;
+        cachedSettingsMap.set(targetId, data);
         return data as AppSettings;
       }
     }
@@ -362,28 +391,52 @@ export async function getSettingsFromDb(): Promise<AppSettings> {
   return DEFAULT_SETTINGS;
 }
 
-export async function saveSettingsToDb(settings: AppSettings): Promise<AppSettings> {
-  cachedSettings = settings;
+export async function saveSettingsToDb(settings: AppSettings, userId?: string): Promise<AppSettings> {
+  const targetId = userId || 'global';
+  cachedSettingsMap.set(targetId, settings);
 
-  // 1. Save to Supabase
+  // 1. Save to Supabase quotations table under isolated sys_settings_{targetId}
+  try {
+    const sysId = `sys_settings_${targetId}`;
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: sysId,
+        quotation_number: `SYS-SETTINGS-${targetId}`,
+        user_id: targetId,
+        status: 'confirmed',
+        client: { name: `Settings for ${targetId}`, phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemSettingsRecord: true, userId: targetId, settings },
+        updated_at: new Date().toISOString(),
+      });
+  } catch (e) {
+    console.error('Error saving settings to Supabase quotations:', e);
+  }
+
+  // 2. Save to Supabase app_settings table
   try {
     await supabase
       .from('app_settings')
       .upsert({
-        id: 'global-settings',
+        id: targetId === 'global' ? 'global-settings' : targetId,
         settings_data: settings,
         updated_at: new Date().toISOString(),
       });
   } catch {}
 
-  // 2. Save to Cloud DB
-  try {
-    await fetch(PRIMARY_SETTINGS_CLOUD_DB, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(settings),
-    });
-  } catch {}
+  // 3. Save to Cloud DB if global
+  if (targetId === 'global' || targetId === 'user-super-admin') {
+    try {
+      await fetch(PRIMARY_SETTINGS_CLOUD_DB, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+    } catch {}
+  }
 
   return settings;
 }

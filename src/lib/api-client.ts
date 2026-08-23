@@ -95,10 +95,13 @@ export async function apiDeleteQuotation(id: string): Promise<boolean> {
 
 import { AppSettings } from './types';
 
-export async function apiFetchSettings(): Promise<AppSettings | null> {
+export async function apiFetchSettings(userId?: string): Promise<AppSettings | null> {
   try {
     const timestamp = Date.now();
-    const res = await fetch(`/api/settings?_t=${timestamp}`, {
+    const url = userId
+      ? `/api/settings?userId=${encodeURIComponent(userId)}&_t=${timestamp}`
+      : `/api/settings?_t=${timestamp}`;
+    const res = await fetch(url, {
       cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
@@ -118,15 +121,16 @@ export async function apiFetchSettings(): Promise<AppSettings | null> {
   return null;
 }
 
-export async function apiSaveSettings(settings: AppSettings): Promise<AppSettings> {
+export async function apiSaveSettings(settings: AppSettings, userId?: string): Promise<AppSettings> {
   try {
-    const res = await fetch('/api/settings', {
+    const url = userId ? `/api/settings?userId=${encodeURIComponent(userId)}` : '/api/settings';
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
       },
-      body: JSON.stringify(settings),
+      body: JSON.stringify({ settings, userId }),
     });
     if (res.ok) {
       const data = await res.json();

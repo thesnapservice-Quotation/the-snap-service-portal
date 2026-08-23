@@ -3,9 +3,11 @@ import { getSettingsFromDb, saveSettingsToDb } from '@/lib/server-db';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const settings = await getSettingsFromDb();
+    const url = new URL(req.url);
+    const userId = url.searchParams.get('userId') || undefined;
+    const settings = await getSettingsFromDb(userId);
     return NextResponse.json(settings, {
       headers: {
         'Cache-Control': 'no-store, max-age=0',
@@ -19,8 +21,12 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const url = new URL(req.url);
     const body = await req.json();
-    const saved = await saveSettingsToDb(body);
+    const settings = body.settings || body;
+    const userId = body.userId || url.searchParams.get('userId') || undefined;
+
+    const saved = await saveSettingsToDb(settings, userId);
     return NextResponse.json(saved);
   } catch (error) {
     console.error('Error saving settings:', error);

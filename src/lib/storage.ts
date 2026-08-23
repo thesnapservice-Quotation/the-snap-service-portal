@@ -188,13 +188,22 @@ export const storage = {
     return storage.saveQuotation(newQuotation);
   },
 
-  // Service Library CRUD
-  getServices: (): Service[] => {
+  // Service Library CRUD (Per-User)
+  getServices: (targetUserId?: string): Service[] => {
     if (typeof window === 'undefined') return DEFAULT_SERVICES;
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.SERVICES);
+      const currentUser = storage.getCurrentUser();
+      const userId = targetUserId || currentUser?.id || 'default';
+      const userKey = `${STORAGE_KEYS.SERVICES}_${userId}`;
+      const data = localStorage.getItem(userKey);
       if (!data) {
-        localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(DEFAULT_SERVICES));
+        const globalData = localStorage.getItem(STORAGE_KEYS.SERVICES);
+        if (globalData) {
+          const parsed = JSON.parse(globalData);
+          localStorage.setItem(userKey, JSON.stringify(parsed));
+          return parsed;
+        }
+        localStorage.setItem(userKey, JSON.stringify(DEFAULT_SERVICES));
         return DEFAULT_SERVICES;
       }
       return JSON.parse(data);
@@ -204,9 +213,12 @@ export const storage = {
     }
   },
 
-  saveServices: (services: Service[]): void => {
+  saveServices: (services: Service[], targetUserId?: string): void => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
+      const currentUser = storage.getCurrentUser();
+      const userId = targetUserId || currentUser?.id || 'default';
+      const userKey = `${STORAGE_KEYS.SERVICES}_${userId}`;
+      localStorage.setItem(userKey, JSON.stringify(services));
       storage.triggerAutoBackup();
     }
   },

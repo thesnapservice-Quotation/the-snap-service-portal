@@ -392,6 +392,7 @@ export function useAuth() {
     setCurrentUser(switchedSession);
 
     if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('snap_user_switched'));
       window.dispatchEvent(new Event('snap_quotation_updated'));
       window.dispatchEvent(new Event('storage'));
     }
@@ -410,6 +411,7 @@ export function useAuth() {
       setCurrentUser(cleanAdmin);
 
       if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('snap_user_switched'));
         window.dispatchEvent(new Event('snap_quotation_updated'));
         window.dispatchEvent(new Event('storage'));
       }
@@ -421,6 +423,7 @@ export function useAuth() {
     storage.setCurrentUser(null);
     setCurrentUser(null);
     if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('snap_user_switched'));
       window.dispatchEvent(new Event('snap_quotation_updated'));
       window.dispatchEvent(new Event('storage'));
     }

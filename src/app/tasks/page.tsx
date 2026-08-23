@@ -251,10 +251,10 @@ export default function TasksPage() {
   };
 
   // Filter accessible tasks based on user role:
-  // - Super Admin & Standard Staff can view all tasks across the studio
-  // - Task Manager (e.g. Jawad) sees only tasks assigned to them or created by them
+  // - Super Admin can view all tasks across the studio
+  // - Standard Users & Task Managers see ONLY tasks assigned to them or created by them (admin tasks hidden unless assigned)
   const accessibleTasks = useMemo(() => {
-    if (isTaskManager && currentUser?.id) {
+    if (!isSuperAdmin && currentUser?.id) {
       return tasks.filter(
         (t) =>
           t.assignedToUserId === currentUser.id ||
@@ -262,7 +262,7 @@ export default function TasksPage() {
       );
     }
     return tasks;
-  }, [tasks, isTaskManager, currentUser?.id]);
+  }, [tasks, isSuperAdmin, currentUser?.id]);
 
   // Computed Tasks with Dynamic Status
   const computedTasks = useMemo(() => {
