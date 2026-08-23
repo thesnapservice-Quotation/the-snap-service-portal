@@ -1,4 +1,4 @@
-import { TaskItem, TaskCategory, TaskPriority, TaskStatus } from './types';
+import { TaskItem, TaskCategory, TaskPriority, TaskStatus, TaskReminderTiming } from './types';
 
 export interface CategoryMeta {
   id: TaskCategory;
@@ -231,3 +231,75 @@ export function getPriorityBadgeConfig(priority: TaskPriority) {
       return 'bg-slate-100 text-slate-700 border-slate-200';
   }
 }
+
+export function calculateReminderTimestamp(
+  startStr: string,
+  deadlineStr: string,
+  timing: TaskReminderTiming,
+  customVal?: string
+): string {
+  if (timing === 'none') return '';
+  if (timing === 'custom') return customVal || '';
+
+  const startDate = startStr ? new Date(startStr) : null;
+  const deadlineDate = deadlineStr ? new Date(deadlineStr) : null;
+  const startTime = startDate && !isNaN(startDate.getTime()) ? startDate.getTime() : 0;
+  const deadlineTime = deadlineDate && !isNaN(deadlineDate.getTime()) ? deadlineDate.getTime() : 0;
+
+  switch (timing) {
+    case 'at_start':
+      return startStr || '';
+    case '15_min_before':
+    case '15_min_before_start':
+      return startTime ? new Date(startTime - 15 * 60000).toISOString().slice(0, 16) : '';
+    case '30_min_before':
+    case '30_min_before_start':
+      return startTime ? new Date(startTime - 30 * 60000).toISOString().slice(0, 16) : '';
+    case '1_hour_before':
+    case '1_hour_before_start':
+      return startTime ? new Date(startTime - 60 * 60000).toISOString().slice(0, 16) : '';
+    case '30_min_before_deadline':
+      return deadlineTime ? new Date(deadlineTime - 30 * 60000).toISOString().slice(0, 16) : '';
+    case '1_hour_before_deadline':
+      return deadlineTime ? new Date(deadlineTime - 60 * 60000).toISOString().slice(0, 16) : '';
+    case '2_hours_before_deadline':
+      return deadlineTime ? new Date(deadlineTime - 120 * 60000).toISOString().slice(0, 16) : '';
+    case 'halfway':
+      if (startTime && deadlineTime && deadlineTime > startTime) {
+        const mid = startTime + (deadlineTime - startTime) / 2;
+        return new Date(mid).toISOString().slice(0, 16);
+      }
+      return startTime ? new Date(startTime).toISOString().slice(0, 16) : '';
+    default:
+      return '';
+  }
+}
+
+export function getReminderTimingLabel(timing: TaskReminderTiming): string {
+  switch (timing) {
+    case '1_hour_before_deadline':
+      return '⏰ 1 Hour Before Deadline';
+    case '2_hours_before_deadline':
+      return '⏳ 2 Hours Before Deadline';
+    case '30_min_before_deadline':
+      return '🚨 30 Mins Before Deadline';
+    case 'halfway':
+      return '⏱️ Midway / Half-Time Check';
+    case 'at_start':
+      return '🔔 At Start Time';
+    case '15_min_before':
+    case '15_min_before_start':
+      return '⚡ 15 Mins Before Start';
+    case '30_min_before':
+    case '30_min_before_start':
+      return '⌛ 30 Mins Before Start';
+    case '1_hour_before':
+    case '1_hour_before_start':
+      return '🕒 1 Hour Before Start';
+    case 'custom':
+      return '📅 Custom Date & Time';
+    default:
+      return 'Notification Reminder';
+  }
+}
+

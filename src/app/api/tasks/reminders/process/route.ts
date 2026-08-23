@@ -83,13 +83,66 @@ async function handleCronProcessing(request: NextRequest) {
       }
 
       // -------------------------------------------------------------
-      // 1. Task Scheduled Reminder Processing
+      // 1. Task Scheduled Reminders Processing (Multi-Reminder Support)
       // -------------------------------------------------------------
-      if (task.reminderDateTime && !task.reminderSentAt) {
+      if (Array.isArray(task.reminders) && task.reminders.length > 0) {
+        for (const rem of task.reminders) {
+          if (!rem.sentAt && rem.reminderDateTime) {
+            const reminderTime = new Date(rem.reminderDateTime).getTime();
+            if (!isNaN(reminderTime) && nowTime >= reminderTime) {
+              console.log(`[CRON] 🔔 Triggering reminder [${rem.timing}] for task: "${task.title}" (ID: ${task.id})`);
+
+              const deadlineFormatted = formatTaskDateTime(task.deadlineDateTime);
+              const clientInfo = task.clientName ? `Client: ${task.clientName}` : '';
+              const priorityInfo = task.priority === 'urgent' ? '🚨 URGENT' : task.priority === 'high' ? '⚠️ High Priority' : '';
+
+              let pushTitle = `🔔 Snap Service Reminder: ${task.title}`;
+              if (rem.timing === '1_hour_before_deadline') {
+                pushTitle = `⏳ 1 Hour Until Deadline: ${task.title}`;
+              } else if (rem.timing === '2_hours_before_deadline') {
+                pushTitle = `⏳ 2 Hours Until Deadline: ${task.title}`;
+              } else if (rem.timing === '30_min_before_deadline') {
+                pushTitle = `🚨 30 Mins Until Deadline: ${task.title}`;
+              } else if (rem.timing === 'halfway') {
+                pushTitle = `⏱️ Midway Progress Check: ${task.title}`;
+              } else if (rem.timing === 'at_start') {
+                pushTitle = `🔔 Time to Start Task: ${task.title}`;
+              }
+
+              let bodyParts = [];
+              if (clientInfo) bodyParts.push(clientInfo);
+              if (deadlineFormatted) bodyParts.push(`Deadline: ${deadlineFormatted}`);
+              if (priorityInfo) bodyParts.push(priorityInfo);
+
+              const pushBody = bodyParts.length > 0 ? bodyParts.join(' • ') : `Scheduled operation task reminder.`;
+
+              const pushResult = await sendPushNotificationToUser(assignedUserId, {
+                title: pushTitle,
+                body: pushBody,
+                icon: '/snap-service-logo.png',
+                badge: '/icon.png',
+                tag: `reminder-${task.id}-${rem.id}`,
+                data: {
+                  url: `/tasks?taskId=${task.id}`,
+                  taskId: task.id,
+                  type: 'reminder',
+                },
+              });
+
+              console.log(`[CRON] ✅ Multi-reminder push dispatched for "${task.title}": ${pushResult.sent} device(s) received, ${pushResult.failed} failed`);
+
+              rem.sentAt = nowIso;
+              isTaskUpdated = true;
+              remindersSent++;
+            }
+          }
+        }
+      } else if (task.reminderDateTime && !task.reminderSentAt) {
+        // Legacy single reminder fallback
         const reminderTime = new Date(task.reminderDateTime).getTime();
 
         if (!isNaN(reminderTime) && nowTime >= reminderTime) {
-          console.log(`[CRON] 🔔 Triggering reminder for task: "${task.title}" (ID: ${task.id}) for user ${assignedUserId}`);
+          console.log(`[CRON] 🔔 Triggering legacy reminder for task: "${task.title}" (ID: ${task.id}) for user ${assignedUserId}`);
 
           const deadlineFormatted = formatTaskDateTime(task.deadlineDateTime);
           const clientInfo = task.clientName ? `Client: ${task.clientName}` : '';

@@ -9,14 +9,17 @@ import {
   TaskCategory, 
   TaskPriority, 
   TaskStatus,
-  TaskReminderTiming
+  TaskReminderTiming,
+  TaskReminderItem
 } from '@/lib/types';
 import { 
   TASK_CATEGORIES_CONFIG, 
   computeTaskStatus, 
   formatTaskDateTime,
   getStatusBadgeConfig,
-  getPriorityBadgeConfig
+  getPriorityBadgeConfig,
+  calculateReminderTimestamp,
+  getReminderTimingLabel
 } from '@/lib/tasks-utils';
 import { DateTimePicker } from '@/components/tasks/date-time-picker';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
@@ -100,8 +103,7 @@ export default function TasksPage() {
   });
   const [formPriority, setFormPriority] = useState<TaskPriority>('medium');
   const [formFollowUpDateTime, setFormFollowUpDateTime] = useState('');
-  const [formReminderTiming, setFormReminderTiming] = useState<TaskReminderTiming>('15_min_before');
-  const [formCustomReminderTime, setFormCustomReminderTime] = useState<string>('');
+  const [formReminders, setFormReminders] = useState<TaskReminderItem[]>([]);
   const [formNotes, setFormNotes] = useState('');
 
   // Form State for Waiting / Follow-up modal
@@ -110,6 +112,136 @@ export default function TasksPage() {
     return d.toISOString().slice(0, 16);
   });
   const [waitingNotes, setWaitingNotes] = useState('');
+
+  // Auto update reminders when start/deadline changes
+  const handleStartDateTimeChange = (newStart: string) => {
+    setFormStartDateTime(newStart);
+    setFormReminders((prev) =>
+      prev.map((r) => {
+        if (r.timing === 'custom') return r;
+        return {
+          ...r,
+          reminderDateTime: calculateReminderTimestamp(newStart, formDeadlineDateTime, r.timing),
+        };
+      })
+    );
+  };
+
+  const handleDeadlineDateTimeChange = (newDeadline: string) => {
+    setFormDeadlineDateTime(newDeadline);
+    setFormReminders((prev) =>
+      prev.map((r) => {
+        if (r.timing === 'custom') return r;
+        return {
+          ...r,
+          reminderDateTime: calculateReminderTimestamp(formStartDateTime, newDeadline, r.timing),
+        };
+      })
+    );
+  };
+
+  const addReminderPreset = (timing: TaskReminderTiming) => {
+    if (timing !== 'custom' && formReminders.some((r) => r.timing === timing)) {
+      return;
+    }
+    const calcTime = calculateReminderTimestamp(formStartDateTime, formDeadlineDateTime, timing);
+    const newRem: TaskReminderItem = {
+      id: `rem-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timing,
+      reminderDateTime: calcTime || formStartDateTime,
+    };
+    setFormReminders((prev) => [...prev, newRem]);
+  };
+
+  const updateReminderItem = (id: string, updates: Partial<TaskReminderItem>) => {
+    setFormReminders((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const updated = { ...r, ...updates };
+        if (updates.timing && updates.timing !== 'custom') {
+          updated.reminderDateTime = calculateReminderTimestamp(
+            formStartDateTime,
+            formDeadlineDateTime,
+            updates.timing
+          );
+        }
+        return updated;
+      })
+    );
+  };
+
+  const removeReminderItem = (id: string) => {
+    setFormReminders((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  // Open Create Modal with clean fields
+  const handleOpenCreateModal = () => {
+    setEditingTask(null);
+    setFormTitle('');
+    setFormCategory('events');
+    setTemplateCategory('events');
+    setFormSubCategory('');
+    setFormQuotationId('');
+    setFormAssignedUserId(currentUser?.id || 'user-super-admin');
+    const now = new Date();
+    const startIso = now.toISOString().slice(0, 16);
+    const later = new Date(Date.now() + 2 * 3600000);
+    const deadlineIso = later.toISOString().slice(0, 16);
+    setFormStartDateTime(startIso);
+    setFormDeadlineDateTime(deadlineIso);
+    setFormPriority('medium');
+    setFormFollowUpDateTime('');
+
+    // Default multi-reminder presets: 1 Hour Before Deadline + 15 Mins Before Start
+    const defaultReminders: TaskReminderItem[] = [
+      {
+        id: `rem-1-${Date.now()}`,
+        timing: '1_hour_before_deadline',
+        reminderDateTime: calculateReminderTimestamp(startIso, deadlineIso, '1_hour_before_deadline'),
+      },
+      {
+        id: `rem-2-${Date.now()}`,
+        timing: '15_min_before_start',
+        reminderDateTime: calculateReminderTimestamp(startIso, deadlineIso, '15_min_before_start'),
+      },
+    ];
+    setFormReminders(defaultReminders);
+    setFormNotes('');
+    setShowCreateModal(true);
+  };
+
+  // Open Edit Modal
+  const handleOpenEditModal = (task: TaskItem) => {
+    setEditingTask(task);
+    setFormTitle(task.title);
+    setFormCategory(task.category);
+    setTemplateCategory(task.category);
+    setFormSubCategory(task.subCategory || '');
+    setFormQuotationId(task.quotationId || '');
+    setFormAssignedUserId(task.assignedToUserId || currentUser?.id || 'user-super-admin');
+    setFormStartDateTime(task.startDateTime || '');
+    setFormDeadlineDateTime(task.deadlineDateTime || '');
+    setFormPriority(task.priority);
+    setFormFollowUpDateTime(task.followUpDateTime || '');
+
+    if (Array.isArray(task.reminders) && task.reminders.length > 0) {
+      setFormReminders(task.reminders);
+    } else if (task.reminderDateTime) {
+      setFormReminders([
+        {
+          id: `rem-legacy-${Date.now()}`,
+          timing: task.reminderTiming || 'custom',
+          reminderDateTime: task.reminderDateTime,
+          sentAt: task.reminderSentAt,
+        },
+      ]);
+    } else {
+      setFormReminders([]);
+    }
+
+    setFormNotes(task.notes || '');
+    setShowCreateModal(true);
+  };
 
   // Computed Tasks with Dynamic Status
   const computedTasks = useMemo(() => {
@@ -187,59 +319,6 @@ export default function TasksPage() {
     });
   }, [computedTasks, categoryFilter, statusFilter, timeFilter, eventFilter, searchQuery, currentUser?.id]);
 
-  function computeReminderDateTime(startStr: string, timing: TaskReminderTiming, customVal?: string): string {
-    if (timing === 'none') return '';
-    if (timing === 'custom') return customVal || '';
-    if (!startStr) return '';
-    const d = new Date(startStr);
-    if (isNaN(d.getTime())) return '';
-    if (timing === 'at_start') return startStr;
-    if (timing === '15_min_before') return new Date(d.getTime() - 15 * 60000).toISOString().slice(0, 16);
-    if (timing === '30_min_before') return new Date(d.getTime() - 30 * 60000).toISOString().slice(0, 16);
-    if (timing === '1_hour_before') return new Date(d.getTime() - 60 * 60000).toISOString().slice(0, 16);
-    return '';
-  }
-
-  // Open Create Modal with clean fields
-  const handleOpenCreateModal = () => {
-    setEditingTask(null);
-    setFormTitle('');
-    setFormCategory('events');
-    setTemplateCategory('events');
-    setFormSubCategory('');
-    setFormQuotationId('');
-    setFormAssignedUserId(currentUser?.id || 'user-super-admin');
-    const now = new Date();
-    setFormStartDateTime(now.toISOString().slice(0, 16));
-    const later = new Date(Date.now() + 2 * 3600000);
-    setFormDeadlineDateTime(later.toISOString().slice(0, 16));
-    setFormPriority('medium');
-    setFormFollowUpDateTime('');
-    setFormReminderTiming('15_min_before');
-    setFormCustomReminderTime('');
-    setFormNotes('');
-    setShowCreateModal(true);
-  };
-
-  // Open Edit Modal
-  const handleOpenEditModal = (task: TaskItem) => {
-    setEditingTask(task);
-    setFormTitle(task.title);
-    setFormCategory(task.category);
-    setTemplateCategory(task.category);
-    setFormSubCategory(task.subCategory || '');
-    setFormQuotationId(task.quotationId || '');
-    setFormAssignedUserId(task.assignedToUserId || currentUser?.id || 'user-super-admin');
-    setFormStartDateTime(task.startDateTime || '');
-    setFormDeadlineDateTime(task.deadlineDateTime || '');
-    setFormPriority(task.priority);
-    setFormFollowUpDateTime(task.followUpDateTime || '');
-    setFormReminderTiming(task.reminderTiming || (task.reminderDateTime ? 'custom' : 'none'));
-    setFormCustomReminderTime(task.reminderDateTime || '');
-    setFormNotes(task.notes || '');
-    setShowCreateModal(true);
-  };
-
   // Quick Category Template Click
   const handleSelectTemplate = (cat: TaskCategory, template: string) => {
     setFormCategory(cat);
@@ -267,8 +346,6 @@ export default function TasksPage() {
       }
     }
 
-    const reminderDateTime = computeReminderDateTime(formStartDateTime, formReminderTiming, formCustomReminderTime);
-
     if (editingTask) {
       await updateTask(
         {
@@ -285,8 +362,9 @@ export default function TasksPage() {
           deadlineDateTime: formDeadlineDateTime,
           priority: formPriority,
           followUpDateTime: formFollowUpDateTime || undefined,
-          reminderTiming: formReminderTiming,
-          reminderDateTime: reminderDateTime || undefined,
+          reminders: formReminders,
+          reminderTiming: formReminders[0]?.timing || undefined,
+          reminderDateTime: formReminders[0]?.reminderDateTime || undefined,
           notes: formNotes.trim(),
         },
         'Task details updated'
@@ -305,8 +383,9 @@ export default function TasksPage() {
         deadlineDateTime: formDeadlineDateTime,
         priority: formPriority,
         followUpDateTime: formFollowUpDateTime || undefined,
-        reminderTiming: formReminderTiming,
-        reminderDateTime: reminderDateTime || undefined,
+        reminders: formReminders,
+        reminderTiming: formReminders[0]?.timing || undefined,
+        reminderDateTime: formReminders[0]?.reminderDateTime || undefined,
         notes: formNotes.trim(),
       });
     }
@@ -1031,7 +1110,7 @@ export default function TasksPage() {
                 <DateTimePicker
                   label="Start Date & Time"
                   value={formStartDateTime}
-                  onChange={(val) => setFormStartDateTime(val)}
+                  onChange={(val) => handleStartDateTimeChange(val)}
                   required
                 />
 
@@ -1039,57 +1118,161 @@ export default function TasksPage() {
                 <DateTimePicker
                   label="Deadline"
                   value={formDeadlineDateTime}
-                  onChange={(val) => setFormDeadlineDateTime(val)}
+                  onChange={(val) => handleDeadlineDateTimeChange(val)}
                   required
                 />
               </div>
 
-              {/* Push Notification Reminder Selector */}
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+              {/* Push Notification Reminders (Multi-Alert Engine) */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-700 flex items-center gap-1.5 text-xs">
-                    <Bell className="w-3.5 h-3.5 text-[#0D4F4F]" />
-                    <span>Push Notification Reminder</span>
-                  </label>
-                  <span className="text-[10px] text-slate-500 font-medium">
-                    Delivered to assigned user&apos;s phone &amp; laptop
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <select
-                      value={formReminderTiming}
-                      onChange={(e) => setFormReminderTiming(e.target.value as TaskReminderTiming)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-800 focus:ring-1 focus:ring-[#0D4F4F] focus:outline-none"
-                    >
-                      <option value="none">❌ No Reminder</option>
-                      <option value="at_start">🔔 At Start Time</option>
-                      <option value="15_min_before">⚡ 15 Minutes Before Start</option>
-                      <option value="30_min_before">⏱️ 30 Minutes Before Start</option>
-                      <option value="1_hour_before">⏰ 1 Hour Before Start</option>
-                      <option value="custom">📅 Custom Date &amp; Time...</option>
-                    </select>
+                    <label className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                      <Bell className="w-4 h-4 text-[#0D4F4F]" />
+                      <span>Multiple Push Reminders ({formReminders.length})</span>
+                    </label>
+                    <p className="text-[10.5px] text-slate-500 font-medium">
+                      Set multiple checkpoints (e.g. 1 hour before deadline + midway progress + start time).
+                    </p>
                   </div>
 
-                  {formReminderTiming === 'custom' ? (
-                    <DateTimePicker
-                      placeholder="Pick custom reminder time..."
-                      value={formCustomReminderTime}
-                      onChange={(val) => setFormCustomReminderTime(val)}
-                    />
-                  ) : (
-                    <div className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-[11px] text-slate-600 flex items-center gap-1.5 font-medium">
-                      <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>
-                        {formReminderTiming === 'none'
-                          ? 'No reminder push will be sent'
-                          : `Scheduled for: ${formatTaskDateTime(
-                              computeReminderDateTime(formStartDateTime, formReminderTiming)
-                            )}`}
-                      </span>
-                    </div>
+                  {formReminders.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFormReminders([])}
+                      className="text-[10.5px] font-bold text-red-600 hover:underline cursor-pointer"
+                    >
+                      Clear All
+                    </button>
                   )}
+                </div>
+
+                {/* Active Reminder Items */}
+                {formReminders.length === 0 ? (
+                  <div className="p-3 bg-white rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-400">
+                    No reminders added yet. Click one of the quick presets below to add alarms.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {formReminders.map((rem, idx) => {
+                      const isSent = !!rem.sentAt;
+                      return (
+                        <div
+                          key={rem.id}
+                          className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5"
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="w-5 h-5 rounded-full bg-[#0D4F4F]/10 text-[#0D4F4F] font-bold text-[10px] flex items-center justify-center shrink-0 font-mono">
+                              {idx + 1}
+                            </span>
+                            <select
+                              value={rem.timing}
+                              onChange={(e) => updateReminderItem(rem.id, { timing: e.target.value as TaskReminderTiming })}
+                              className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:outline-none"
+                            >
+                              <optgroup label="⏰ Deadline-Based Reminders">
+                                <option value="1_hour_before_deadline">⏰ 1 Hour Before Deadline</option>
+                                <option value="30_min_before_deadline">🚨 30 Mins Before Deadline</option>
+                                <option value="2_hours_before_deadline">⏳ 2 Hours Before Deadline</option>
+                              </optgroup>
+                              <optgroup label="⏱️ Progress & Start Reminders">
+                                <option value="halfway">⏱️ Midway / Halfway Progress Check</option>
+                                <option value="at_start">🔔 At Start Time</option>
+                                <option value="15_min_before_start">⚡ 15 Mins Before Start</option>
+                                <option value="30_min_before_start">⌛ 30 Mins Before Start</option>
+                                <option value="1_hour_before_start">🕒 1 Hour Before Start</option>
+                              </optgroup>
+                              <optgroup label="📅 Custom">
+                                <option value="custom">📅 Custom Date &amp; Time...</option>
+                              </optgroup>
+                            </select>
+                          </div>
+
+                          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                            {rem.timing === 'custom' ? (
+                              <div className="min-w-[190px]">
+                                <DateTimePicker
+                                  value={rem.reminderDateTime}
+                                  onChange={(val) => updateReminderItem(rem.id, { reminderDateTime: val })}
+                                />
+                              </div>
+                            ) : (
+                              <div className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10.5px] font-mono text-slate-600 flex items-center gap-1.5 font-medium">
+                                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span>{formatTaskDateTime(rem.reminderDateTime)}</span>
+                              </div>
+                            )}
+
+                            {isSent ? (
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold">
+                                Sent ✓
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => removeReminderItem(rem.id)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                title="Remove reminder"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Quick 1-Click Reminder Preset Buttons */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    + Quick Add Reminder Checkpoint:
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => addReminderPreset('1_hour_before_deadline')}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 border border-amber-300 text-amber-900 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
+                    >
+                      + ⏰ 1h Before Deadline
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addReminderPreset('30_min_before_deadline')}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-red-50 border border-red-300 text-red-900 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
+                    >
+                      + 🚨 30m Before Deadline
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addReminderPreset('halfway')}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-blue-50 border border-blue-300 text-blue-900 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
+                    >
+                      + ⏱️ Midway Progress
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addReminderPreset('at_start')}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
+                    >
+                      + 🔔 At Start Time
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addReminderPreset('15_min_before_start')}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
+                    >
+                      + ⚡ 15m Before Start
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addReminderPreset('custom')}
+                      className="px-2.5 py-1 rounded-lg bg-[#0D4F4F] hover:bg-[#093A3A] text-[#D4AF37] font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
+                    >
+                      + 📅 Custom Time...
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1264,6 +1447,34 @@ export default function TasksPage() {
                   <span className="font-bold text-slate-800">{formatTaskDateTime(detailTask.deadlineDateTime)}</span>
                 </div>
               </div>
+
+              {/* Scheduled Reminders */}
+              {Array.isArray(detailTask.reminders) && detailTask.reminders.length > 0 && (
+                <div className="pt-2 border-t border-slate-200">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold mb-1.5 flex items-center gap-1">
+                    <Bell className="w-3 h-3 text-[#0D4F4F]" /> Scheduled Push Reminders:
+                  </span>
+                  <div className="space-y-1.5">
+                    {detailTask.reminders.map((rem, idx) => (
+                      <div key={rem.id || idx} className="p-2 bg-white rounded-xl border border-slate-200 text-[11px] flex items-center justify-between">
+                        <span className="font-bold text-slate-700">{getReminderTimingLabel(rem.timing)}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-slate-500">{formatTaskDateTime(rem.reminderDateTime)}</span>
+                          {rem.sentAt ? (
+                            <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold">
+                              Delivered ✓
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 text-[9px] font-bold">
+                              Pending
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {detailTask.notes && (
                 <div className="pt-2 border-t border-slate-200">

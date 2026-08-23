@@ -236,10 +236,26 @@ export interface TaskAttachment {
 export type TaskReminderTiming = 
   | 'none'
   | 'at_start'
+  | '15_min_before_start'
+  | '30_min_before_start'
+  | '1_hour_before_start'
+  | '30_min_before_deadline'
+  | '1_hour_before_deadline'
+  | '2_hours_before_deadline'
+  | 'halfway'
+  | 'custom'
+  // Legacy aliases
   | '15_min_before'
   | '30_min_before'
-  | '1_hour_before'
-  | 'custom';
+  | '1_hour_before';
+
+export interface TaskReminderItem {
+  id: string;
+  timing: TaskReminderTiming;
+  reminderDateTime: string; // ISO string YYYY-MM-DDTHH:mm
+  sentAt?: string; // ISO timestamp
+  customLabel?: string;
+}
 
 export interface TaskItem {
   id: string;
@@ -257,9 +273,10 @@ export interface TaskItem {
   priority: TaskPriority;
   manualStatus?: 'waiting' | 'completed' | 'in_progress';
   followUpDateTime?: string; // ISO string YYYY-MM-DDTHH:mm
-  reminderTiming?: TaskReminderTiming;
-  reminderDateTime?: string; // ISO string YYYY-MM-DDTHH:mm
-  reminderSentAt?: string; // ISO timestamp
+  reminders?: TaskReminderItem[]; // Multi-reminder checkpoints
+  reminderTiming?: TaskReminderTiming; // Legacy single reminder timing
+  reminderDateTime?: string; // Legacy single ISO string YYYY-MM-DDTHH:mm
+  reminderSentAt?: string; // Legacy ISO timestamp
   overdueAlertSentAt?: string; // ISO timestamp
   followUpAlertSentAt?: string; // ISO timestamp
   notes?: string;
