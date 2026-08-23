@@ -12,6 +12,7 @@
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "clsx": "^2.1.1",
+    "firebase": "^12.18.0",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",

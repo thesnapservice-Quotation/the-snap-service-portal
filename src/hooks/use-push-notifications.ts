@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { DeviceSubscription, DeviceType } from '@/lib/types';
+import { requestFCMToken, onForegroundMessage } from '@/lib/firebase';
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -48,6 +49,7 @@ export function usePushNotifications() {
   const [isSupported, setIsSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [registeredDevices, setRegisteredDevices] = useState<DeviceSubscription[]>([]);
 
@@ -59,7 +61,7 @@ export function usePushNotifications() {
 
       // Register Service Worker in background
       navigator.serviceWorker
-        .register('/sw.js')
+        .register('/firebase-messaging-sw.js')
         .then((reg) => {
           return reg.pushManager.getSubscription();
         })
@@ -69,6 +71,23 @@ export function usePushNotifications() {
         .catch((err) => {
           console.warn('Service Worker registration warning:', err);
         });
+
+      // Listen for foreground Firebase Cloud Messaging push events
+      const unsubscribeFg = onForegroundMessage((payload) => {
+        console.log('Received foreground push notification:', payload);
+        const title = payload.notification?.title || payload.data?.title || 'Snap Service Reminder';
+        const body = payload.notification?.body || payload.data?.body || 'Task update available.';
+        if (Notification.permission === 'granted') {
+          new Notification(title, {
+            body,
+            icon: '/snap-service-logo.png',
+          });
+        }
+      });
+
+      return () => {
+        if (unsubscribeFg) unsubscribeFg();
+      };
     }
   }, []);
 
@@ -110,8 +129,9 @@ export function usePushNotifications() {
         return { success: false, error: 'Notification permission was denied.' };
       }
 
-      // 2. Ready Service Worker
-      const registration = await navigator.serviceWorker.ready;
+      // 2. Ready Service Worker (using firebase-messaging-sw.js)
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      await navigator.serviceWorker.ready;
 
       // 3. Fetch public VAPID key
       const configRes = await fetch('/api/notifications/subscribe');
@@ -133,10 +153,21 @@ export function usePushNotifications() {
         });
       }
 
-      // 5. Detect Device details
+      // 5. Try requesting FCM Device Token
+      let token: string | null = null;
+      try {
+        token = await requestFCMToken(vapidPublicKey, registration);
+        if (token) {
+          setFcmToken(token);
+        }
+      } catch (fcmErr) {
+        console.warn('FCM token retrieval warning (will use standard Web Push):', fcmErr);
+      }
+
+      // 6. Detect Device details
       const { deviceType, deviceName } = detectDevice();
 
-      // 6. Send subscription to server
+      // 7. Send subscription to server
       const saveRes = await fetch('/api/notifications/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,6 +179,7 @@ export function usePushNotifications() {
           deviceName,
           userAgent: navigator.userAgent,
           subscription: subscription.toJSON(),
+          fcmToken: token || undefined,
         }),
       });
 
