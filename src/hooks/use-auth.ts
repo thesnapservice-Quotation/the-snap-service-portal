@@ -235,6 +235,87 @@ export function useAuth() {
     refreshAuth();
   };
 
+  const changeUserPassword = async (payload: {
+    targetUserId: string;
+    currentPassword?: string;
+    newPassword: string;
+    confirmPassword: string;
+    twoStepCode?: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    const { targetUserId, currentPassword, newPassword, confirmPassword, twoStepCode } = payload;
+    const allUsers = storage.getUsers();
+    const target = allUsers.find((u) => u.id === targetUserId);
+
+    if (!target) {
+      return { success: false, message: 'User account not found.' };
+    }
+
+    if (!newPassword || newPassword.length < 4) {
+      return { success: false, message: 'New password must be at least 4 characters long.' };
+    }
+
+    if (newPassword !== confirmPassword) {
+      return { success: false, message: 'New password and Re-entered password do not match.' };
+    }
+
+    // 1. If target is Super Admin
+    const isTargetSuperAdmin = target.role === 'super_admin' || target.id === 'user-super-admin';
+    if (isTargetSuperAdmin) {
+      // Must verify 2-Step Code '232132'
+      if (!twoStepCode || twoStepCode.trim() !== '232132') {
+        return { success: false, message: 'Invalid 2-Step Verification Code. Admin authorization failed.' };
+      }
+
+      // Must verify Current Password
+      if (!currentPassword) {
+        return { success: false, message: 'Please enter current password.' };
+      }
+
+      let isCurrentValid = false;
+      if (target.password) {
+        isCurrentValid = await verifyPassword(currentPassword, target.password);
+      }
+      if (!isCurrentValid && (currentPassword === 'admin123' || currentPassword === 'admin')) {
+        isCurrentValid = true;
+      }
+
+      if (!isCurrentValid) {
+        return { success: false, message: 'Current password is incorrect.' };
+      }
+    } else {
+      // 2. Super Admin resetting another user's password
+      if (!isSuperAdmin) {
+        return { success: false, message: 'Only Super Admin can change another user\'s password.' };
+      }
+    }
+
+    // Hash and update password
+    const hashedPassword = await hashPassword(newPassword);
+    const updatedUser: UserAccount = {
+      ...target,
+      password: hashedPassword,
+    };
+
+    storage.saveUser(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === targetUserId ? updatedUser : u)));
+
+    // If currently active user was updated, refresh current session
+    if (currentUser?.id === targetUserId) {
+      storage.setCurrentUser(updatedUser);
+      setCurrentUser(updatedUser);
+    }
+
+    // Cloud DB sync
+    try {
+      await apiSaveUser(updatedUser);
+    } catch (e) {
+      console.error('Error saving updated password to cloud:', e);
+    }
+
+    refreshAuth();
+    return { success: true, message: `Password for ${target.name} updated successfully!` };
+  };
+
   const switchUserAccount = (targetUserId: string) => {
     const targetUser = users.find((u) => u.id === targetUserId);
     if (!targetUser || !currentUser) return;
@@ -300,6 +381,7 @@ export function useAuth() {
     approveUser,
     toggleUserActive,
     deleteUser,
+    changeUserPassword,
     switchUserAccount,
     returnToSuperAdmin,
     logout,

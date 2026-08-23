@@ -5,7 +5,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useServices } from '@/hooks/use-services';
 import { useAuth } from '@/hooks/use-auth';
 import { useQuotations } from '@/hooks/use-quotations';
-import { AppSettings, Service, UserRole, Quotation } from '@/lib/types';
+import { AppSettings, Service, UserRole, Quotation, UserAccount } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { GOOGLE_APPS_SCRIPT_TEMPLATE, syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
 import {
@@ -46,7 +46,13 @@ import {
   ExternalLink,
   RefreshCw,
   Share2,
-  FolderSync
+  FolderSync,
+  KeyRound,
+  Lock,
+  Eye,
+  EyeOff,
+  X,
+  ShieldAlert
 } from 'lucide-react';
 
 const ICON_OPTIONS = [
@@ -75,6 +81,7 @@ export default function SettingsPage() {
     approveUser, 
     toggleUserActive, 
     deleteUser, 
+    changeUserPassword,
     createUserDirectly,
     switchUserAccount,
     refreshAuth
@@ -85,12 +92,54 @@ export default function SettingsPage() {
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [restoreSuccessMsg, setRestoreSuccessMsg] = useState('');
 
+  // User Password Change Modal State
+  const [passwordModalUser, setPasswordModalUser] = useState<UserAccount | null>(null);
+  const [pwdCurrentPass, setPwdCurrentPass] = useState('');
+  const [pwdNewPass, setPwdNewPass] = useState('');
+  const [pwdConfirmPass, setPwdConfirmPass] = useState('');
+  const [pwdTwoStepCode, setPwdTwoStepCode] = useState('');
+  const [pwdShowPass, setPwdShowPass] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSuccess, setPwdSuccess] = useState('');
+
   // Auto-refresh users from cloud when switching to users tab
   useEffect(() => {
     if (activeTab === 'users') {
       refreshAuth();
     }
   }, [activeTab, refreshAuth]);
+
+  const handlePasswordChangeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordModalUser) return;
+    setPwdError('');
+    setPwdSuccess('');
+    setPwdLoading(true);
+
+    const res = await changeUserPassword({
+      targetUserId: passwordModalUser.id,
+      currentPassword: pwdCurrentPass,
+      newPassword: pwdNewPass,
+      confirmPassword: pwdConfirmPass,
+      twoStepCode: pwdTwoStepCode,
+    });
+
+    setPwdLoading(false);
+    if (!res.success) {
+      setPwdError(res.message);
+    } else {
+      setPwdSuccess(res.message);
+      setTimeout(() => {
+        setPasswordModalUser(null);
+        setPwdCurrentPass('');
+        setPwdNewPass('');
+        setPwdConfirmPass('');
+        setPwdTwoStepCode('');
+        setPwdSuccess('');
+      }, 1500);
+    }
+  };
 
   // Service form state
   const [newServiceName, setNewServiceName] = useState('');
@@ -1103,6 +1152,26 @@ export default function SettingsPage() {
                       </button>
                     )}
 
+                    {isSuperAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPasswordModalUser(u);
+                          setPwdCurrentPass('');
+                          setPwdNewPass('');
+                          setPwdConfirmPass('');
+                          setPwdTwoStepCode('');
+                          setPwdError('');
+                          setPwdSuccess('');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-300 font-bold text-xs flex items-center gap-1 shadow-2xs hover:bg-amber-100 transition-all"
+                        title="Change / Reset Password"
+                      >
+                        <KeyRound className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Password</span>
+                      </button>
+                    )}
+
                     {u.approved && u.id !== currentUser?.id && (
                       <button
                         type="button"
@@ -1147,6 +1216,176 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+
+          {/* USER PASSWORD CHANGE MODAL */}
+          {passwordModalUser && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 md:p-7 shadow-2xl border-2 border-[#D4AF37] space-y-4 animate-in fade-in zoom-in-95 duration-150 font-sans">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-[#0D4F4F] text-[#D4AF37] shadow-sm">
+                      <KeyRound className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-serif font-bold text-base text-[#0D4F4F]">
+                        {passwordModalUser.role === 'super_admin' ? 'Change Super Admin Password' : `Reset Password for ${passwordModalUser.name}`}
+                      </h3>
+                      <p className="text-[10.5px] text-slate-500 font-medium">
+                        {passwordModalUser.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setPasswordModalUser(null)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handlePasswordChangeSubmit} className="space-y-3.5 text-xs">
+                  {passwordModalUser.role === 'super_admin' ? (
+                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] leading-tight space-y-1">
+                      <span className="font-bold flex items-center gap-1 text-amber-950">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-700" /> Super Admin Security Verification
+                      </span>
+                      <p>
+                        Changing Super Admin password requires current password and 2-step verification code.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-[11px] leading-tight">
+                      <span>
+                        👑 Super Admin Direct Reset: Set a new login password for <strong>{passwordModalUser.name}</strong>.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Super Admin specific fields: Current Password */}
+                  {passwordModalUser.role === 'super_admin' && (
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-700">Current Password / PIN</label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="Enter current password..."
+                        value={pwdCurrentPass}
+                        onChange={(e) => {
+                          setPwdCurrentPass(e.target.value);
+                          setPwdError('');
+                        }}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium focus:ring-1 focus:ring-[#0D4F4F] focus:outline-none"
+                      />
+                    </div>
+                  )}
+
+                  {/* New Password */}
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">New Password / PIN</label>
+                    <div className="relative">
+                      <input
+                        type={pwdShowPass ? 'text' : 'password'}
+                        required
+                        placeholder="Enter new password (min 4 chars)..."
+                        value={pwdNewPass}
+                        onChange={(e) => {
+                          setPwdNewPass(e.target.value);
+                          setPwdError('');
+                        }}
+                        className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium focus:ring-1 focus:ring-[#0D4F4F] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPwdShowPass(!pwdShowPass)}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                      >
+                        {pwdShowPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Re-enter New Password */}
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Re-enter New Password</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="Confirm new password..."
+                      value={pwdConfirmPass}
+                      onChange={(e) => {
+                        setPwdConfirmPass(e.target.value);
+                        setPwdError('');
+                      }}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium focus:ring-1 focus:ring-[#0D4F4F] focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Super Admin specific fields: 2-Step Verification Code */}
+                  {passwordModalUser.role === 'super_admin' && (
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-700 flex items-center justify-between">
+                        <span>2-Step Verification Code</span>
+                        <span className="text-[10px] text-amber-700 font-semibold">Admin Required</span>
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="Enter 6-digit 2-step code..."
+                        value={pwdTwoStepCode}
+                        onChange={(e) => {
+                          setPwdTwoStepCode(e.target.value);
+                          setPwdError('');
+                        }}
+                        className="w-full px-3 py-2 bg-amber-50/50 border border-amber-300 rounded-xl font-mono font-bold tracking-widest text-slate-900 focus:ring-1 focus:ring-[#0D4F4F] focus:outline-none"
+                      />
+                    </div>
+                  )}
+
+                  {/* Error Message */}
+                  {pwdError && (
+                    <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 font-semibold flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 shrink-0 text-red-500" />
+                      <span>{pwdError}</span>
+                    </div>
+                  )}
+
+                  {/* Success Message */}
+                  {pwdSuccess && (
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                      <span>{pwdSuccess}</span>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setPasswordModalUser(null)}
+                      className="px-3.5 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={pwdLoading || !pwdNewPass || !pwdConfirmPass || (passwordModalUser.role === 'super_admin' && (!pwdCurrentPass || !pwdTwoStepCode))}
+                      className="px-5 py-2 rounded-xl bg-[#0D4F4F] text-[#D4AF37] font-bold shadow-md hover:brightness-110 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      {pwdLoading ? (
+                        <div className="w-4 h-4 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4" />
+                      )}
+                      <span>Save Password</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
