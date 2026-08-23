@@ -142,6 +142,55 @@ export async function apiSaveSettings(settings: AppSettings, userId?: string): P
   return settings;
 }
 
+import { Service } from './types';
+
+export async function apiFetchServices(userId?: string): Promise<Service[]> {
+  try {
+    const timestamp = Date.now();
+    const url = userId
+      ? `/api/services?userId=${encodeURIComponent(userId)}&_t=${timestamp}`
+      : `/api/services?_t=${timestamp}`;
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return data as Service[];
+      }
+    }
+  } catch (e) {
+    console.error('API Fetch Services Error:', e);
+  }
+  return [];
+}
+
+export async function apiSaveServices(services: Service[], userId?: string): Promise<Service[]> {
+  try {
+    const url = userId ? `/api/services?userId=${encodeURIComponent(userId)}` : '/api/services';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      body: JSON.stringify({ services, userId }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (e) {
+    console.error('API Save Services Error:', e);
+  }
+  return services;
+}
+
 import { UserAccount } from './types';
 
 export async function apiFetchUsers(): Promise<UserAccount[]> {

@@ -5,18 +5,38 @@ import { Service } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { generateSecureId } from '@/lib/crypto';
 
+import { apiFetchServices, apiSaveServices } from '@/lib/api-client';
+
 export function useServices(overrideUserId?: string) {
   const [services, setServices] = useState<Service[]>(() => {
     const user = typeof window !== 'undefined' ? storage.getCurrentUser() : null;
     const targetId = overrideUserId || user?.id || 'default';
     return storage.getServices(targetId);
   });
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     const user = storage.getCurrentUser();
     const targetId = overrideUserId || user?.id || 'default';
     setServices(storage.getServices(targetId));
+
+    async function loadCloudServices() {
+      try {
+        setLoading(true);
+        const cloud = await apiFetchServices(targetId);
+        if (cloud && Array.isArray(cloud) && cloud.length > 0 && isMounted) {
+          storage.saveServices(cloud, targetId);
+          setServices(cloud);
+        }
+      } catch (e) {
+        console.error('Failed to sync cloud services', e);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadCloudServices();
 
     const handleUserOrStorageChange = () => {
       const u = storage.getCurrentUser();
@@ -30,6 +50,7 @@ export function useServices(overrideUserId?: string) {
     }
 
     return () => {
+      isMounted = false;
       if (typeof window !== 'undefined') {
         window.removeEventListener('storage', handleUserOrStorageChange);
         window.removeEventListener('snap_user_switched', handleUserOrStorageChange);
@@ -42,6 +63,7 @@ export function useServices(overrideUserId?: string) {
     const targetId = overrideUserId || user?.id || 'default';
     storage.saveServices(newServices, targetId);
     setServices(newServices);
+    apiSaveServices(newServices, targetId).catch((err) => console.error('Cloud save services err:', err));
   };
 
   const addService = (service: Omit<Service, 'id'>) => {

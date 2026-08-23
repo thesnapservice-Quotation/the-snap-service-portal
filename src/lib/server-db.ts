@@ -1,7 +1,8 @@
-import { Quotation, UserAccount, TaskItem, DeviceSubscription } from './types';
+import { Quotation, UserAccount, TaskItem, DeviceSubscription, Service, AppSettings } from './types';
 import { supabase } from './supabase';
 import { SEED_USERS } from './storage';
 import { generateRandomNumericId } from './crypto';
+import { DEFAULT_SETTINGS, DEFAULT_SERVICES } from './defaults';
 
 /**
  * Production Central Database Persistence Engine
@@ -345,9 +346,6 @@ export async function deleteQuotationFromDb(id: string): Promise<boolean> {
   return true;
 }
 
-import { AppSettings } from './types';
-import { DEFAULT_SETTINGS } from './defaults';
-
 const PRIMARY_SETTINGS_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315585';
 const cachedSettingsMap = new Map<string, AppSettings>();
 
@@ -463,6 +461,67 @@ export async function saveSettingsToDb(settings: AppSettings, userId?: string): 
   }
 
   return settings;
+}
+
+const cachedServicesMap = new Map<string, Service[]>();
+
+export async function getServicesFromDb(userId?: string): Promise<Service[]> {
+  const targetId = userId || 'global';
+  if (cachedServicesMap.has(targetId)) {
+    return cachedServicesMap.get(targetId)!;
+  }
+
+  try {
+    const sysId = `sys_services_${targetId}`;
+    const { data } = await supabase
+      .from('quotations')
+      .select('full_data')
+      .eq('id', sysId)
+      .single();
+
+    if (data?.full_data?.services && Array.isArray(data.full_data.services) && data.full_data.services.length > 0) {
+      const list = data.full_data.services as Service[];
+      cachedServicesMap.set(targetId, list);
+      return list;
+    }
+  } catch {}
+
+  // If user-specific services not found, try falling back to admin template
+  if (targetId !== 'global' && targetId !== 'user-super-admin') {
+    const adminServices = await getServicesFromDb('user-super-admin');
+    if (adminServices && adminServices.length > 0) {
+      return adminServices;
+    }
+  }
+
+  return DEFAULT_SERVICES;
+}
+
+export async function saveServicesToDb(services: Service[], userId?: string): Promise<Service[]> {
+  const targetId = userId || 'global';
+  cachedServicesMap.set(targetId, services);
+
+  try {
+    const sysId = `sys_services_${targetId}`;
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: sysId,
+        quotation_number: `SYS-SERVICES-${targetId}`,
+        user_id: targetId,
+        status: 'confirmed',
+        client: { name: `Services for ${targetId}`, phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemServicesRecord: true, userId: targetId, services },
+        updated_at: new Date().toISOString(),
+      });
+  } catch (e) {
+    console.error('Error saving services to Supabase:', e);
+  }
+
+  return services;
 }
 
 const PRIMARY_USERS_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315585';
