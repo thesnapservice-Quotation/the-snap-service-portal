@@ -118,6 +118,24 @@ export default function LoginPage() {
             Request Signup Access
           </Link>
         </div>
+
+        {/* Agency Attribution */}
+        <div className="text-center pt-3 border-t border-slate-100/80">
+          <p className="text-[11px] text-slate-600 font-medium">
+            Created by{' '}
+            <a
+              href="https://www.instagram.com/snapagency.pk/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-[#0D4F4F] hover:underline inline-flex items-center gap-1"
+            >
+              The Snap Agency
+            </a>
+          </p>
+          <p className="text-[9.5px] text-slate-400 mt-0.5">
+            (Marketing & Web Development Agency)
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -636,6 +636,24 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
             <span>{business.instagram || '@snapservice.pk'}</span>
           </div>
         </div>
+
+        {/* Agency Attribution Footer */}
+        <div className="text-center pt-2.5 pb-1 relative z-10 select-none">
+          <p className="text-[10px] text-slate-500 font-medium">
+            Created by{' '}
+            <a
+              href="https://www.instagram.com/snapagency.pk/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-[#0D4F4F] hover:underline"
+            >
+              The Snap Agency
+            </a>
+          </p>
+          <p className="text-[8.5px] text-slate-400">
+            (Marketing & Web Development Agency)
+          </p>
+        </div>
       </div>
     </div>
   );
