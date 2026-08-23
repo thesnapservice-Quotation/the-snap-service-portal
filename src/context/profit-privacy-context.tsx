@@ -140,7 +140,7 @@ export function ProfitPrivacyProvider({ children }: { children: React.ReactNode 
       };
     }
 
-    // 4. Save new profit password locally and sync
+    // 4. Save new profit PIN / password locally and sync (dedicated to profit unlocking only)
     try {
       if (typeof window !== 'undefined') {
         if (currentUser?.id) {
@@ -149,22 +149,15 @@ export function ProfitPrivacyProvider({ children }: { children: React.ReactNode 
         localStorage.setItem('snap_service_profit_password', newPassword);
       }
 
-      // Also update account password in storage if logged in
-      if (currentUser) {
-        const hashed = await hashPassword(newPassword);
-        const updatedUser = { ...currentUser, password: hashed };
-        storage.saveUser(updatedUser);
-      }
-
       return { 
         success: true, 
-        message: '✅ Profit Password updated successfully!' 
+        message: '✅ Profit PIN updated successfully! (Your account login password remains unchanged).' 
       };
     } catch (e) {
-      console.error('Error saving new profit password', e);
+      console.error('Error saving new profit PIN', e);
       return { 
         success: false, 
-        message: 'Failed to save new password. Please try again.' 
+        message: 'Failed to save new PIN. Please try again.' 
       };
     }
   };
