@@ -63,9 +63,6 @@ export async function POST(req: Request) {
         id: r.id,
         quotation_number: r.quotation_number,
         user_id: targetMeta.createdByUserId,
-        workspace_id: targetMeta.workspaceId,
-        created_by_user_id: targetMeta.createdByUserId,
-        updated_by_user_id: targetMeta.updatedByUserId,
         full_data: updatedFullData,
         // Preserve other columns exactly
         status: r.status,
