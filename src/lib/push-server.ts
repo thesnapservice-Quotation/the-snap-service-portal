@@ -67,23 +67,32 @@ export async function sendPushToSubscription(
 export async function sendPushNotificationToUser(
   userId: string,
   payload: PushNotificationPayload
-): Promise<{ sent: number; failed: number; total: number }> {
-  if (!userId) return { sent: 0, failed: 0, total: 0 };
+): Promise<{ sent: number; failed: number; total: number; details: any[] }> {
+  if (!userId) return { sent: 0, failed: 0, total: 0, details: [] };
 
   const cleanUid = userId.trim().toLowerCase();
   const allSubscriptions = await getDeviceSubscriptionsFromDb(cleanUid);
   const activeSubscriptions = allSubscriptions.filter((d) => d.active);
 
   if (activeSubscriptions.length === 0) {
-    return { sent: 0, failed: 0, total: 0 };
+    return { sent: 0, failed: 0, total: 0, details: [] };
   }
 
   let sent = 0;
   let failed = 0;
+  const details: any[] = [];
 
   await Promise.all(
     activeSubscriptions.map(async (device) => {
       const res = await sendPushToSubscription(device, payload);
+      details.push({
+        deviceId: device.id,
+        deviceName: device.deviceName,
+        deviceType: device.deviceType,
+        endpointDomain: device.subscription?.endpoint ? new URL(device.subscription.endpoint).hostname : 'none',
+        success: res.success,
+        error: res.error,
+      });
       if (res.success) {
         sent++;
       } else {
@@ -97,5 +106,5 @@ export async function sendPushNotificationToUser(
     })
   );
 
-  return { sent, failed, total: activeSubscriptions.length };
+  return { sent, failed, total: activeSubscriptions.length, details };
 }
