@@ -1,4 +1,4 @@
-import { Quotation, Service, AppSettings, UserAccount, PaymentTransaction } from './types';
+import { Quotation, Service, AppSettings, UserAccount, PaymentTransaction, TaskItem } from './types';
 import { DEFAULT_SERVICES, DEFAULT_SETTINGS, DEFAULT_INCLUSIONS } from './defaults';
 import { getTodayDateString } from './utils';
 import { generateSecureId } from './crypto';
@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'snap_service_settings',
   USERS: 'snap_service_users',
   CURRENT_USER: 'snap_service_current_user',
+  TASKS: 'snap_service_tasks_v1',
 };
 
 // Seed Users: Super Admin (Owner) + Default Staff User
@@ -495,5 +496,72 @@ export const storage = {
 
     storage.saveQuotationLocally(updatedQuotation);
     return updatedQuotation;
+  },
+
+  // ----------------------------------------------------
+  // Snap Service — Daily Tasks Persistent CRUD
+  // ----------------------------------------------------
+  getTasks: (): TaskItem[] => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.TASKS);
+      if (!data) return [];
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) return [];
+      return parsed;
+    } catch (e) {
+      console.error('Error reading tasks from localStorage', e);
+      return [];
+    }
+  },
+
+  getTaskById: (id: string): TaskItem | null => {
+    const tasks = storage.getTasks();
+    return tasks.find((t) => t.id === id) || null;
+  },
+
+  saveTask: (task: TaskItem): TaskItem => {
+    if (typeof window === 'undefined') return task;
+    try {
+      const tasks = storage.getTasks();
+      const index = tasks.findIndex((t) => t.id === task.id);
+      let updated: TaskItem[];
+      if (index >= 0) {
+        updated = [...tasks];
+        updated[index] = { ...task, updatedAt: new Date().toISOString() };
+      } else {
+        updated = [task, ...tasks];
+      }
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(updated));
+      window.dispatchEvent(new Event('snap_tasks_updated'));
+      return task;
+    } catch (e) {
+      console.error('Error saving task to localStorage', e);
+      return task;
+    }
+  },
+
+  deleteTask: (id: string): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const tasks = storage.getTasks();
+      const filtered = tasks.filter((t) => t.id !== id);
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(filtered));
+      window.dispatchEvent(new Event('snap_tasks_updated'));
+      return true;
+    } catch (e) {
+      console.error('Error deleting task from localStorage', e);
+      return false;
+    }
+  },
+
+  setAllTasks: (tasks: TaskItem[]) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+      window.dispatchEvent(new Event('snap_tasks_updated'));
+    } catch (e) {
+      console.error('Error writing all tasks to localStorage', e);
+    }
   },
 };

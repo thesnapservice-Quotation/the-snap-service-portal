@@ -16,7 +16,8 @@ import {
   Calendar,
   PackageCheck,
   BarChart3,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ListTodo
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { label: 'Create Quotation', href: '/quotations/new', icon: PlusCircle },
   { label: 'Master Schedule', href: '/calendar', icon: Calendar },
   { label: 'Deliverables & Albums', href: '/deliverables', icon: PackageCheck },
+  { label: 'Daily Tasks', href: '/tasks', icon: ListTodo },
   { label: 'Studio Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Studio Settings', href: '/settings', icon: Sliders },
 ];

@@ -184,3 +184,63 @@ export async function apiSaveUser(user: UserAccount): Promise<UserAccount> {
   }
   return user;
 }
+
+import { TaskItem } from './types';
+
+export async function apiFetchTasks(): Promise<TaskItem[]> {
+  try {
+    const timestamp = Date.now();
+    const res = await fetch(`/api/tasks?_t=${timestamp}`, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.tasks)) {
+        return data.tasks as TaskItem[];
+      }
+    }
+  } catch (e) {
+    console.error('API Fetch Tasks Error:', e);
+  }
+  return [];
+}
+
+export async function apiSaveTask(task: TaskItem): Promise<TaskItem> {
+  try {
+    const res = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      body: JSON.stringify(task),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.task) {
+        return data.task;
+      }
+    }
+  } catch (e) {
+    console.error('API Save Task Error:', e);
+  }
+  return task;
+}
+
+export async function apiDeleteTask(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/tasks?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    return res.ok;
+  } catch (e) {
+    console.error('API Delete Task Error:', e);
+    return false;
+  }
+}

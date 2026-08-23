@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
-import { Plus, LayoutDashboard, FileText, Settings, LogOut, Calendar, PackageCheck, BarChart3, LogIn } from 'lucide-react';
+import { Plus, LayoutDashboard, FileText, Settings, LogOut, Calendar, PackageCheck, BarChart3, LogIn, ListTodo } from 'lucide-react';
 
 export function Header() {
   const { currentUser, isSuperAdmin, logout } = useAuth();
@@ -51,6 +51,13 @@ export function Header() {
           title="Deliverables"
         >
           <PackageCheck className="w-4 h-4" />
+        </Link>
+        <Link
+          href="/tasks"
+          className="p-1.5 rounded-lg bg-[#156060] text-[#C3DFDF] hover:text-white"
+          title="Daily Tasks"
+        >
+          <ListTodo className="w-4 h-4" />
         </Link>
         <Link
           href="/analytics"

@@ -196,3 +196,62 @@ export interface AppSettings {
   quotation: QuotationSettings;
   integrations?: IntegrationsSettings;
 }
+
+// ----------------------------------------------------
+// Snap Service — Daily Task Manager Types
+// ----------------------------------------------------
+
+export type TaskCategory = 
+  | 'events' 
+  | 'albums' 
+  | 'editing' 
+  | 'clients' 
+  | 'team' 
+  | 'social_media';
+
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export type TaskStatus = 
+  | 'upcoming'      // Before Start Time
+  | 'due_now'       // At / past Start Time, before Deadline
+  | 'overdue'       // Past Deadline & not completed
+  | 'waiting'       // Waiting / Follow-up pending
+  | 'completed';    // Manually marked completed
+
+export interface TaskHistoryEntry {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  action: string;
+  details?: string;
+}
+
+export interface TaskAttachment {
+  name: string;
+  url: string;
+  size?: number;
+}
+
+export interface TaskItem {
+  id: string;
+  title: string;
+  category: TaskCategory;
+  subCategory?: string; // Predefined quick action template
+  quotationId?: string; // Optional linked Event / Client booking
+  quotationNumber?: string;
+  clientName?: string;
+  eventTitle?: string;
+  assignedToUserId?: string;
+  assignedToName?: string;
+  startDateTime: string; // ISO string YYYY-MM-DDTHH:mm
+  deadlineDateTime: string; // ISO string YYYY-MM-DDTHH:mm
+  priority: TaskPriority;
+  manualStatus?: 'waiting' | 'completed' | 'in_progress';
+  followUpDateTime?: string; // ISO string YYYY-MM-DDTHH:mm
+  notes?: string;
+  attachments?: TaskAttachment[];
+  history: TaskHistoryEntry[];
+  createdAt: string;
+  updatedAt: string;
+}

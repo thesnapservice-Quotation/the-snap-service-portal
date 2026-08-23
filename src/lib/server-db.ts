@@ -1,4 +1,4 @@
-import { Quotation, UserAccount } from './types';
+import { Quotation, UserAccount, TaskItem } from './types';
 import { supabase } from './supabase';
 import { SEED_USERS } from './storage';
 
@@ -474,4 +474,104 @@ export async function saveUserToDb(user: UserAccount): Promise<UserAccount[]> {
   } catch {}
 
   return updatedList;
+}
+
+// ----------------------------------------------------
+// Snap Service — Daily Tasks Cloud DB Persistence
+// ----------------------------------------------------
+const PRIMARY_TASKS_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315586';
+let cachedTasks: TaskItem[] | null = null;
+
+export async function getTasksFromDb(): Promise<TaskItem[]> {
+  // 1. Try Supabase
+  try {
+    const { data, error } = await supabase
+      .from('app_tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const parsed: TaskItem[] = data.map((r) => r.full_data || r);
+      cachedTasks = parsed;
+      return parsed;
+    }
+  } catch {}
+
+  // 2. Try Secondary Cloud DB
+  try {
+    const res = await fetch(PRIMARY_TASKS_CLOUD_DB, {
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        cachedTasks = data;
+        return data;
+      }
+    }
+  } catch {}
+
+  if (cachedTasks) return cachedTasks;
+  return [];
+}
+
+export async function saveTaskToDb(task: TaskItem): Promise<TaskItem> {
+  const current = await getTasksFromDb();
+  const index = current.findIndex((t) => t.id === task.id);
+  let updatedList: TaskItem[];
+  if (index >= 0) {
+    updatedList = [...current];
+    updatedList[index] = { ...updatedList[index], ...task, updatedAt: new Date().toISOString() };
+  } else {
+    updatedList = [task, ...current];
+  }
+  cachedTasks = updatedList;
+
+  // 1. Save to Supabase
+  try {
+    await supabase
+      .from('app_tasks')
+      .upsert({
+        id: task.id,
+        title: task.title,
+        category: task.category,
+        full_data: task,
+        created_at: task.createdAt,
+        updated_at: new Date().toISOString(),
+      });
+  } catch {}
+
+  // 2. Save to Cloud DB
+  try {
+    await fetch(PRIMARY_TASKS_CLOUD_DB, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(updatedList),
+    });
+  } catch {}
+
+  return task;
+}
+
+export async function deleteTaskFromDb(id: string): Promise<boolean> {
+  const current = await getTasksFromDb();
+  const updatedList = current.filter((t) => t.id !== id);
+  cachedTasks = updatedList;
+
+  // 1. Delete from Supabase
+  try {
+    await supabase.from('app_tasks').delete().eq('id', id);
+  } catch {}
+
+  // 2. Update Cloud DB
+  try {
+    await fetch(PRIMARY_TASKS_CLOUD_DB, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(updatedList),
+    });
+  } catch {}
+
+  return true;
 }
