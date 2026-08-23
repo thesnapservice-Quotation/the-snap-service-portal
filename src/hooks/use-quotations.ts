@@ -14,7 +14,8 @@ export function useQuotations() {
     const local = storage.getQuotations();
     const user = storage.getCurrentUser();
     if (!user || !user.id) return [];
-    return local.filter((q) => q.userId === user.id);
+    const isSuperAdmin = user.role === 'super_admin' || user.id === 'user-super-admin';
+    return isSuperAdmin ? local : local.filter((q) => q.userId === user.id);
   });
   const [loading, setLoading] = useState(false);
 
@@ -25,17 +26,19 @@ export function useQuotations() {
       return;
     }
 
+    const isSuperAdmin = user.role === 'super_admin' || user.id === 'user-super-admin';
+
     try {
       // 1. Direct query to Central Production Database
-      const dbQuotations = await apiFetchQuotations(user.id);
+      const dbQuotations = await apiFetchQuotations(isSuperAdmin ? undefined : user.id);
       const deletedIds = storage.getDeletedIds();
 
       if (Array.isArray(dbQuotations)) {
-        // Filter out any deleted items from DB results and strictly isolate to user's own quotations
+        // Filter out any deleted items from DB results
         const validDbQuotations = dbQuotations.filter((q) => {
           const idMatch = q.id && deletedIds.has(q.id.toLowerCase());
           const numMatch = q.quotationNumber && deletedIds.has(q.quotationNumber.toLowerCase());
-          const userMatch = q.userId === user.id;
+          const userMatch = isSuperAdmin ? true : q.userId === user.id;
           return !idMatch && !numMatch && userMatch;
         });
 
@@ -44,9 +47,9 @@ export function useQuotations() {
         setQuotations(validDbQuotations);
       } else {
         const local = storage.getQuotations();
-        const userOnly = local.filter((q) => q.userId === user.id);
-        if (userOnly.length > 0) {
-          setQuotations(userOnly);
+        const filtered = isSuperAdmin ? local : local.filter((q) => q.userId === user.id);
+        if (filtered.length > 0) {
+          setQuotations(filtered);
         }
       }
     } catch {
