@@ -238,6 +238,26 @@ export async function apiSaveUser(user: UserAccount): Promise<UserAccount> {
   return user;
 }
 
+export async function apiDeleteUser(userId: string): Promise<UserAccount[]> {
+  try {
+    const res = await fetch(`/api/users?id=${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.users)) {
+        return data.users as UserAccount[];
+      }
+    }
+  } catch (e) {
+    console.error('API Delete User Error:', e);
+  }
+  return [];
+}
+
 import { TaskItem } from './types';
 
 export async function apiFetchTasks(): Promise<TaskItem[]> {

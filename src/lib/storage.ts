@@ -6,6 +6,7 @@ import { generateSecureId, generateRandomNumericId } from './crypto';
 const STORAGE_KEYS = {
   QUOTATIONS: 'snap_service_persistent_quotations_v2',
   DELETED_IDS: 'snap_service_deleted_quotation_ids',
+  DELETED_USER_IDS: 'snap_service_deleted_user_ids',
   SERVICES: 'snap_service_services',
   SETTINGS: 'snap_service_settings',
   USERS: 'snap_service_users',
@@ -13,7 +14,7 @@ const STORAGE_KEYS = {
   TASKS: 'snap_service_tasks_v1',
 };
 
-// Seed Users: Super Admin (Owner) + Default Staff User
+// Seed Users: Super Admin (Owner)
 export const SEED_USERS: UserAccount[] = [
   {
     id: 'user-super-admin',
@@ -24,18 +25,7 @@ export const SEED_USERS: UserAccount[] = [
     role: 'super_admin',
     approved: true,
     active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user-staff-1',
-    name: 'Staff Photographer',
-    email: 'staff@snapservice.com',
-    password: 'staff123',
-    phone: '0300-1234567',
-    role: 'user',
-    approved: true,
-    active: true,
-    createdAt: new Date().toISOString(),
+    createdAt: '2026-08-01T00:00:00.000Z',
   },
 ];
 
@@ -282,6 +272,36 @@ export const storage = {
     return `${settings.quotation.prefix}-${nextNumber}`;
   },
 
+  getDeletedUserIds: (): Set<string> => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.DELETED_USER_IDS);
+      if (!data) return new Set();
+      const parsed = JSON.parse(data);
+      return new Set(Array.isArray(parsed) ? parsed.map((id: string) => id.trim().toLowerCase()) : []);
+    } catch {
+      return new Set();
+    }
+  },
+
+  addDeletedUserId: (id: string): void => {
+    if (typeof window === 'undefined' || !id) return;
+    try {
+      const set = storage.getDeletedUserIds();
+      set.add(id.trim().toLowerCase());
+      localStorage.setItem(STORAGE_KEYS.DELETED_USER_IDS, JSON.stringify(Array.from(set)));
+    } catch {}
+  },
+
+  removeDeletedUserId: (id: string): void => {
+    if (typeof window === 'undefined' || !id) return;
+    try {
+      const set = storage.getDeletedUserIds();
+      set.delete(id.trim().toLowerCase());
+      localStorage.setItem(STORAGE_KEYS.DELETED_USER_IDS, JSON.stringify(Array.from(set)));
+    } catch {}
+  },
+
   // User Accounts CRUD & Session Management
   getUsers: (): UserAccount[] => {
     if (typeof window === 'undefined') return SEED_USERS;
@@ -292,17 +312,22 @@ export const storage = {
         return SEED_USERS;
       }
       const parsed: UserAccount[] = JSON.parse(data);
-      const hasSuperAdmin = parsed.some((u) => u.role === 'super_admin');
+      const deletedIds = storage.getDeletedUserIds();
+      const filtered = Array.isArray(parsed)
+        ? parsed.filter((u) => u && u.id && !deletedIds.has(u.id.trim().toLowerCase()))
+        : [];
+      const hasSuperAdmin = filtered.some((u) => u.role === 'super_admin');
       if (!hasSuperAdmin) {
-        parsed.unshift(SEED_USERS[0]);
+        filtered.unshift(SEED_USERS[0]);
       }
-      return parsed;
+      return filtered;
     } catch {
       return SEED_USERS;
     }
   },
 
   saveUser: (user: UserAccount): UserAccount => {
+    if (user.id) storage.removeDeletedUserId(user.id);
     const list = storage.getUsers();
     const idx = list.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
     let updated: UserAccount[];
@@ -320,6 +345,7 @@ export const storage = {
   },
 
   deleteUser: (id: string): void => {
+    storage.addDeletedUserId(id);
     const list = storage.getUsers();
     const updated = list.filter((u) => u.id !== id);
     if (typeof window !== 'undefined') {

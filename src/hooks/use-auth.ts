@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { UserAccount, UserRole } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { hashPassword, verifyPassword, generateSecureId } from '@/lib/crypto';
-import { apiFetchUsers, apiSaveUser } from '@/lib/api-client';
+import { apiFetchUsers, apiSaveUser, apiDeleteUser } from '@/lib/api-client';
 
 export function useAuth() {
   const router = useRouter();
@@ -292,7 +292,14 @@ export function useAuth() {
   };
 
   const deleteUser = async (userId: string) => {
+    if (!userId || userId === 'user-super-admin') return;
     storage.deleteUser(userId);
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    try {
+      await apiDeleteUser(userId);
+    } catch (e) {
+      console.error('Cloud delete user error:', e);
+    }
     refreshAuth();
   };
 

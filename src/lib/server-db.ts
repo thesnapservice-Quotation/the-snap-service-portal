@@ -614,6 +614,39 @@ export async function saveUserToDb(user: UserAccount): Promise<UserAccount[]> {
   return updatedList;
 }
 
+export async function deleteUserFromDb(userId: string): Promise<UserAccount[]> {
+  if (!userId || userId === 'user-super-admin') {
+    return getUsersFromDb();
+  }
+
+  const current = await getUsersFromDb();
+  const updatedList = current.filter((u) => u.id !== userId);
+  cachedUsers = updatedList;
+
+  // 1. Delete from Supabase app_users table
+  try {
+    await supabase.from('app_users').delete().eq('id', userId);
+  } catch (e) {
+    console.error('Error deleting user from Supabase app_users:', e);
+  }
+
+  // 2. Delete user settings and services records
+  try {
+    await supabase.from('quotations').delete().in('id', [`sys_settings_${userId}`, `sys_services_${userId}`]);
+  } catch {}
+
+  // 3. Update Cloud DB
+  try {
+    await fetch(PRIMARY_USERS_CLOUD_DB, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(updatedList),
+    });
+  } catch {}
+
+  return updatedList;
+}
+
 // ----------------------------------------------------
 // Snap Service — Daily Tasks Cloud DB Persistence
 // Dual-Layer Engine: Supabase table 'app_tasks' + Supabase registry record 'sys_global_tasks'

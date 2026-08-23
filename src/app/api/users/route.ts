@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUsersFromDb, saveUserToDb } from '@/lib/server-db';
+import { getUsersFromDb, saveUserToDb, deleteUserFromDb } from '@/lib/server-db';
 import { UserAccount } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -45,5 +45,39 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('API POST /api/users error:', error);
     return NextResponse.json({ error: 'Failed to save user' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const url = new URL(request.url);
+    let userId = url.searchParams.get('id') || url.searchParams.get('userId');
+    if (!userId) {
+      const body = await request.json().catch(() => ({}));
+      userId = body.id || body.userId;
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing userId parameter' }, { status: 400 });
+    }
+
+    if (userId === 'user-super-admin') {
+      return NextResponse.json({ error: 'Cannot delete Super Admin account' }, { status: 403 });
+    }
+
+    const updatedUsers = await deleteUserFromDb(userId);
+    return NextResponse.json(
+      { success: true, users: updatedUsers },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('API DELETE /api/users error:', error);
+    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
   }
 }
