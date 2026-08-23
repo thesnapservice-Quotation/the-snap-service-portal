@@ -5,6 +5,8 @@ import { useAuth } from './use-auth';
 import { DeviceSubscription, DeviceType } from '@/lib/types';
 import { requestFCMToken, onForegroundMessage } from '@/lib/firebase';
 
+import { VAPID_PUBLIC_KEY } from '@/lib/vapid-keys';
+
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -133,8 +135,8 @@ export function usePushNotifications() {
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
       await navigator.serviceWorker.ready;
 
-      // 3. Obtain VAPID Public Key (from env or API)
-      let vapidPublicKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+      // 3. Obtain Matched VAPID Public Key
+      let vapidPublicKey = VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
         const configRes = await fetch('/api/notifications/subscribe');
         const configData = await configRes.json();
@@ -142,19 +144,23 @@ export function usePushNotifications() {
       }
 
       if (!vapidPublicKey) {
-        throw new Error('VAPID public key not found in environment or server');
+        throw new Error('VAPID public key not found');
       }
 
-      // 4. Subscribe with PushManager
+      // 4. Subscribe with PushManager (renewing if existing subscription was on old key)
       const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
       let subscription = await registration.pushManager.getSubscription();
 
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: convertedKey,
-        });
+      if (subscription) {
+        try {
+          await subscription.unsubscribe();
+        } catch {}
       }
+
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedKey,
+      });
 
       // 5. Try requesting FCM Device Token
       let token: string | null = null;
