@@ -97,15 +97,37 @@ export async function sendPushToDevice(
  */
 export async function sendPushNotificationToUser(
   userId: string,
-  payload: PushNotificationPayload
+  payload: PushNotificationPayload,
+  assignedName?: string
 ): Promise<{ sent: number; failed: number; total: number; methods: string[] }> {
   if (!userId) return { sent: 0, failed: 0, total: 0, methods: [] };
 
-  console.log(`[Push Server] 🔍 Fetching device subscriptions for user ID: "${userId}"...`);
-  const allSubscriptions = await getDeviceSubscriptionsFromDb(userId);
-  const activeSubscriptions = allSubscriptions.filter((d) => d.active);
+  console.log(`[Push Server] 🔍 Fetching device subscriptions for user ID: "${userId}" (Name: "${assignedName || 'N/A'}")...`);
+  
+  // 1. Fetch all subscriptions from database
+  const allSubscriptions = await getDeviceSubscriptionsFromDb();
+  
+  // 2. Filter active devices matching user ID (case-insensitive) or matching userName
+  const targetId = userId.trim().toLowerCase();
+  const targetName = (assignedName || '').trim().toLowerCase();
+  
+  const activeSubscriptions = allSubscriptions.filter((d) => {
+    if (!d.active) return false;
+    const dUserId = (d.userId || '').trim().toLowerCase();
+    const dUserName = (d.userName || '').trim().toLowerCase();
+    
+    // Direct user ID match
+    if (dUserId === targetId) return true;
+    
+    // Fallback: Name match if name provided
+    if (targetName && dUserName && (dUserName === targetName || dUserName.includes(targetName) || targetName.includes(dUserName))) {
+      return true;
+    }
+    
+    return false;
+  });
 
-  console.log(`[Push Server] 📱 Found ${activeSubscriptions.length} active device(s) for user "${userId}".`);
+  console.log(`[Push Server] 📱 Found ${activeSubscriptions.length} active device(s) matching user "${userId}" (${assignedName || ''}).`);
 
   if (activeSubscriptions.length === 0) {
     return { sent: 0, failed: 0, total: 0, methods: [] };
@@ -117,6 +139,7 @@ export async function sendPushNotificationToUser(
 
   await Promise.all(
     activeSubscriptions.map(async (device) => {
+      console.log(`[Push Server] 📲 Sending to device: ${device.deviceName} (ID: ${device.id}, User: ${device.userName || device.userId})`);
       const res = await sendPushToDevice(device, payload);
       if (res.success) {
         sent++;

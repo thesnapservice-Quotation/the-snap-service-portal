@@ -111,6 +111,51 @@ export function usePushNotifications() {
     fetchDevices();
   }, [fetchDevices]);
 
+  // Automatically ensure the current device subscription is bound to the currently authenticated user
+  useEffect(() => {
+    if (typeof window === 'undefined' || !currentUser?.id) return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const autoSyncDevice = async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!sub) return;
+
+        let token = fcmToken;
+        if (!token) {
+          const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+          if (vapidKey) {
+            token = await requestFCMToken(vapidKey, reg);
+          }
+        }
+
+        const { deviceType, deviceName } = detectDevice();
+
+        await fetch('/api/notifications/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: currentUser.id,
+            userName: currentUser.name,
+            userEmail: currentUser.email,
+            deviceType,
+            deviceName,
+            userAgent: navigator.userAgent,
+            subscription: sub.toJSON(),
+            fcmToken: token || undefined,
+          }),
+        });
+
+        fetchDevices();
+      } catch (e) {
+        console.warn('Auto-sync device subscription warning:', e);
+      }
+    };
+
+    autoSyncDevice();
+  }, [currentUser?.id, currentUser?.name, currentUser?.email, fetchDevices, fcmToken]);
+
   // Request permission & subscribe current device
   const subscribe = async (): Promise<{ success: boolean; error?: string }> => {
     if (!isSupported) {

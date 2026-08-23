@@ -158,18 +158,22 @@ async function handleCronProcessing(request: NextRequest) {
               const pushBody = bodyParts.length > 0 ? bodyParts.join(' • ') : `Scheduled operation task reminder.`;
 
               if (!isDryRun) {
-                const pushResult = await sendPushNotificationToUser(assignedUserId, {
-                  title: pushTitle,
-                  body: pushBody,
-                  icon: '/snap-service-logo.png',
-                  badge: '/icon.png',
-                  tag: `reminder-${task.id}-${rem.id}`,
-                  data: {
-                    url: `/tasks?taskId=${task.id}`,
-                    taskId: task.id,
-                    type: 'reminder',
+                const pushResult = await sendPushNotificationToUser(
+                  assignedUserId,
+                  {
+                    title: pushTitle,
+                    body: pushBody,
+                    icon: '/snap-service-logo.png',
+                    badge: '/icon.png',
+                    tag: `reminder-${task.id}-${rem.id}`,
+                    data: {
+                      url: `/tasks?taskId=${task.id}`,
+                      taskId: task.id,
+                      type: 'reminder',
+                    },
                   },
-                });
+                  task.assignedToName
+                );
 
                 console.log(`[CRON] ✅ Multi-reminder push dispatched for "${task.title}": ${pushResult.sent} device(s) received, ${pushResult.failed} failed`);
                 rem.sentAt = nowIso;
@@ -179,6 +183,8 @@ async function handleCronProcessing(request: NextRequest) {
                 taskLogs.push({
                   taskId: task.id,
                   taskTitle: task.title,
+                  assignedToUserId: assignedUserId,
+                  assignedToName: task.assignedToName,
                   reminderTiming: rem.timing,
                   status: 'dispatched',
                   devicesTargeted: pushResult.total,
@@ -189,6 +195,8 @@ async function handleCronProcessing(request: NextRequest) {
                 taskLogs.push({
                   taskId: task.id,
                   taskTitle: task.title,
+                  assignedToUserId: assignedUserId,
+                  assignedToName: task.assignedToName,
                   reminderTiming: rem.timing,
                   status: 'due_dry_run',
                 });
@@ -216,18 +224,22 @@ async function handleCronProcessing(request: NextRequest) {
           const pushBody = bodyParts.length > 0 ? bodyParts.join(' • ') : `Scheduled operation task reminder.`;
 
           if (!isDryRun) {
-            const pushResult = await sendPushNotificationToUser(assignedUserId, {
-              title: pushTitle,
-              body: pushBody,
-              icon: '/snap-service-logo.png',
-              badge: '/icon.png',
-              tag: `reminder-${task.id}`,
-              data: {
-                url: `/tasks?taskId=${task.id}`,
-                taskId: task.id,
-                type: 'reminder',
+            const pushResult = await sendPushNotificationToUser(
+              assignedUserId,
+              {
+                title: pushTitle,
+                body: pushBody,
+                icon: '/snap-service-logo.png',
+                badge: '/icon.png',
+                tag: `reminder-${task.id}`,
+                data: {
+                  url: `/tasks?taskId=${task.id}`,
+                  taskId: task.id,
+                  type: 'reminder',
+                },
               },
-            });
+              task.assignedToName
+            );
 
             console.log(`[CRON] ✅ Legacy reminder push dispatched for "${task.title}": ${pushResult.sent} device(s) received`);
             task.reminderSentAt = nowIso;
@@ -237,6 +249,8 @@ async function handleCronProcessing(request: NextRequest) {
             taskLogs.push({
               taskId: task.id,
               taskTitle: task.title,
+              assignedToUserId: assignedUserId,
+              assignedToName: task.assignedToName,
               status: 'dispatched',
               devicesDelivered: pushResult.sent,
               methods: pushResult.methods,
@@ -260,18 +274,22 @@ async function handleCronProcessing(request: NextRequest) {
             : `Follow-up time has arrived for this waiting task. Tap to review.`;
 
           if (!isDryRun) {
-            const pushResult = await sendPushNotificationToUser(assignedUserId, {
-              title: pushTitle,
-              body: pushBody,
-              icon: '/snap-service-logo.png',
-              badge: '/icon.png',
-              tag: `followup-${task.id}`,
-              data: {
-                url: `/tasks?taskId=${task.id}`,
-                taskId: task.id,
-                type: 'follow_up',
+            const pushResult = await sendPushNotificationToUser(
+              assignedUserId,
+              {
+                title: pushTitle,
+                body: pushBody,
+                icon: '/snap-service-logo.png',
+                badge: '/icon.png',
+                tag: `followup-${task.id}`,
+                data: {
+                  url: `/tasks?taskId=${task.id}`,
+                  taskId: task.id,
+                  type: 'follow_up',
+                },
               },
-            });
+              task.assignedToName
+            );
 
             console.log(`[CRON] ✅ Follow-up push dispatched for "${task.title}": ${pushResult.sent} device(s) received`);
             task.followUpAlertSentAt = nowIso;
@@ -295,18 +313,22 @@ async function handleCronProcessing(request: NextRequest) {
           const pushBody = `Deadline (${deadlineFormatted}) has passed. Please complete or reschedule.`;
 
           if (!isDryRun) {
-            const pushResult = await sendPushNotificationToUser(assignedUserId, {
-              title: pushTitle,
-              body: pushBody,
-              icon: '/snap-service-logo.png',
-              badge: '/icon.png',
-              tag: `overdue-${task.id}`,
-              data: {
-                url: `/tasks?taskId=${task.id}`,
-                taskId: task.id,
-                type: 'overdue',
+            const pushResult = await sendPushNotificationToUser(
+              assignedUserId,
+              {
+                title: pushTitle,
+                body: pushBody,
+                icon: '/snap-service-logo.png',
+                badge: '/icon.png',
+                tag: `overdue-${task.id}`,
+                data: {
+                  url: `/tasks?taskId=${task.id}`,
+                  taskId: task.id,
+                  type: 'overdue',
+                },
               },
-            });
+              task.assignedToName
+            );
 
             console.log(`[CRON] ✅ Overdue push dispatched for "${task.title}": ${pushResult.sent} device(s) received`);
             task.overdueAlertSentAt = nowIso;

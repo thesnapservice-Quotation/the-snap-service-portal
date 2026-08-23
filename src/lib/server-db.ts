@@ -629,13 +629,15 @@ let cachedDeviceSubscriptions: DeviceSubscription[] | null = null;
 export async function getDeviceSubscriptionsFromDb(userId?: string): Promise<DeviceSubscription[]> {
   // 1. Try Supabase table 'app_device_subscriptions'
   try {
-    const query = supabase.from('app_device_subscriptions').select('*');
-    if (userId) query.eq('user_id', userId);
-    const { data, error } = await query;
+    const { data, error } = await supabase.from('app_device_subscriptions').select('*');
     if (!error && Array.isArray(data) && data.length > 0) {
       const parsed: DeviceSubscription[] = data.map((r) => r.full_data || r);
       cachedDeviceSubscriptions = parsed;
-      return userId ? parsed.filter((d) => d.userId === userId) : parsed;
+      if (userId) {
+        const cleanUid = userId.trim().toLowerCase();
+        return parsed.filter((d) => (d.userId || '').trim().toLowerCase() === cleanUid);
+      }
+      return parsed;
     }
   } catch {}
 
@@ -650,13 +652,21 @@ export async function getDeviceSubscriptionsFromDb(userId?: string): Promise<Dev
     if (!error && data?.full_data && Array.isArray(data.full_data.subscriptions)) {
       const allSubs: DeviceSubscription[] = data.full_data.subscriptions;
       cachedDeviceSubscriptions = allSubs;
-      return userId ? allSubs.filter((d) => d.userId === userId) : allSubs;
+      if (userId) {
+        const cleanUid = userId.trim().toLowerCase();
+        return allSubs.filter((d) => (d.userId || '').trim().toLowerCase() === cleanUid);
+      }
+      return allSubs;
     }
   } catch {}
 
   // 3. Fallback to memory
   if (cachedDeviceSubscriptions) {
-    return userId ? cachedDeviceSubscriptions.filter((d) => d.userId === userId) : cachedDeviceSubscriptions;
+    if (userId) {
+      const cleanUid = userId.trim().toLowerCase();
+      return cachedDeviceSubscriptions.filter((d) => (d.userId || '').trim().toLowerCase() === cleanUid);
+    }
+    return cachedDeviceSubscriptions;
   }
 
   return [];
@@ -664,15 +674,26 @@ export async function getDeviceSubscriptionsFromDb(userId?: string): Promise<Dev
 
 export async function saveDeviceSubscriptionToDb(device: DeviceSubscription): Promise<DeviceSubscription> {
   const current = await getDeviceSubscriptionsFromDb();
-  // Check if subscription endpoint already exists or ID matches
+  // Check if subscription endpoint already exists, or FCM token matches, or device ID matches
   const index = current.findIndex(
-    (d) => d.id === device.id || d.subscription?.endpoint === device.subscription?.endpoint
+    (d) =>
+      d.id === device.id ||
+      (device.fcmToken && d.fcmToken && d.fcmToken === device.fcmToken) ||
+      (device.subscription?.endpoint && d.subscription?.endpoint && d.subscription?.endpoint === device.subscription?.endpoint)
   );
 
   let updatedList: DeviceSubscription[];
   if (index >= 0) {
     updatedList = [...current];
-    updatedList[index] = { ...updatedList[index], ...device, updatedAt: new Date().toISOString() };
+    updatedList[index] = {
+      ...updatedList[index],
+      ...device,
+      userId: device.userId, // Explicitly overwrite to the active user's ID
+      userName: device.userName,
+      userEmail: device.userEmail,
+      active: true,
+      updatedAt: new Date().toISOString(),
+    };
   } else {
     updatedList = [device, ...current];
   }
