@@ -133,30 +133,17 @@ async function handleCronProcessing(request: NextRequest) {
               console.log(`[CRON] 🔔 Due Reminder [${rem.timing}] for task "${task.title}" (Scheduled: ${rem.reminderDateTime}, Parsed Epoch: ${reminderTime}, Now Epoch: ${nowTime})`);
 
               const deadlineFormatted = formatTaskDateTime(task.deadlineDateTime);
-              const clientInfo = task.clientName ? `Client: ${task.clientName}` : '';
-              const priorityInfo = task.priority === 'urgent' ? '🚨 URGENT' : task.priority === 'high' ? '⚠️ High Priority' : '';
-
-              let pushTitle = `🔔 Snap Service Reminder: ${task.title}`;
-              if (rem.timing === 'at_deadline') {
-                pushTitle = `🏁 Task Deadline Reached: ${task.title}`;
-              } else if (rem.timing === '1_hour_before_deadline') {
-                pushTitle = `⏳ 1 Hour Until Deadline: ${task.title}`;
-              } else if (rem.timing === '2_hours_before_deadline') {
-                pushTitle = `⏳ 2 Hours Until Deadline: ${task.title}`;
-              } else if (rem.timing === '30_min_before_deadline') {
-                pushTitle = `🚨 30 Mins Until Deadline: ${task.title}`;
-              } else if (rem.timing === 'halfway') {
-                pushTitle = `⏱️ Midway Progress Check: ${task.title}`;
-              } else if (rem.timing === 'at_start') {
-                pushTitle = `🔔 Time to Start Task: ${task.title}`;
-              }
+              const pushTitle = task.title;
 
               let bodyParts = [];
-              if (clientInfo) bodyParts.push(clientInfo);
-              if (deadlineFormatted) bodyParts.push(`Deadline: ${deadlineFormatted}`);
-              if (priorityInfo) bodyParts.push(priorityInfo);
+              if (task.notes && task.notes.trim()) {
+                bodyParts.push(task.notes.trim());
+              }
+              if (deadlineFormatted) {
+                bodyParts.push(`Deadline: ${deadlineFormatted}`);
+              }
 
-              const pushBody = bodyParts.length > 0 ? bodyParts.join(' • ') : `Scheduled operation task reminder.`;
+              const pushBody = bodyParts.length > 0 ? bodyParts.join(' • ') : (deadlineFormatted ? `Deadline: ${deadlineFormatted}` : 'Task reminder');
 
               if (!isDryRun) {
                 const pushResult = await sendPushNotificationToUser(assignedUserId, {
@@ -208,16 +195,17 @@ async function handleCronProcessing(request: NextRequest) {
           console.log(`[CRON] 🔔 Due Legacy Reminder for "${task.title}" (Scheduled: ${task.reminderDateTime})`);
 
           const deadlineFormatted = formatTaskDateTime(task.deadlineDateTime);
-          const clientInfo = task.clientName ? `Client: ${task.clientName}` : '';
-          const priorityInfo = task.priority === 'urgent' ? '🚨 URGENT' : task.priority === 'high' ? '⚠️ High Priority' : '';
+          const pushTitle = task.title;
 
           let bodyParts = [];
-          if (clientInfo) bodyParts.push(clientInfo);
-          if (deadlineFormatted) bodyParts.push(`Deadline: ${deadlineFormatted}`);
-          if (priorityInfo) bodyParts.push(priorityInfo);
+          if (task.notes && task.notes.trim()) {
+            bodyParts.push(task.notes.trim());
+          }
+          if (deadlineFormatted) {
+            bodyParts.push(`Deadline: ${deadlineFormatted}`);
+          }
 
-          const pushTitle = `🔔 Snap Service Reminder: ${task.title}`;
-          const pushBody = bodyParts.length > 0 ? bodyParts.join(' • ') : `Scheduled operation task reminder.`;
+          const pushBody = bodyParts.length > 0 ? bodyParts.join(' • ') : (deadlineFormatted ? `Deadline: ${deadlineFormatted}` : 'Task reminder');
 
           if (!isDryRun) {
             const pushResult = await sendPushNotificationToUser(assignedUserId, {

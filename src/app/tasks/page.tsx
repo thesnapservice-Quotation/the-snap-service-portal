@@ -432,12 +432,14 @@ export default function TasksPage() {
         // Instant Push Notification upon Task Generation (non-blocking)
         try {
           const deadlineFormatted = formatTaskDateTime(deadlineDtToSave);
-          const priorityLabel = priorityToSave === 'urgent' ? '🚨 URGENT' : priorityToSave === 'high' ? '⚠️ High' : '';
-          const bodyText = [
-            `Deadline: ${deadlineFormatted}`,
-            clientName ? `Client: ${clientName}` : '',
-            priorityLabel,
-          ].filter(Boolean).join(' • ');
+          const bodyParts = [];
+          if (notesToSave && notesToSave.trim()) {
+            bodyParts.push(notesToSave.trim());
+          }
+          if (deadlineFormatted) {
+            bodyParts.push(`Deadline: ${deadlineFormatted}`);
+          }
+          const bodyText = bodyParts.join(' • ') || (deadlineFormatted ? `Deadline: ${deadlineFormatted}` : 'New task assigned.');
 
           fetch('/api/notifications/test', {
             method: 'POST',
@@ -445,8 +447,8 @@ export default function TasksPage() {
             body: JSON.stringify({
               userId: assignedUserIdToSave,
               userName: assignedName,
-              title: `✨ New Task Assigned: ${titleToSave}`,
-              body: bodyText || `New studio task assigned. Tap to view.`,
+              title: titleToSave,
+              body: bodyText,
               url: '/tasks',
               type: 'new_task',
             }),
