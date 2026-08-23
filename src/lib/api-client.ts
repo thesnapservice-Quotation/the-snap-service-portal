@@ -137,3 +137,50 @@ export async function apiSaveSettings(settings: AppSettings): Promise<AppSetting
   }
   return settings;
 }
+
+import { UserAccount } from './types';
+
+export async function apiFetchUsers(): Promise<UserAccount[]> {
+  try {
+    const timestamp = Date.now();
+    const res = await fetch(`/api/users?_t=${timestamp}`, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.users)) {
+        return data.users as UserAccount[];
+      }
+    }
+  } catch (e) {
+    console.error('API Fetch Users Error:', e);
+  }
+  return [];
+}
+
+export async function apiSaveUser(user: UserAccount): Promise<UserAccount> {
+  try {
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      body: JSON.stringify(user),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.user) {
+        return data.user;
+      }
+    }
+  } catch (e) {
+    console.error('API Save User Error:', e);
+  }
+  return user;
+}

@@ -1,26 +1,65 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserAccount, UserRole } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { hashPassword, verifyPassword, generateSecureId } from '@/lib/crypto';
+import { apiFetchUsers, apiSaveUser } from '@/lib/api-client';
 
 export function useAuth() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => storage.getCurrentUser());
   const [users, setUsers] = useState<UserAccount[]>(() => storage.getUsers());
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const refreshAuth = useCallback(() => {
+  const refreshAuth = useCallback(async () => {
     const user = storage.getCurrentUser();
-    const allUsers = storage.getUsers();
+    let allUsers = storage.getUsers();
     setCurrentUser(user);
     setUsers(allUsers);
+
+    try {
+      const cloudUsers = await apiFetchUsers();
+      if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+        // Merge cloud users into local storage
+        cloudUsers.forEach((u) => {
+          storage.saveUser(u);
+        });
+        allUsers = storage.getUsers();
+        setUsers(allUsers);
+        
+        // If current user was updated (e.g. approved by admin), update current session
+        if (user) {
+          const freshCurrent = allUsers.find((u) => u.id === user.id);
+          if (freshCurrent) {
+            storage.setCurrentUser(freshCurrent);
+            setCurrentUser(freshCurrent);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error syncing users with cloud:', e);
+    }
   }, []);
 
+  // Fetch latest users on mount
+  useEffect(() => {
+    refreshAuth();
+  }, [refreshAuth]);
+
   const login = async (email: string, pass: string): Promise<{ success: boolean; message: string }> => {
-    const allUsers = storage.getUsers();
+    // 1. First ensure latest users from cloud are loaded
+    let allUsers = storage.getUsers();
+    try {
+      const cloudUsers = await apiFetchUsers();
+      if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+        cloudUsers.forEach((u) => storage.saveUser(u));
+        allUsers = storage.getUsers();
+        setUsers(allUsers);
+      }
+    } catch {}
+
     const cleanEmail = (email || '').trim().toLowerCase();
 
     const match = allUsers.find((u) => {
@@ -83,7 +122,16 @@ export function useAuth() {
     pass: string,
     phone?: string
   ): Promise<{ success: boolean; message: string }> => {
-    const allUsers = storage.getUsers();
+    // 1. Sync latest users from cloud first
+    let allUsers = storage.getUsers();
+    try {
+      const cloudUsers = await apiFetchUsers();
+      if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+        cloudUsers.forEach((u) => storage.saveUser(u));
+        allUsers = storage.getUsers();
+      }
+    } catch {}
+
     const existing = allUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
 
     if (existing) {
@@ -104,7 +152,17 @@ export function useAuth() {
       createdAt: new Date().toISOString(),
     };
 
+    // Save locally
     storage.saveUser(newUser);
+    setUsers((prev) => [...prev, newUser]);
+
+    // Save to Cloud Central Database so Admin sees the request immediately on all devices
+    try {
+      await apiSaveUser(newUser);
+    } catch (e) {
+      console.error('Error saving user to central cloud:', e);
+    }
+
     refreshAuth();
     return {
       success: true,
@@ -139,27 +197,40 @@ export function useAuth() {
     };
 
     storage.saveUser(newUser);
+    try {
+      await apiSaveUser(newUser);
+    } catch {}
     refreshAuth();
     return { success: true, message: `Account created for ${name} (${role})` };
   };
 
-  const approveUser = (userId: string) => {
+  const approveUser = async (userId: string) => {
     const target = users.find((u) => u.id === userId);
     if (target) {
-      storage.saveUser({ ...target, approved: true, active: true });
+      const updated: UserAccount = { ...target, approved: true, active: true };
+      storage.saveUser(updated);
+      setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+      try {
+        await apiSaveUser(updated);
+      } catch {}
       refreshAuth();
     }
   };
 
-  const toggleUserActive = (userId: string) => {
+  const toggleUserActive = async (userId: string) => {
     const target = users.find((u) => u.id === userId);
     if (target) {
-      storage.saveUser({ ...target, active: !target.active });
+      const updated: UserAccount = { ...target, active: !target.active };
+      storage.saveUser(updated);
+      setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+      try {
+        await apiSaveUser(updated);
+      } catch {}
       refreshAuth();
     }
   };
 
-  const deleteUser = (userId: string) => {
+  const deleteUser = async (userId: string) => {
     storage.deleteUser(userId);
     refreshAuth();
   };

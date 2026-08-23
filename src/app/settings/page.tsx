@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSettings } from '@/hooks/use-settings';
 import { useServices } from '@/hooks/use-services';
 import { useAuth } from '@/hooks/use-auth';
@@ -76,13 +76,21 @@ export default function SettingsPage() {
     toggleUserActive, 
     deleteUser, 
     createUserDirectly,
-    switchUserAccount 
+    switchUserAccount,
+    refreshAuth
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'business' | 'bank' | 'services' | 'terms' | 'quotation' | 'users' | 'backup'>('business');
   const [formData, setFormData] = useState<AppSettings>(settings);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [restoreSuccessMsg, setRestoreSuccessMsg] = useState('');
+
+  // Auto-refresh users from cloud when switching to users tab
+  useEffect(() => {
+    if (activeTab === 'users') {
+      refreshAuth();
+    }
+  }, [activeTab, refreshAuth]);
 
   // Service form state
   const [newServiceName, setNewServiceName] = useState('');
@@ -1022,7 +1030,7 @@ export default function SettingsPage() {
 
           {/* Registered Users Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b bg-slate-50 flex items-center justify-between">
+            <div className="p-4 border-b bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-serif font-bold text-sm text-[#0D4F4F] flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-[#D4AF37]" /> Registered User Accounts ({users.length})
@@ -1031,6 +1039,16 @@ export default function SettingsPage() {
                   Super Admin can approve pending signups or deactivate team access.
                 </p>
               </div>
+
+              <button
+                type="button"
+                onClick={() => refreshAuth()}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
+                title="Fetch latest pending signups from cloud"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-[#0D4F4F]" />
+                <span>Refresh Requests</span>
+              </button>
             </div>
 
             <div className="divide-y divide-slate-100">

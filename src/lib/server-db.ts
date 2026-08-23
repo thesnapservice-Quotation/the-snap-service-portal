@@ -1,5 +1,6 @@
-import { Quotation } from './types';
+import { Quotation, UserAccount } from './types';
 import { supabase } from './supabase';
+import { SEED_USERS } from './storage';
 
 /**
  * Production Central Database Persistence Engine
@@ -383,4 +384,94 @@ export async function saveSettingsToDb(settings: AppSettings): Promise<AppSettin
   } catch {}
 
   return settings;
+}
+
+const PRIMARY_USERS_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315585';
+let cachedUsers: UserAccount[] | null = null;
+
+function mergeWithSeedUsers(users: UserAccount[]): UserAccount[] {
+  const map = new Map<string, UserAccount>();
+  SEED_USERS.forEach((u) => map.set(u.id.toLowerCase(), u));
+  users.forEach((u) => {
+    if (u && u.id) {
+      map.set(u.id.toLowerCase(), u);
+    }
+  });
+  return Array.from(map.values());
+}
+
+export async function getUsersFromDb(): Promise<UserAccount[]> {
+  // 1. Try fetching from Supabase table 'app_users'
+  try {
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const parsed: UserAccount[] = data.map((r) => r.full_data || r);
+      const merged = mergeWithSeedUsers(parsed);
+      cachedUsers = merged;
+      return merged;
+    }
+  } catch {}
+
+  // 2. Try fetching from secondary Cloud DB
+  try {
+    const res = await fetch(PRIMARY_USERS_CLOUD_DB, {
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const merged = mergeWithSeedUsers(data);
+        cachedUsers = merged;
+        return merged;
+      }
+    }
+  } catch {}
+
+  if (cachedUsers && cachedUsers.length > 0) return cachedUsers;
+  return SEED_USERS;
+}
+
+export async function saveUserToDb(user: UserAccount): Promise<UserAccount[]> {
+  const current = await getUsersFromDb();
+  const index = current.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+  let updatedList: UserAccount[];
+  if (index >= 0) {
+    updatedList = [...current];
+    updatedList[index] = { ...updatedList[index], ...user };
+  } else {
+    updatedList = [...current, user];
+  }
+  cachedUsers = updatedList;
+
+  // 1. Save to Supabase
+  try {
+    await supabase
+      .from('app_users')
+      .upsert({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        approved: user.approved,
+        active: user.active,
+        full_data: user,
+        updated_at: new Date().toISOString(),
+      });
+  } catch {}
+
+  // 2. Save to Cloud DB
+  try {
+    await fetch(PRIMARY_USERS_CLOUD_DB, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(updatedList),
+    });
+  } catch {}
+
+  return updatedList;
 }
