@@ -70,6 +70,7 @@ export default function TasksPage() {
   // Form State for Create / Edit
   const [formTitle, setFormTitle] = useState('');
   const [formCategory, setFormCategory] = useState<TaskCategory>('events');
+  const [templateCategory, setTemplateCategory] = useState<TaskCategory>('events');
   const [formSubCategory, setFormSubCategory] = useState('');
   const [formQuotationId, setFormQuotationId] = useState('');
   const [formAssignedUserId, setFormAssignedUserId] = useState(currentUser?.id || 'user-super-admin');
@@ -777,30 +778,50 @@ export default function TasksPage() {
               </button>
             </div>
 
-            {/* Quick Templates Accordion / Pills (Only when creating new task) */}
+            {/* Quick Templates Filtered by Category (Only when creating new task) */}
             {!editingTask && (
-              <div className="space-y-1.5 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                  ⚡ 1-Click Operation Action Templates:
-                </span>
-                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
-                  {(Object.keys(TASK_CATEGORIES_CONFIG) as TaskCategory[]).map((catKey) => {
-                    const cfg = TASK_CATEGORIES_CONFIG[catKey];
-                    return cfg.templates.map((tpl) => (
-                      <button
-                        key={`${catKey}-${tpl}`}
-                        type="button"
-                        onClick={() => handleSelectTemplate(catKey, tpl)}
-                        className={`px-2 py-1 rounded-lg text-[10.5px] font-bold border transition-all ${
-                          formTitle === tpl
-                            ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#0D4F4F]'
-                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
-                        }`}
-                      >
-                        {tpl}
-                      </button>
-                    ));
-                  })}
+              <div className="space-y-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" /> 1-Click Action Templates:
+                  </span>
+                  <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                    <span className="text-[10.5px] text-slate-500 font-bold">Category:</span>
+                    <select
+                      value={templateCategory}
+                      onChange={(e) => {
+                        const newCat = e.target.value as TaskCategory;
+                        setTemplateCategory(newCat);
+                        setFormCategory(newCat);
+                      }}
+                      className="px-2.5 py-1 bg-white border border-slate-300 rounded-xl text-xs font-bold text-[#0D4F4F] focus:outline-none focus:ring-1 focus:ring-[#0D4F4F]"
+                    >
+                      {(Object.keys(TASK_CATEGORIES_CONFIG) as TaskCategory[]).map((catKey) => (
+                        <option key={catKey} value={catKey}>
+                          {TASK_CATEGORIES_CONFIG[catKey].label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Templates of the Selected Category Only */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {TASK_CATEGORIES_CONFIG[templateCategory].templates.map((tpl) => (
+                    <button
+                      key={tpl}
+                      type="button"
+                      onClick={() => handleSelectTemplate(templateCategory, tpl)}
+                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all text-left flex items-center gap-1.5 cursor-pointer ${
+                        formTitle === tpl
+                          ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#0D4F4F] shadow-xs ring-2 ring-[#D4AF37]/50'
+                          : 'bg-white text-slate-800 border-slate-200 hover:border-[#0D4F4F] hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+                      <span>{tpl}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
