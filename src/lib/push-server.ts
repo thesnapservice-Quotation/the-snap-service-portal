@@ -50,14 +50,15 @@ export async function sendPushToSubscription(
     });
     return { success: true };
   } catch (error: any) {
-    console.error(`Push delivery error to ${device.deviceName} (${device.id}):`, error?.statusCode || error?.message);
+    const errDetail = `${error?.statusCode || 'ERR'}: ${error?.body || error?.message || 'Push delivery failed'}`;
+    console.error(`Push delivery error to ${device.deviceName} (${device.id}):`, errDetail);
     
     // Status 404 (Not Found) or 410 (Gone) indicates expired or revoked browser subscription
     if (error?.statusCode === 404 || error?.statusCode === 410) {
-      return { success: false, shouldDelete: true, error: 'Subscription expired or revoked' };
+      return { success: false, shouldDelete: true, error: errDetail };
     }
 
-    return { success: false, shouldDelete: false, error: error?.message || 'Push failed' };
+    return { success: false, shouldDelete: false, error: errDetail };
   }
 }
 
