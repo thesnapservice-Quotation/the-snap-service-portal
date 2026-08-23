@@ -14,9 +14,14 @@ const NO_CACHE_HEADERS = {
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const userId = url.searchParams.get('userId') || request.headers.get('x-user-id') || undefined;
+    const workspaceId =
+      url.searchParams.get('workspaceId') ||
+      request.headers.get('x-workspace-id') ||
+      url.searchParams.get('userId') ||
+      request.headers.get('x-user-id') ||
+      undefined;
 
-    const quotations = await getQuotationsFromDb(userId);
+    const quotations = await getQuotationsFromDb(workspaceId);
     return NextResponse.json({ success: true, quotations }, { headers: NO_CACHE_HEADERS });
   } catch {
     return NextResponse.json({ error: 'Failed to fetch quotations from database' }, { status: 500, headers: NO_CACHE_HEADERS });

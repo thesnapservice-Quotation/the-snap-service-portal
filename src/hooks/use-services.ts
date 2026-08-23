@@ -7,26 +7,36 @@ import { generateSecureId } from '@/lib/crypto';
 
 import { apiFetchServices, apiSaveServices } from '@/lib/api-client';
 
-export function useServices(overrideUserId?: string) {
+function resolveWorkspaceId(override?: string): string {
+  if (override) {
+    if (override.startsWith('ws_')) return override;
+    return override === 'user-super-admin' || override === 'global' ? 'ws_user-super-admin' : `ws_${override}`;
+  }
+  if (typeof window === 'undefined') return 'ws_user-super-admin';
+  const u = storage.getCurrentUser();
+  if (!u || !u.id) return 'ws_user-super-admin';
+  if (u.role === 'super_admin' || u.id === 'user-super-admin') return 'ws_user-super-admin';
+  return u.workspaceId || `ws_${u.id}`;
+}
+
+export function useServices(overrideWorkspaceId?: string) {
   const [services, setServices] = useState<Service[]>(() => {
-    const user = typeof window !== 'undefined' ? storage.getCurrentUser() : null;
-    const targetId = overrideUserId || user?.id || 'default';
-    return storage.getServices(targetId);
+    const ws = resolveWorkspaceId(overrideWorkspaceId);
+    return storage.getServices(ws);
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    const user = storage.getCurrentUser();
-    const targetId = overrideUserId || user?.id || 'default';
-    setServices(storage.getServices(targetId));
+    const ws = resolveWorkspaceId(overrideWorkspaceId);
+    setServices(storage.getServices(ws));
 
     async function loadCloudServices() {
       try {
         setLoading(true);
-        const cloud = await apiFetchServices(targetId);
+        const cloud = await apiFetchServices(ws);
         if (cloud && Array.isArray(cloud) && cloud.length > 0 && isMounted) {
-          storage.saveServices(cloud, targetId);
+          storage.saveServices(cloud, ws);
           setServices(cloud);
         }
       } catch (e) {
@@ -39,9 +49,8 @@ export function useServices(overrideUserId?: string) {
     loadCloudServices();
 
     const handleUserOrStorageChange = () => {
-      const u = storage.getCurrentUser();
-      const tid = overrideUserId || u?.id || 'default';
-      setServices(storage.getServices(tid));
+      const activeWs = resolveWorkspaceId(overrideWorkspaceId);
+      setServices(storage.getServices(activeWs));
     };
 
     if (typeof window !== 'undefined') {
@@ -56,14 +65,13 @@ export function useServices(overrideUserId?: string) {
         window.removeEventListener('snap_user_switched', handleUserOrStorageChange);
       }
     };
-  }, [overrideUserId]);
+  }, [overrideWorkspaceId]);
 
   const saveServices = (newServices: Service[]) => {
-    const user = storage.getCurrentUser();
-    const targetId = overrideUserId || user?.id || 'default';
-    storage.saveServices(newServices, targetId);
+    const ws = resolveWorkspaceId(overrideWorkspaceId);
+    storage.saveServices(newServices, ws);
     setServices(newServices);
-    apiSaveServices(newServices, targetId).catch((err) => console.error('Cloud save services err:', err));
+    apiSaveServices(newServices, ws).catch((err) => console.error('Cloud save services err:', err));
   };
 
   const addService = (service: Omit<Service, 'id'>) => {

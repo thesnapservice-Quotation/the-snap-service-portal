@@ -14,8 +14,10 @@ export function useQuotations() {
     const local = storage.getQuotations();
     const user = storage.getCurrentUser();
     if (!user || !user.id) return [];
-    const isSuperAdmin = user.role === 'super_admin' || user.id === 'user-super-admin';
-    return isSuperAdmin ? local : local.filter((q) => q.userId === user.id);
+    const targetWs = user.role === 'super_admin' || user.id === 'user-super-admin'
+      ? 'ws_user-super-admin'
+      : (user.workspaceId || `ws_${user.id}`);
+    return local.filter((q) => q.workspaceId ? q.workspaceId === targetWs : (user.role === 'super_admin' ? true : q.userId === user.id));
   });
   const [loading, setLoading] = useState(false);
 
@@ -26,11 +28,13 @@ export function useQuotations() {
       return;
     }
 
-    const isSuperAdmin = user.role === 'super_admin' || user.id === 'user-super-admin';
+    const targetWs = user.role === 'super_admin' || user.id === 'user-super-admin'
+      ? 'ws_user-super-admin'
+      : (user.workspaceId || `ws_${user.id}`);
 
     try {
-      // 1. Direct query to Central Production Database
-      const dbQuotations = await apiFetchQuotations(isSuperAdmin ? undefined : user.id);
+      // 1. Direct query to Central Production Database scoped by workspaceId
+      const dbQuotations = await apiFetchQuotations(targetWs);
       const deletedIds = storage.getDeletedIds();
 
       if (Array.isArray(dbQuotations)) {
@@ -38,8 +42,8 @@ export function useQuotations() {
         const validDbQuotations = dbQuotations.filter((q) => {
           const idMatch = q.id && deletedIds.has(q.id.toLowerCase());
           const numMatch = q.quotationNumber && deletedIds.has(q.quotationNumber.toLowerCase());
-          const userMatch = isSuperAdmin ? true : q.userId === user.id;
-          return !idMatch && !numMatch && userMatch;
+          const wsMatch = q.workspaceId ? q.workspaceId === targetWs : (user.role === 'super_admin' ? true : q.userId === user.id);
+          return !idMatch && !numMatch && wsMatch;
         });
 
         // Set DB as authoritative
@@ -47,7 +51,7 @@ export function useQuotations() {
         setQuotations(validDbQuotations);
       } else {
         const local = storage.getQuotations();
-        const filtered = isSuperAdmin ? local : local.filter((q) => q.userId === user.id);
+        const filtered = local.filter((q) => q.workspaceId ? q.workspaceId === targetWs : (user.role === 'super_admin' ? true : q.userId === user.id));
         if (filtered.length > 0) {
           setQuotations(filtered);
         }
@@ -87,19 +91,26 @@ export function useQuotations() {
 
   const saveQuotation = async (quotation: Quotation): Promise<Quotation> => {
     const user = storage.getCurrentUser();
+    const targetWs = user?.role === 'super_admin' || user?.id === 'user-super-admin'
+      ? 'ws_user-super-admin'
+      : (user?.workspaceId || `ws_${user?.id || 'user-super-admin'}`);
+    const authorId = user?.id || quotation.userId || 'user-super-admin';
     
     // Explicitly preserve submitted status without overriding to confirmed
     const finalStatus = quotation.status || 'sent';
 
-    const quotationWithUser: Quotation = {
+    const quotationWithWs: Quotation = {
       ...quotation,
+      workspaceId: quotation.workspaceId || targetWs,
+      userId: authorId,
+      createdByUserId: quotation.createdByUserId || authorId,
+      updatedByUserId: authorId,
       status: finalStatus,
-      userId: user?.id || quotation.userId || 'user-super-admin',
       updatedAt: new Date().toISOString(),
     };
 
     // 1. Persist directly to Central Production Database
-    const savedFromDb = await apiSaveQuotation(quotationWithUser);
+    const savedFromDb = await apiSaveQuotation(quotationWithWs);
 
     // 2. Update local state
     setQuotations((prev) => {

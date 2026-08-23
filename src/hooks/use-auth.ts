@@ -111,9 +111,14 @@ export function useAuth() {
       return { success: false, message: 'Your account has been deactivated.' };
     }
 
-    storage.setCurrentUser(match);
-    setCurrentUser(match);
-    return { success: true, message: 'Login successful!', user: match };
+    const userWithWs: UserAccount = {
+      ...match,
+      workspaceId: match.role === 'super_admin' || match.id === 'user-super-admin' ? 'ws_user-super-admin' : (match.workspaceId || `ws_${match.id}`),
+    };
+
+    storage.setCurrentUser(userWithWs);
+    setCurrentUser(userWithWs);
+    return { success: true, message: 'Login successful!', user: userWithWs };
   };
 
   const signup = async (
@@ -139,9 +144,11 @@ export function useAuth() {
     }
 
     const hashedPassword = await hashPassword(pass);
+    const userId = generateSecureId('user');
 
     const newUser: UserAccount = {
-      id: generateSecureId('user'),
+      id: userId,
+      workspaceId: `ws_${userId}`,
       name,
       email,
       password: hashedPassword,
@@ -184,9 +191,11 @@ export function useAuth() {
     }
 
     const hashedPassword = await hashPassword(pass);
+    const userId = generateSecureId('user');
 
     const newUser: UserAccount = {
-      id: generateSecureId('user'),
+      id: userId,
+      workspaceId: role === 'super_admin' ? 'ws_user-super-admin' : `ws_${userId}`,
       name,
       email,
       password: hashedPassword,

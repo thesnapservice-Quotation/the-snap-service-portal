@@ -1,0 +1,978 @@
+{
+  "timestamp": "2026-08-23T17:50:20.875Z",
+  "quotationsCount": 6,
+  "quotations": [
+    {
+      "id": "quote-5f83bfea-6a3a-4269-b3ba-8d86c80aa734",
+      "quotationNumber": "SS-2026-102",
+      "userId": "user-7f863120-3e86-487a-85c2-9d25d8c436bc",
+      "status": "sent",
+      "client": {
+        "name": "Jawad testing",
+        "phone": "",
+        "eventDates": "",
+        "quotationDate": "2026-08-23"
+      },
+      "packageType": "multi_event",
+      "events": [
+        {
+          "id": "evt-1",
+          "name": "Mehndi",
+          "price": 45000,
+          "services": [
+            {
+              "id": "es-1",
+              "quantity": 2,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer"
+            },
+            {
+              "id": "es-2",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer"
+            },
+            {
+              "id": "es-3",
+              "quantity": 1,
+              "serviceId": "srv-3",
+              "serviceName": "Drone"
+            }
+          ],
+          "dayNumber": 1,
+          "guestCount": 200
+        }
+      ],
+      "inclusions": [
+        {
+          "id": "inc-1",
+          "name": "Complete Video Editing",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-2",
+          "name": "Events Highlights for each day",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-3",
+          "name": "Couple Shoot Songs",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-4",
+          "name": "Couple Shoot Album",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-5",
+          "name": "Family Albums",
+          "included": true,
+          "quantity": 3
+        },
+        {
+          "id": "inc-6",
+          "name": "Full Event Coverage",
+          "included": true,
+          "quantity": 1
+        }
+      ],
+      "payment": {
+        "grandTotal": 45000,
+        "advanceType": "fixed",
+        "balancePayable": 45000,
+        "advanceReceived": 0
+      },
+      "termsAndConditions": [
+        "50% advance to confirm booking.",
+        "25% after event completion.",
+        "25% before final delivery.",
+        "Only selected images will be delivered in high resolution.",
+        "All other images will be provided in soft form for selection.",
+        "Couple shoot duration approximately one hour."
+      ],
+      "securityPin": "215289",
+      "createdAt": "2026-08-23T15:53:33.665163+00:00",
+      "updatedAt": "2026-08-23T15:53:32.904+00:00"
+    },
+    {
+      "id": "quote-b19074a2-b521-46b1-85ad-13dc64c8402a",
+      "quotationNumber": "SS-2026-101",
+      "userId": "user-7f863120-3e86-487a-85c2-9d25d8c436bc",
+      "status": "sent",
+      "client": {
+        "name": "Jawad testing",
+        "phone": "",
+        "eventDates": "30 Aug 2026",
+        "quotationDate": "2026-08-23"
+      },
+      "packageType": "multi_event",
+      "events": [
+        {
+          "id": "evt-1",
+          "name": "Mehndi",
+          "price": 45000,
+          "services": [
+            {
+              "id": "es-1",
+              "quantity": 2,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer"
+            },
+            {
+              "id": "es-2",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer"
+            },
+            {
+              "id": "es-3",
+              "quantity": 1,
+              "serviceId": "srv-3",
+              "serviceName": "Drone"
+            }
+          ],
+          "dayNumber": 1,
+          "eventDate": "2026-08-30",
+          "guestCount": 200
+        }
+      ],
+      "inclusions": [
+        {
+          "id": "inc-1",
+          "name": "Complete Video Editing",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-2",
+          "name": "Events Highlights for each day",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-3",
+          "name": "Couple Shoot Songs",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-4",
+          "name": "Couple Shoot Album",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-5",
+          "name": "Family Albums",
+          "included": true,
+          "quantity": 3
+        },
+        {
+          "id": "inc-6",
+          "name": "Full Event Coverage",
+          "included": true,
+          "quantity": 1
+        }
+      ],
+      "payment": {
+        "grandTotal": 45000,
+        "advanceType": "fixed",
+        "balancePayable": 45000,
+        "advanceReceived": 0
+      },
+      "termsAndConditions": [
+        "50% advance to confirm booking.",
+        "25% after event completion.",
+        "25% before final delivery.",
+        "Only selected images will be delivered in high resolution.",
+        "All other images will be provided in soft form for selection.",
+        "Couple shoot duration approximately one hour."
+      ],
+      "securityPin": "387397",
+      "createdAt": "2026-08-23T15:52:02.456078+00:00",
+      "updatedAt": "2026-08-23T15:52:28.692+00:00"
+    },
+    {
+      "id": "quote-de4ff281-c416-4145-8968-6fb137b024c5",
+      "quotationNumber": "SS-2026-107",
+      "userId": "user-super-admin",
+      "status": "sent",
+      "client": {
+        "name": "admin test 01 ",
+        "phone": "",
+        "eventDates": "30 Aug 2026",
+        "quotationDate": "2026-08-23"
+      },
+      "packageType": "multi_event",
+      "events": [
+        {
+          "id": "evt-1",
+          "name": "Mehndi",
+          "price": 45000,
+          "services": [
+            {
+              "id": "es-1",
+              "quantity": 2,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer"
+            },
+            {
+              "id": "es-2",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer"
+            },
+            {
+              "id": "es-3",
+              "quantity": 1,
+              "serviceId": "srv-3",
+              "serviceName": "Drone"
+            }
+          ],
+          "dayNumber": 1,
+          "eventDate": "2026-08-30",
+          "guestCount": 200
+        }
+      ],
+      "inclusions": [
+        {
+          "id": "inc-1",
+          "name": "Complete Video Editing",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-2",
+          "name": "Events Highlights for each day",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-3",
+          "name": "Couple Shoot Songs",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-4",
+          "name": "Couple Shoot Album",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-5",
+          "name": "Family Albums",
+          "included": true,
+          "quantity": 3
+        },
+        {
+          "id": "inc-6",
+          "name": "Full Event Coverage",
+          "included": true,
+          "quantity": 1
+        }
+      ],
+      "payment": {
+        "grandTotal": 45000,
+        "advanceType": "fixed",
+        "balancePayable": 45000,
+        "advanceReceived": 0
+      },
+      "termsAndConditions": [
+        "50% advance to confirm booking.",
+        "25% after event completion.",
+        "25% before final delivery.",
+        "Only selected images will be delivered in high resolution.",
+        "All other images will be provided in soft form for selection.",
+        "Couple shoot duration approximately one hour."
+      ],
+      "securityPin": "704124",
+      "createdAt": "2026-08-23T15:50:35.340812+00:00",
+      "updatedAt": "2026-08-23T15:52:14.461+00:00"
+    },
+    {
+      "id": "quote-staff-test-02",
+      "quotationNumber": "SS-2026-902",
+      "userId": "user-staff-1",
+      "status": "sent",
+      "client": {
+        "name": "Staff Test Client",
+        "phone": "03001234567",
+        "eventDates": "2026-12-05",
+        "quotationDate": "2026-08-23"
+      },
+      "packageType": "multi_event",
+      "events": [],
+      "inclusions": [],
+      "payment": {
+        "grandTotal": 60000,
+        "advanceType": "fixed",
+        "balancePayable": 60000,
+        "advanceReceived": 0
+      },
+      "termsAndConditions": [],
+      "securityPin": "535271",
+      "createdAt": "2026-08-23T15:37:42.220809+00:00",
+      "updatedAt": "2026-08-23T15:37:41.41+00:00"
+    },
+    {
+      "id": "quote-dbe29422-e0aa-4c11-8baa-6ba441e954ef",
+      "quotationNumber": "SS-2026-106",
+      "userId": "user-super-admin",
+      "status": "confirmed",
+      "client": {
+        "name": "",
+        "phone": "",
+        "eventDates": "",
+        "quotationDate": "2026-08-23"
+      },
+      "packageType": "multi_event",
+      "events": [
+        {
+          "id": "evt-20489b5f-87c2-47e3-b29a-f99d4ab7a0ca",
+          "name": "Nikkah",
+          "price": 40000,
+          "services": [
+            {
+              "id": "es-a7c977f1-11c5-4dc4-8516-a13cedc0f679",
+              "quantity": 1,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer",
+              "internalCostPerUnit": 5000
+            },
+            {
+              "id": "es-e63ef612-04ae-49cd-8eb2-7a2800c8a965",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer",
+              "internalCostPerUnit": 5500
+            }
+          ],
+          "dayNumber": 1
+        },
+        {
+          "id": "evt-dfd8fb82-243b-47c4-9612-fc49df95f52b",
+          "name": "Mayun",
+          "price": 40000,
+          "services": [
+            {
+              "id": "es-aba7c5f5-58b5-4156-948c-469bc057f382",
+              "quantity": 1,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer",
+              "internalCostPerUnit": 5000
+            },
+            {
+              "id": "es-5e0e5d96-35eb-4f11-a837-27eca6195cbe",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer",
+              "internalCostPerUnit": 5500
+            }
+          ],
+          "dayNumber": 2
+        },
+        {
+          "id": "evt-1",
+          "name": "Mehndi",
+          "price": 45000,
+          "services": [
+            {
+              "id": "es-1",
+              "quantity": 2,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer"
+            },
+            {
+              "id": "es-2",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer"
+            },
+            {
+              "id": "es-3",
+              "quantity": 1,
+              "serviceId": "srv-3",
+              "serviceName": "Drone"
+            }
+          ],
+          "dayNumber": 3,
+          "guestCount": 200
+        },
+        {
+          "id": "evt-1ed71eaa-5966-4208-bf0e-6a76e2f3642e",
+          "name": "Mehndi",
+          "price": 40000,
+          "services": [
+            {
+              "id": "es-66c9ee77-6982-4936-a438-babee598d818",
+              "quantity": 1,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer",
+              "internalCostPerUnit": 5000
+            },
+            {
+              "id": "es-bcf032e2-becf-4ee9-99a5-31f8662a7515",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer",
+              "internalCostPerUnit": 5500
+            }
+          ],
+          "dayNumber": 4
+        },
+        {
+          "id": "evt-c01f3e24-e8db-4df7-af3d-31a53bac3f01",
+          "name": "Barat",
+          "price": 40000,
+          "services": [
+            {
+              "id": "es-efa18449-8d6f-4d84-b101-3135e4ac31be",
+              "quantity": 1,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer",
+              "internalCostPerUnit": 5000
+            },
+            {
+              "id": "es-4c12ea6b-be42-4572-a41b-78092750781b",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer",
+              "internalCostPerUnit": 5500
+            }
+          ],
+          "dayNumber": 5
+        },
+        {
+          "id": "evt-5aac8aec-cb68-43a8-8886-1ee378500da1",
+          "name": "Couple Shoot",
+          "price": 40000,
+          "services": [
+            {
+              "id": "es-cf9ba0ef-384e-465c-84f5-c3338e31420a",
+              "quantity": 1,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer",
+              "internalCostPerUnit": 5000
+            },
+            {
+              "id": "es-c9c65638-cf62-4d90-986b-a57692a29c31",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer",
+              "internalCostPerUnit": 5500
+            }
+          ],
+          "dayNumber": 6
+        },
+        {
+          "id": "evt-b06ba865-18e3-42c3-8f64-82858246fde1",
+          "name": "Single Day Package",
+          "price": 40000,
+          "services": [
+            {
+              "id": "es-26150c00-448a-410a-985f-077171d1e2f4",
+              "quantity": 1,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer",
+              "internalCostPerUnit": 5000
+            },
+            {
+              "id": "es-ba0663a5-f7a6-4a7b-8e80-0253190853dd",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer",
+              "internalCostPerUnit": 5500
+            }
+          ],
+          "dayNumber": 7
+        }
+      ],
+      "inclusions": [
+        {
+          "id": "inc-1",
+          "name": "Complete Video Editing",
+          "included": true,
+          "quantity": 7
+        },
+        {
+          "id": "inc-2",
+          "name": "Events Highlights for each day",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-3",
+          "name": "Couple Shoot Songs",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-4",
+          "name": "Couple Shoot Album",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-5",
+          "name": "Family Albums",
+          "included": true,
+          "quantity": 3
+        },
+        {
+          "id": "inc-6",
+          "name": "Full Event Coverage",
+          "included": true,
+          "quantity": 1
+        }
+      ],
+      "payment": {
+        "grandTotal": 285000,
+        "advanceType": "fixed",
+        "balancePayable": 285000,
+        "advanceReceived": 0
+      },
+      "termsAndConditions": [
+        "50% advance to confirm booking.",
+        "25% after event completion.",
+        "25% before final delivery.",
+        "Only selected images will be delivered in high resolution.",
+        "All other images will be provided in soft form for selection.",
+        "Couple shoot duration approximately one hour."
+      ],
+      "createdAt": "2026-08-22T23:44:50.44918+00:00",
+      "updatedAt": "2026-08-22T23:44:55.155+00:00"
+    },
+    {
+      "id": "quote-23b5e926-dddf-4770-ac85-53b9264afab4",
+      "quotationNumber": "SS-2026-105",
+      "userId": "user-super-admin",
+      "status": "confirmed",
+      "client": {
+        "name": "Ali testing",
+        "phone": "",
+        "eventDates": "",
+        "quotationDate": "2026-08-23"
+      },
+      "packageType": "multi_event",
+      "events": [
+        {
+          "id": "evt-ad03c5c0-0b32-49b4-a329-72a42b8fa6a8",
+          "name": "Nikkah",
+          "price": 40000,
+          "services": [
+            {
+              "id": "es-8272a253-7e0c-4167-a7a6-5e478f4589e5",
+              "quantity": 1,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer",
+              "internalCostPerUnit": 5000
+            },
+            {
+              "id": "es-d23ed42d-9ddb-47d3-a6de-7760e6598857",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer",
+              "internalCostPerUnit": 5500
+            }
+          ],
+          "dayNumber": 1
+        },
+        {
+          "id": "evt-1",
+          "name": "Mehndi",
+          "price": 45000,
+          "services": [
+            {
+              "id": "es-1",
+              "quantity": 2,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer"
+            },
+            {
+              "id": "es-2",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer"
+            },
+            {
+              "id": "es-3",
+              "quantity": 1,
+              "serviceId": "srv-3",
+              "serviceName": "Drone"
+            }
+          ],
+          "dayNumber": 2,
+          "guestCount": 200
+        },
+        {
+          "id": "evt-e9afa0d9-cc9e-4f1c-be4c-03a8c83ac488",
+          "name": "Barat",
+          "price": 40000,
+          "services": [
+            {
+              "id": "es-fae8ceb5-f53f-4e61-bf10-9c83c7708473",
+              "quantity": 1,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer",
+              "internalCostPerUnit": 5000
+            },
+            {
+              "id": "es-05ca6137-8d99-47ad-abca-6e6e52585bb8",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer",
+              "internalCostPerUnit": 5500
+            }
+          ],
+          "dayNumber": 3
+        },
+        {
+          "id": "evt-4cec9e33-94e3-492f-99a5-7a4c2fea9888",
+          "name": "Walima",
+          "price": 40000,
+          "services": [
+            {
+              "id": "es-28e6a181-74b4-49b7-bc27-0e9dd10e776b",
+              "quantity": 1,
+              "serviceId": "srv-1",
+              "serviceName": "Photographer",
+              "internalCostPerUnit": 5000
+            },
+            {
+              "id": "es-7d4b07c5-0e32-4450-b404-55b28b536d9a",
+              "quantity": 1,
+              "serviceId": "srv-2",
+              "serviceName": "Videographer",
+              "internalCostPerUnit": 5500
+            }
+          ],
+          "dayNumber": 4
+        }
+      ],
+      "inclusions": [
+        {
+          "id": "inc-1",
+          "name": "Complete Video Editing",
+          "included": true,
+          "quantity": 4
+        },
+        {
+          "id": "inc-2",
+          "name": "Events Highlights for each day",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-3",
+          "name": "Couple Shoot Songs",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-4",
+          "name": "Couple Shoot Album",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-5",
+          "name": "Family Albums",
+          "included": true,
+          "quantity": 1
+        },
+        {
+          "id": "inc-6",
+          "name": "Full Event Coverage",
+          "included": true,
+          "quantity": 1
+        }
+      ],
+      "payment": {
+        "grandTotal": 165000,
+        "advanceType": "fixed",
+        "transactions": [
+          {
+            "id": "tx-b7ef7668-a9af-4657-a07a-e4ca0b64e5fa",
+            "date": "2026-08-23",
+            "amount": 100000,
+            "method": "bank_transfer",
+            "createdAt": "2026-08-22T23:40:00.294Z"
+          },
+          {
+            "id": "tx-e6316d3c-9ba5-4e24-8974-06b8edc0099e",
+            "date": "2026-08-23",
+            "notes": "advance",
+            "amount": 50000,
+            "method": "bank_transfer",
+            "createdAt": "2026-08-22T23:21:14.178Z"
+          }
+        ],
+        "paymentStatus": "partially_paid",
+        "balancePayable": 15000,
+        "advanceReceived": 150000,
+        "clientProposedAdvance": 50000
+      },
+      "termsAndConditions": [
+        "50% advance to confirm booking.",
+        "25% after event completion.",
+        "25% before final delivery.",
+        "Only selected images will be delivered in high resolution.",
+        "All other images will be provided in soft form for selection.",
+        "Couple shoot duration approximately one hour."
+      ],
+      "createdAt": "2026-08-22T23:16:48.805538+00:00",
+      "updatedAt": "2026-08-22T23:40:01.433+00:00"
+    }
+  ],
+  "usersCount": 1,
+  "users": [
+    {
+      "id": "user-super-admin",
+      "name": "Zunair Ahmad (Owner)",
+      "email": "admin@snapservice.com",
+      "password": "admin123",
+      "phone": "0323-9244924",
+      "role": "super_admin",
+      "approved": true,
+      "active": true,
+      "createdAt": "2026-08-01T00:00:00.000Z"
+    }
+  ],
+  "tasksCount": 3,
+  "tasks": [
+    {
+      "id": "task-94df7f70-9308-4d4e-a939-75cda9471cd6",
+      "notes": "drawing room mein bitha k meeting krni hai",
+      "title": "Client ne ana 8 baje",
+      "history": [
+        {
+          "id": "hist-ad6ad3dc-d41f-4331-a4d3-b97a2baaf4e1",
+          "action": "Task details updated",
+          "userId": "user-super-admin",
+          "userName": "Zunair Ahmad (Owner)",
+          "timestamp": "2026-08-23T14:43:24.434Z"
+        },
+        {
+          "id": "hist-74be387e-ced2-47a2-aafd-675b0ad57576",
+          "action": "Task details updated",
+          "userId": "user-super-admin",
+          "userName": "Zunair Ahmad (Owner)",
+          "timestamp": "2026-08-23T14:43:07.749Z"
+        },
+        {
+          "id": "hist-56ac9ca4-0063-4787-a8b7-ec1b2acc4ff1",
+          "action": "Task created",
+          "userId": "user-super-admin",
+          "details": "Created with priority MEDIUM",
+          "userName": "Zunair Ahmad (Owner)",
+          "timestamp": "2026-08-23T14:42:29.198Z"
+        }
+      ],
+      "category": "clients",
+      "priority": "medium",
+      "createdAt": "2026-08-23T14:42:29.198Z",
+      "reminders": [
+        {
+          "id": "rem-mid-1787496050625-1",
+          "sentAt": "2026-08-23T14:50:35.175Z",
+          "timing": "halfway",
+          "reminderDateTime": "2026-08-23T19:50"
+        },
+        {
+          "id": "rem-1h-1787496050626-2",
+          "sentAt": "2026-08-23T14:45:30.531Z",
+          "timing": "custom",
+          "reminderDateTime": "2026-08-23T19:45"
+        },
+        {
+          "id": "rem-end-1787496050626-3",
+          "sentAt": "2026-08-23T15:51:08.741Z",
+          "timing": "custom",
+          "reminderDateTime": "2026-08-23T20:50"
+        },
+        {
+          "id": "rem-1787496195080-ghtg",
+          "sentAt": "2026-08-23T14:55:08.245Z",
+          "timing": "custom",
+          "reminderDateTime": "2026-08-23T19:55"
+        }
+      ],
+      "updatedAt": "2026-08-23T15:51:12.594Z",
+      "subCategory": "",
+      "startDateTime": "2026-08-23T19:40",
+      "assignedToName": "Jawad",
+      "computedStatus": "due_now",
+      "reminderTiming": "halfway",
+      "assignedToUserId": "user-7f863120-3e86-487a-85c2-9d25d8c436bc",
+      "deadlineDateTime": "2026-08-23T20:00",
+      "reminderDateTime": "2026-08-23T19:50",
+      "overdueAlertSentAt": "2026-08-23T15:00:47.179Z"
+    },
+    {
+      "id": "task-084ce2e2-23dc-4a3d-9bea-886ca1b723f5",
+      "notes": "jitna bhi content hhai sara edit kr dena yaar",
+      "title": "Jawad please make content for Social Media",
+      "history": [
+        {
+          "id": "hist-439ce6c2-b643-4945-9e91-46035eb4e622",
+          "action": "Reopened task",
+          "userId": "user-7f863120-3e86-487a-85c2-9d25d8c436bc",
+          "userName": "Jawad",
+          "timestamp": "2026-08-23T14:57:28.095Z"
+        },
+        {
+          "id": "hist-454049de-363b-490f-92c1-38805768f0cd",
+          "action": "Marked task as COMPLETED",
+          "userId": "user-7f863120-3e86-487a-85c2-9d25d8c436bc",
+          "userName": "Jawad",
+          "timestamp": "2026-08-23T14:57:27.497Z"
+        },
+        {
+          "id": "hist-753232f8-d2e4-4ac2-806b-f4318812a5a6",
+          "action": "Task details updated",
+          "userId": "user-super-admin",
+          "userName": "Zunair Ahmad (Owner)",
+          "timestamp": "2026-08-23T13:59:48.963Z"
+        },
+        {
+          "id": "hist-9e92f3ef-6a02-4a83-910c-cd0bbe2d2c79",
+          "action": "Task created",
+          "userId": "user-super-admin",
+          "details": "Created with priority MEDIUM",
+          "userName": "Zunair Ahmad (Owner)",
+          "timestamp": "2026-08-23T13:55:15.380Z"
+        }
+      ],
+      "category": "events",
+      "priority": "medium",
+      "createdAt": "2026-08-23T13:55:15.380Z",
+      "reminders": [
+        {
+          "id": "rem-mid-1787493227374-1",
+          "sentAt": "2026-08-23T13:59:14.003Z",
+          "timing": "halfway",
+          "reminderDateTime": "2026-08-23T18:59"
+        },
+        {
+          "id": "rem-1h-1787493227375-2",
+          "sentAt": "2026-08-23T14:00:20.157Z",
+          "timing": "custom",
+          "reminderDateTime": "2026-08-23T19:00"
+        },
+        {
+          "id": "rem-end-1787493227375-3",
+          "sentAt": "2026-08-23T14:05:58.541Z",
+          "timing": "custom",
+          "reminderDateTime": "2026-08-23T19:05"
+        }
+      ],
+      "updatedAt": "2026-08-23T14:57:29.457Z",
+      "subCategory": "",
+      "manualStatus": "in_progress",
+      "startDateTime": "2026-08-23T18:53",
+      "assignedToName": "Jawad",
+      "computedStatus": "due_now",
+      "reminderTiming": "halfway",
+      "assignedToUserId": "user-7f863120-3e86-487a-85c2-9d25d8c436bc",
+      "deadlineDateTime": "2026-08-23T19:05",
+      "reminderDateTime": "2026-08-23T18:59",
+      "overdueAlertSentAt": "2026-08-23T14:05:58.541Z"
+    },
+    {
+      "id": "task-a360f02e-60ec-4cfd-9248-5d89464fd618",
+      "notes": "",
+      "title": "Client ne ana hai aj",
+      "history": [
+        {
+          "id": "hist-baf68e0b-c1af-4ea7-b7cd-ee9c0de5cfac",
+          "action": "Task created",
+          "userId": "user-super-admin",
+          "details": "Created with priority MEDIUM",
+          "userName": "Zunair Ahmad (Owner)",
+          "timestamp": "2026-08-23T13:33:44.670Z"
+        }
+      ],
+      "category": "events",
+      "priority": "medium",
+      "createdAt": "2026-08-23T13:33:44.670Z",
+      "reminders": [
+        {
+          "id": "rem-mid-1787491976848-1",
+          "sentAt": "2026-08-23T14:17:05.821Z",
+          "timing": "halfway",
+          "reminderDateTime": "2026-08-23T19:16"
+        },
+        {
+          "id": "rem-1h-1787491976848-2",
+          "sentAt": "2026-08-23T14:40:45.532Z",
+          "timing": "30_min_before_deadline",
+          "reminderDateTime": "2026-08-23T19:30"
+        },
+        {
+          "id": "rem-end-1787491976848-3",
+          "sentAt": "2026-08-23T15:00:47.179Z",
+          "timing": "at_deadline",
+          "reminderDateTime": "2026-08-23T20:00"
+        }
+      ],
+      "updatedAt": "2026-08-23T15:00:53.792Z",
+      "subCategory": "",
+      "startDateTime": "2026-08-23T18:32",
+      "assignedToName": "Zunair Ahmad (Owner)",
+      "reminderTiming": "halfway",
+      "assignedToUserId": "user-super-admin",
+      "deadlineDateTime": "2026-08-23T20:00",
+      "reminderDateTime": "2026-08-23T19:16",
+      "overdueAlertSentAt": "2026-08-23T15:00:47.179Z"
+    }
+  ],
+  "settings": {
+    "business": {
+      "name": "The Snap Service",
+      "logoUrl": "/snap-service-logo.png",
+      "phone": "+92 323 9244924",
+      "address": "Office# 42, Dragon Mall, Faisalabad",
+      "instagram": "@snapservice.pk",
+      "website": "www.snapservice.pk"
+    },
+    "bank": {
+      "accountTitle": "Zunair Ahmad",
+      "bank": "Meezan Bank",
+      "branch": "PMC Branch",
+      "accountNumber": "04240104676435",
+      "iban": "PK84MEZN0004240104676435"
+    },
+    "quotation": {
+      "startingNumber": 101,
+      "prefix": "SS-2026",
+      "defaultTerms": [
+        "50% advance to confirm booking.",
+        "25% after event completion.",
+        "25% before final delivery.",
+        "Only selected images will be delivered in high resolution.",
+        "All other images will be provided in soft form for selection.",
+        "Couple shoot duration approximately one hour."
+      ],
+      "defaultInclusions": [
+        "Complete Video Editing",
+        "Events Highlights for each day",
+        "Couple Shoot Songs",
+        "Couple Shoot Album",
+        "Family Albums",
+        "Full Event Coverage"
+      ],
+      "defaultFooter": "Thank you for choosing The Snap Service for your special moments!"
+    },
+    "integrations": {
+      "googleDriveWebhookUrl": "",
+      "autoSyncGoogleDrive": true,
+      "googleDriveFolderName": "Snap Service Quotations Archive"
+    }
+  }
+}

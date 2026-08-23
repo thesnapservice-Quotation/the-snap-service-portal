@@ -5,9 +5,17 @@ import { TaskItem } from '@/lib/types';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const tasks = await getTasksFromDb();
+    const url = new URL(request.url);
+    const workspaceId =
+      url.searchParams.get('workspaceId') ||
+      request.headers.get('x-workspace-id') ||
+      url.searchParams.get('userId') ||
+      request.headers.get('x-user-id') ||
+      undefined;
+
+    const tasks = await getTasksFromDb(workspaceId);
     return NextResponse.json(
       { success: true, tasks },
       {

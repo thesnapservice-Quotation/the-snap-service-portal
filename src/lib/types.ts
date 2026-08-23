@@ -1,8 +1,17 @@
 export type QuotationStatus = 'draft' | 'sent' | 'not_confirmed' | 'confirmed' | 'completed' | 'cancelled';
 export type UserRole = 'super_admin' | 'user' | 'task_manager';
 
+export interface Workspace {
+  id: string; // e.g. "ws_user-super-admin" or "ws_user-123"
+  name: string;
+  ownerUserId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface UserAccount {
   id: string;
+  workspaceId?: string; // Authoritative workspace boundary (e.g. "ws_user-super-admin")
   name: string;
   email: string;
   password?: string;
@@ -142,8 +151,11 @@ export interface DeliverableStatus {
 export interface Quotation {
   id: string;
   quotationNumber: string; // e.g., "SS-2026-001"
-  securityPin?: string; // 4-digit secure random access PIN to prevent client ID enumeration
-  userId?: string; // ID of the user who created this quotation
+  securityPin?: string; // 4-digit to 8-digit secure random access PIN to prevent client ID enumeration
+  workspaceId?: string; // Authoritative Workspace Boundary (e.g. "ws_user-super-admin" or "ws_user-xxx")
+  userId?: string; // ID of the user who created this quotation (legacy/creator reference)
+  createdByUserId?: string; // User ID who authored the quotation
+  updatedByUserId?: string; // User ID who last modified the quotation
   status: QuotationStatus;
   createdAt: string;
   updatedAt: string;
@@ -191,6 +203,7 @@ export interface IntegrationsSettings {
 }
 
 export interface AppSettings {
+  workspaceId?: string;
   business: BusinessSettings;
   bank: BankDetails;
   quotation: QuotationSettings;
@@ -260,6 +273,9 @@ export interface TaskReminderItem {
 
 export interface TaskItem {
   id: string;
+  workspaceId?: string; // Authoritative Workspace Boundary (e.g. "ws_user-super-admin")
+  createdByUserId?: string;
+  updatedByUserId?: string;
   title: string;
   category: TaskCategory;
   subCategory?: string; // Predefined quick action template

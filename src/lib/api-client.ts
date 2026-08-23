@@ -5,11 +5,11 @@ import { Quotation } from './types';
  * Enforces strict cache-busting and no-store headers across all devices.
  */
 
-export async function apiFetchQuotations(userId?: string): Promise<Quotation[]> {
+export async function apiFetchQuotations(workspaceId?: string): Promise<Quotation[]> {
   try {
     const timestamp = Date.now();
-    const url = userId
-      ? `/api/quotations?userId=${encodeURIComponent(userId)}&_t=${timestamp}`
+    const url = workspaceId
+      ? `/api/quotations?workspaceId=${encodeURIComponent(workspaceId)}&_t=${timestamp}`
       : `/api/quotations?_t=${timestamp}`;
 
     const res = await fetch(url, {
@@ -95,11 +95,11 @@ export async function apiDeleteQuotation(id: string): Promise<boolean> {
 
 import { AppSettings } from './types';
 
-export async function apiFetchSettings(userId?: string): Promise<AppSettings | null> {
+export async function apiFetchSettings(workspaceId?: string): Promise<AppSettings | null> {
   try {
     const timestamp = Date.now();
-    const url = userId
-      ? `/api/settings?userId=${encodeURIComponent(userId)}&_t=${timestamp}`
+    const url = workspaceId
+      ? `/api/settings?workspaceId=${encodeURIComponent(workspaceId)}&_t=${timestamp}`
       : `/api/settings?_t=${timestamp}`;
     const res = await fetch(url, {
       cache: 'no-store',
@@ -121,16 +121,16 @@ export async function apiFetchSettings(userId?: string): Promise<AppSettings | n
   return null;
 }
 
-export async function apiSaveSettings(settings: AppSettings, userId?: string): Promise<AppSettings> {
+export async function apiSaveSettings(settings: AppSettings, workspaceId?: string): Promise<AppSettings> {
   try {
-    const url = userId ? `/api/settings?userId=${encodeURIComponent(userId)}` : '/api/settings';
+    const url = workspaceId ? `/api/settings?workspaceId=${encodeURIComponent(workspaceId)}` : '/api/settings';
     const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
       },
-      body: JSON.stringify({ settings, userId }),
+      body: JSON.stringify({ settings, workspaceId }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -144,11 +144,11 @@ export async function apiSaveSettings(settings: AppSettings, userId?: string): P
 
 import { Service } from './types';
 
-export async function apiFetchServices(userId?: string): Promise<Service[]> {
+export async function apiFetchServices(workspaceId?: string): Promise<Service[]> {
   try {
     const timestamp = Date.now();
-    const url = userId
-      ? `/api/services?userId=${encodeURIComponent(userId)}&_t=${timestamp}`
+    const url = workspaceId
+      ? `/api/services?workspaceId=${encodeURIComponent(workspaceId)}&_t=${timestamp}`
       : `/api/services?_t=${timestamp}`;
     const res = await fetch(url, {
       cache: 'no-store',
@@ -170,16 +170,16 @@ export async function apiFetchServices(userId?: string): Promise<Service[]> {
   return [];
 }
 
-export async function apiSaveServices(services: Service[], userId?: string): Promise<Service[]> {
+export async function apiSaveServices(services: Service[], workspaceId?: string): Promise<Service[]> {
   try {
-    const url = userId ? `/api/services?userId=${encodeURIComponent(userId)}` : '/api/services';
+    const url = workspaceId ? `/api/services?workspaceId=${encodeURIComponent(workspaceId)}` : '/api/services';
     const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
       },
-      body: JSON.stringify({ services, userId }),
+      body: JSON.stringify({ services, workspaceId }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -260,10 +260,14 @@ export async function apiDeleteUser(userId: string): Promise<UserAccount[]> {
 
 import { TaskItem } from './types';
 
-export async function apiFetchTasks(): Promise<TaskItem[]> {
+export async function apiFetchTasks(workspaceId?: string): Promise<TaskItem[]> {
   try {
     const timestamp = Date.now();
-    const res = await fetch(`/api/tasks?_t=${timestamp}`, {
+    const url = workspaceId
+      ? `/api/tasks?workspaceId=${encodeURIComponent(workspaceId)}&_t=${timestamp}`
+      : `/api/tasks?_t=${timestamp}`;
+
+    const res = await fetch(url, {
       cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',

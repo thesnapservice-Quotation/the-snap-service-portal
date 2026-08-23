@@ -28,12 +28,62 @@ const memoryStore: Map<string, Quotation> =
   new Map();
 (globalThis as unknown as { __snap_quotations_store?: Map<string, Quotation> }).__snap_quotations_store = memoryStore;
 
+/**
+ * Primary Workspace Resolution Engine
+ * Resolves stable authoritative workspaceId for any user or workspace string.
+ * Zunair (Super Admin): 'ws_user-super-admin'
+ * Standard Users: 'ws_${userId}'
+ */
+export function getWorkspaceId(userOrId?: string | { id?: string; role?: string; workspaceId?: string }): string {
+  if (!userOrId) return 'ws_user-super-admin';
+  if (typeof userOrId === 'string') {
+    const clean = userOrId.trim();
+    if (
+      clean === 'user-super-admin' ||
+      clean === 'global' ||
+      clean === 'super_admin' ||
+      clean === 'admin' ||
+      clean === 'ws_user-super-admin' ||
+      clean === 'ws_global'
+    ) {
+      return 'ws_user-super-admin';
+    }
+    if (clean.startsWith('ws_')) return clean;
+    return `ws_${clean}`;
+  }
+  if (userOrId.workspaceId) return userOrId.workspaceId;
+  if (userOrId.role === 'super_admin' || userOrId.id === 'user-super-admin') return 'ws_user-super-admin';
+  if (userOrId.id) return `ws_${userOrId.id}`;
+  return 'ws_user-super-admin';
+}
+
 function parseSupabaseRow(r: any): Quotation {
   const base = r.full_data || {};
+  const creatorId = r.created_by_user_id || base.createdByUserId || r.user_id || base.userId || 'user-super-admin';
+  
+  // Historical Anchor Rule:
+  // SS-2026-101, SS-2026-102, SS-2026-105, SS-2026-106, SS-2026-107 belong to Zunair workspace 'ws_user-super-admin'
+  const qNum = (r.quotation_number || base.quotationNumber || '').toUpperCase().trim();
+  let wsId = r.workspace_id || base.workspaceId;
+  if (
+    qNum === 'SS-2026-101' ||
+    qNum === 'SS-2026-102' ||
+    qNum === 'SS-2026-105' ||
+    qNum === 'SS-2026-106' ||
+    qNum === 'SS-2026-107'
+  ) {
+    wsId = 'ws_user-super-admin';
+  } else if (!wsId) {
+    wsId = getWorkspaceId(creatorId);
+  }
+
   return {
     id: r.id || base.id,
     quotationNumber: r.quotation_number || base.quotationNumber,
-    userId: r.user_id || base.userId || 'user-super-admin',
+    workspaceId: wsId,
+    userId: creatorId,
+    createdByUserId: creatorId,
+    updatedByUserId: r.updated_by_user_id || base.updatedByUserId || creatorId,
     status: r.status || base.status || 'sent',
     client: r.client || base.client || { name: '', phone: '', quotationDate: '', eventDates: '' },
     packageType: base.packageType || 'multi_event',
@@ -49,10 +99,11 @@ function parseSupabaseRow(r: any): Quotation {
 }
 
 /**
- * Fetch all quotations from Supabase Central Database
+ * Fetch all quotations from Supabase Central Database scoped by workspace
  */
-export async function getQuotationsFromDb(userId?: string): Promise<Quotation[]> {
+export async function getQuotationsFromDb(workspaceId?: string): Promise<Quotation[]> {
   let fetchedList: Quotation[] | null = null;
+  const targetWorkspace = workspaceId ? getWorkspaceId(workspaceId) : undefined;
 
   // 1. Query Supabase via official client
   try {
@@ -91,22 +142,6 @@ export async function getQuotationsFromDb(userId?: string): Promise<Quotation[]>
     }
   }
 
-  // 2. Query Secondary Central Cloud Store if Supabase was empty or initializing
-  if (!fetchedList || fetchedList.length === 0) {
-    try {
-      const cloudRes = await fetch(PRIMARY_CLOUD_DB, {
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store',
-      });
-      if (cloudRes.ok) {
-        const cloudData = await cloudRes.json();
-        if (Array.isArray(cloudData) && cloudData.length > 0) {
-          fetchedList = cloudData;
-        }
-      }
-    } catch {}
-  }
-
   // 3. Fallback to memory store if database is cold
   if (!fetchedList || fetchedList.length === 0) {
     if (memoryStore.size > 0) {
@@ -115,7 +150,7 @@ export async function getQuotationsFromDb(userId?: string): Promise<Quotation[]>
   }
 
   const finalList = (fetchedList || []).filter(
-    (q) => q && q.id && !q.id.startsWith('sys_') && !(q as any).full_data?.isSystemTaskRecord
+    (q) => q && q.id && !q.id.startsWith('sys_') && !(q as any).full_data?.isSystemTaskRecord && !(q as any).full_data?.isSystemSettingsRecord && !(q as any).full_data?.isSystemServicesRecord
   );
 
   // Sync into in-memory store
@@ -124,8 +159,8 @@ export async function getQuotationsFromDb(userId?: string): Promise<Quotation[]>
     if (q.quotationNumber) memoryStore.set(q.quotationNumber.toLowerCase(), q);
   }
 
-  if (userId) {
-    return finalList.filter((q) => q.userId === userId);
+  if (targetWorkspace) {
+    return finalList.filter((q) => (q.workspaceId ? q.workspaceId === targetWorkspace : getWorkspaceId(q.userId) === targetWorkspace));
   }
   return finalList;
 }
@@ -182,13 +217,18 @@ export async function getQuotationFromDb(idOrNumber: string): Promise<Quotation 
 export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation> {
   const now = new Date().toISOString();
   const exactStatus = quotation.status || 'sent';
+  const authorId = quotation.createdByUserId || quotation.userId || 'user-super-admin';
+  const wsId = quotation.workspaceId ? getWorkspaceId(quotation.workspaceId) : getWorkspaceId(authorId);
 
   const toSave: Quotation = {
     ...quotation,
+    workspaceId: wsId,
+    userId: authorId,
+    createdByUserId: authorId,
+    updatedByUserId: quotation.updatedByUserId || authorId,
     status: exactStatus,
     updatedAt: now,
     createdAt: quotation.createdAt || now,
-    userId: quotation.userId || 'user-super-admin',
   };
 
   // Enforce guaranteed global uniqueness for quotation URL security PIN
@@ -223,6 +263,9 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
     id: toSave.id,
     quotation_number: toSave.quotationNumber,
     user_id: toSave.userId,
+    workspace_id: toSave.workspaceId,
+    created_by_user_id: toSave.createdByUserId,
+    updated_by_user_id: toSave.updatedByUserId,
     status: toSave.status,
     client: toSave.client,
     events: toSave.events,
@@ -349,15 +392,15 @@ export async function deleteQuotationFromDb(id: string): Promise<boolean> {
 const PRIMARY_SETTINGS_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315585';
 const cachedSettingsMap = new Map<string, AppSettings>();
 
-export async function getSettingsFromDb(userId?: string): Promise<AppSettings> {
-  const targetId = userId || 'global';
-  if (cachedSettingsMap.has(targetId)) {
-    return cachedSettingsMap.get(targetId)!;
+export async function getSettingsFromDb(workspaceOrUserId?: string): Promise<AppSettings> {
+  const targetWs = getWorkspaceId(workspaceOrUserId);
+  if (cachedSettingsMap.has(targetWs)) {
+    return cachedSettingsMap.get(targetWs)!;
   }
 
-  // 1. Try fetching from Supabase 'quotations' table with sys_settings_{userId}
+  // 1. Try fetching from Supabase 'quotations' table with sys_settings_${targetWs}
   try {
-    const sysId = `sys_settings_${targetId}`;
+    const sysId = `sys_settings_${targetWs}`;
     const { data } = await supabase
       .from('quotations')
       .select('full_data')
@@ -365,8 +408,8 @@ export async function getSettingsFromDb(userId?: string): Promise<AppSettings> {
       .single();
 
     if (data?.full_data?.settings?.bank) {
-      const parsed = data.full_data.settings as AppSettings;
-      cachedSettingsMap.set(targetId, parsed);
+      const parsed = { ...data.full_data.settings, workspaceId: targetWs } as AppSettings;
+      cachedSettingsMap.set(targetWs, parsed);
       return parsed;
     }
   } catch {}
@@ -376,22 +419,22 @@ export async function getSettingsFromDb(userId?: string): Promise<AppSettings> {
     const { data, error } = await supabase
       .from('app_settings')
       .select('*')
-      .eq('id', targetId === 'global' ? 'global-settings' : targetId)
+      .eq('id', targetWs)
       .limit(1)
       .single();
 
     if (!error && data && data.settings_data?.bank) {
-      const parsed = data.settings_data as AppSettings;
-      cachedSettingsMap.set(targetId, parsed);
+      const parsed = { ...data.settings_data, workspaceId: targetWs } as AppSettings;
+      cachedSettingsMap.set(targetWs, parsed);
       return parsed;
     }
   } catch {}
 
-  // If user-specific settings not found, try falling back to global/admin template
-  if (targetId !== 'global' && targetId !== 'user-super-admin') {
-    const adminSettings = await getSettingsFromDb('user-super-admin');
+  // If user-specific settings not found, fall back to Super Admin workspace template
+  if (targetWs !== 'ws_user-super-admin') {
+    const adminSettings = await getSettingsFromDb('ws_user-super-admin');
     if (adminSettings && adminSettings.bank) {
-      return adminSettings;
+      return { ...adminSettings, workspaceId: targetWs };
     }
   }
 
@@ -404,34 +447,39 @@ export async function getSettingsFromDb(userId?: string): Promise<AppSettings> {
     if (res.ok) {
       const data = await res.json();
       if (data && data.bank) {
-        cachedSettingsMap.set(targetId, data);
-        return data as AppSettings;
+        const parsed = { ...data, workspaceId: targetWs } as AppSettings;
+        cachedSettingsMap.set(targetWs, parsed);
+        return parsed;
       }
     }
   } catch {}
 
-  return DEFAULT_SETTINGS;
+  return { ...DEFAULT_SETTINGS, workspaceId: targetWs };
 }
 
-export async function saveSettingsToDb(settings: AppSettings, userId?: string): Promise<AppSettings> {
-  const targetId = userId || 'global';
-  cachedSettingsMap.set(targetId, settings);
+export async function saveSettingsToDb(settings: AppSettings, workspaceOrUserId?: string): Promise<AppSettings> {
+  const targetWs = getWorkspaceId(workspaceOrUserId || settings.workspaceId);
+  const settingsToSave: AppSettings = {
+    ...settings,
+    workspaceId: targetWs,
+  };
+  cachedSettingsMap.set(targetWs, settingsToSave);
 
-  // 1. Save to Supabase quotations table under isolated sys_settings_{targetId}
+  // 1. Save to Supabase quotations table under isolated sys_settings_${targetWs}
   try {
-    const sysId = `sys_settings_${targetId}`;
+    const sysId = `sys_settings_${targetWs}`;
     await supabase
       .from('quotations')
       .upsert({
         id: sysId,
-        quotation_number: `SYS-SETTINGS-${targetId}`,
-        user_id: targetId,
+        quotation_number: `SYS-SETTINGS-${targetWs}`,
+        user_id: targetWs,
         status: 'confirmed',
-        client: { name: `Settings for ${targetId}`, phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        client: { name: `Settings for ${targetWs}`, phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
         events: [],
         inclusions: [],
         payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
-        full_data: { isSystemSettingsRecord: true, userId: targetId, settings },
+        full_data: { isSystemSettingsRecord: true, workspaceId: targetWs, settings: settingsToSave },
         updated_at: new Date().toISOString(),
       });
   } catch (e) {
@@ -443,36 +491,36 @@ export async function saveSettingsToDb(settings: AppSettings, userId?: string): 
     await supabase
       .from('app_settings')
       .upsert({
-        id: targetId === 'global' ? 'global-settings' : targetId,
-        settings_data: settings,
+        id: targetWs,
+        settings_data: settingsToSave,
         updated_at: new Date().toISOString(),
       });
   } catch {}
 
-  // 3. Save to Cloud DB if global
-  if (targetId === 'global' || targetId === 'user-super-admin') {
+  // 3. Save to Cloud DB if Super Admin
+  if (targetWs === 'ws_user-super-admin') {
     try {
       await fetch(PRIMARY_SETTINGS_CLOUD_DB, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(settingsToSave),
       });
     } catch {}
   }
 
-  return settings;
+  return settingsToSave;
 }
 
 const cachedServicesMap = new Map<string, Service[]>();
 
-export async function getServicesFromDb(userId?: string): Promise<Service[]> {
-  const targetId = userId || 'global';
-  if (cachedServicesMap.has(targetId)) {
-    return cachedServicesMap.get(targetId)!;
+export async function getServicesFromDb(workspaceOrUserId?: string): Promise<Service[]> {
+  const targetWs = getWorkspaceId(workspaceOrUserId);
+  if (cachedServicesMap.has(targetWs)) {
+    return cachedServicesMap.get(targetWs)!;
   }
 
   try {
-    const sysId = `sys_services_${targetId}`;
+    const sysId = `sys_services_${targetWs}`;
     const { data } = await supabase
       .from('quotations')
       .select('full_data')
@@ -481,14 +529,14 @@ export async function getServicesFromDb(userId?: string): Promise<Service[]> {
 
     if (data?.full_data?.services && Array.isArray(data.full_data.services) && data.full_data.services.length > 0) {
       const list = data.full_data.services as Service[];
-      cachedServicesMap.set(targetId, list);
+      cachedServicesMap.set(targetWs, list);
       return list;
     }
   } catch {}
 
   // If user-specific services not found, try falling back to admin template
-  if (targetId !== 'global' && targetId !== 'user-super-admin') {
-    const adminServices = await getServicesFromDb('user-super-admin');
+  if (targetWs !== 'ws_user-super-admin') {
+    const adminServices = await getServicesFromDb('ws_user-super-admin');
     if (adminServices && adminServices.length > 0) {
       return adminServices;
     }
@@ -497,24 +545,24 @@ export async function getServicesFromDb(userId?: string): Promise<Service[]> {
   return DEFAULT_SERVICES;
 }
 
-export async function saveServicesToDb(services: Service[], userId?: string): Promise<Service[]> {
-  const targetId = userId || 'global';
-  cachedServicesMap.set(targetId, services);
+export async function saveServicesToDb(services: Service[], workspaceOrUserId?: string): Promise<Service[]> {
+  const targetWs = getWorkspaceId(workspaceOrUserId);
+  cachedServicesMap.set(targetWs, services);
 
   try {
-    const sysId = `sys_services_${targetId}`;
+    const sysId = `sys_services_${targetWs}`;
     await supabase
       .from('quotations')
       .upsert({
         id: sysId,
-        quotation_number: `SYS-SERVICES-${targetId}`,
-        user_id: targetId,
+        quotation_number: `SYS-SERVICES-${targetWs}`,
+        user_id: targetWs,
         status: 'confirmed',
-        client: { name: `Services for ${targetId}`, phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        client: { name: `Services for ${targetWs}`, phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
         events: [],
         inclusions: [],
         payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
-        full_data: { isSystemServicesRecord: true, userId: targetId, services },
+        full_data: { isSystemServicesRecord: true, workspaceId: targetWs, services },
         updated_at: new Date().toISOString(),
       });
   } catch (e) {
@@ -529,10 +577,11 @@ let cachedUsers: UserAccount[] | null = null;
 
 function mergeWithSeedUsers(users: UserAccount[]): UserAccount[] {
   const map = new Map<string, UserAccount>();
-  SEED_USERS.forEach((u) => map.set(u.id.toLowerCase(), u));
+  SEED_USERS.forEach((u) => map.set(u.id.toLowerCase(), { ...u, workspaceId: 'ws_user-super-admin' }));
   users.forEach((u) => {
     if (u && u.id) {
-      map.set(u.id.toLowerCase(), u);
+      const wsId = u.workspaceId || getWorkspaceId(u.id);
+      map.set(u.id.toLowerCase(), { ...u, workspaceId: wsId });
     }
   });
   return Array.from(map.values());
@@ -575,14 +624,19 @@ export async function getUsersFromDb(): Promise<UserAccount[]> {
 }
 
 export async function saveUserToDb(user: UserAccount): Promise<UserAccount[]> {
+  const wsId = user.workspaceId || getWorkspaceId(user.id);
+  const userWithWs: UserAccount = {
+    ...user,
+    workspaceId: wsId,
+  };
   const current = await getUsersFromDb();
   const index = current.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
   let updatedList: UserAccount[];
   if (index >= 0) {
     updatedList = [...current];
-    updatedList[index] = { ...updatedList[index], ...user };
+    updatedList[index] = { ...updatedList[index], ...userWithWs };
   } else {
-    updatedList = [...current, user];
+    updatedList = [...current, userWithWs];
   }
   cachedUsers = updatedList;
 
@@ -591,13 +645,13 @@ export async function saveUserToDb(user: UserAccount): Promise<UserAccount[]> {
     await supabase
       .from('app_users')
       .upsert({
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        approved: user.approved,
-        active: user.active,
-        full_data: user,
+        id: userWithWs.id,
+        email: userWithWs.email,
+        name: userWithWs.name,
+        role: userWithWs.role,
+        approved: userWithWs.approved,
+        active: userWithWs.active,
+        full_data: userWithWs,
         updated_at: new Date().toISOString(),
       });
   } catch {}
@@ -623,19 +677,15 @@ export async function deleteUserFromDb(userId: string): Promise<UserAccount[]> {
   const updatedList = current.filter((u) => u.id !== userId);
   cachedUsers = updatedList;
 
-  // 1. Delete from Supabase app_users table
+  // 1. Delete from Supabase app_users table ONLY
+  // PERMANENT NON-CASCADE RULE: Workspace quotations, tasks, and settings are NEVER deleted!
   try {
     await supabase.from('app_users').delete().eq('id', userId);
   } catch (e) {
     console.error('Error deleting user from Supabase app_users:', e);
   }
 
-  // 2. Delete user settings and services records
-  try {
-    await supabase.from('quotations').delete().in('id', [`sys_settings_${userId}`, `sys_services_${userId}`]);
-  } catch {}
-
-  // 3. Update Cloud DB
+  // 2. Update Cloud DB
   try {
     await fetch(PRIMARY_USERS_CLOUD_DB, {
       method: 'PUT',
@@ -653,7 +703,9 @@ export async function deleteUserFromDb(userId: string): Promise<UserAccount[]> {
 // ----------------------------------------------------
 let cachedTasks: TaskItem[] | null = null;
 
-export async function getTasksFromDb(): Promise<TaskItem[]> {
+export async function getTasksFromDb(workspaceOrUserId?: string): Promise<TaskItem[]> {
+  const targetWs = workspaceOrUserId ? getWorkspaceId(workspaceOrUserId) : undefined;
+
   // 1. Try Supabase dedicated table 'app_tasks'
   try {
     const { data, error } = await supabase
@@ -662,8 +714,17 @@ export async function getTasksFromDb(): Promise<TaskItem[]> {
       .order('created_at', { ascending: false });
 
     if (!error && Array.isArray(data) && data.length > 0) {
-      const parsed: TaskItem[] = data.map((r) => r.full_data || r);
+      const parsed: TaskItem[] = data.map((r) => {
+        const base = r.full_data || r;
+        return {
+          ...base,
+          workspaceId: base.workspaceId || getWorkspaceId(base.assignedToUserId),
+        };
+      });
       cachedTasks = parsed;
+      if (targetWs) {
+        return parsed.filter((t) => (t.workspaceId ? t.workspaceId === targetWs : getWorkspaceId(t.assignedToUserId) === targetWs));
+      }
       return parsed;
     }
   } catch {}
@@ -677,8 +738,15 @@ export async function getTasksFromDb(): Promise<TaskItem[]> {
       .maybeSingle();
 
     if (!error && data?.full_data && Array.isArray(data.full_data.tasks)) {
-      cachedTasks = data.full_data.tasks;
-      return data.full_data.tasks;
+      const parsed: TaskItem[] = data.full_data.tasks.map((t: any) => ({
+        ...t,
+        workspaceId: t.workspaceId || getWorkspaceId(t.assignedToUserId),
+      }));
+      cachedTasks = parsed;
+      if (targetWs) {
+        return parsed.filter((t) => (t.workspaceId ? t.workspaceId === targetWs : getWorkspaceId(t.assignedToUserId) === targetWs));
+      }
+      return parsed;
     }
   } catch {}
 
@@ -697,27 +765,45 @@ export async function getTasksFromDb(): Promise<TaskItem[]> {
       if (res.ok) {
         const rows = await res.json();
         if (Array.isArray(rows) && rows.length > 0 && rows[0]?.full_data?.tasks) {
-          const list = rows[0].full_data.tasks;
+          const list: TaskItem[] = rows[0].full_data.tasks.map((t: any) => ({
+            ...t,
+            workspaceId: t.workspaceId || getWorkspaceId(t.assignedToUserId),
+          }));
           cachedTasks = list;
+          if (targetWs) {
+            return list.filter((t) => (t.workspaceId ? t.workspaceId === targetWs : getWorkspaceId(t.assignedToUserId) === targetWs));
+          }
           return list;
         }
       }
     } catch {}
   }
 
-  if (cachedTasks) return cachedTasks;
+  if (cachedTasks) {
+    if (targetWs) {
+      return cachedTasks.filter((t) => (t.workspaceId ? t.workspaceId === targetWs : getWorkspaceId(t.assignedToUserId) === targetWs));
+    }
+    return cachedTasks;
+  }
   return [];
 }
 
 export async function saveTaskToDb(task: TaskItem): Promise<TaskItem> {
+  const targetWs = task.workspaceId ? getWorkspaceId(task.workspaceId) : getWorkspaceId(task.assignedToUserId);
+  const taskToSave: TaskItem = {
+    ...task,
+    workspaceId: targetWs,
+    updatedAt: new Date().toISOString(),
+  };
+
   const current = await getTasksFromDb();
-  const index = current.findIndex((t) => t.id === task.id);
+  const index = current.findIndex((t) => t.id === taskToSave.id);
   let updatedList: TaskItem[];
   if (index >= 0) {
     updatedList = [...current];
-    updatedList[index] = { ...updatedList[index], ...task, updatedAt: new Date().toISOString() };
+    updatedList[index] = taskToSave;
   } else {
-    updatedList = [task, ...current];
+    updatedList = [taskToSave, ...current];
   }
   cachedTasks = updatedList;
 
@@ -726,11 +812,11 @@ export async function saveTaskToDb(task: TaskItem): Promise<TaskItem> {
     await supabase
       .from('app_tasks')
       .upsert({
-        id: task.id,
-        title: task.title,
-        category: task.category,
-        full_data: task,
-        created_at: task.createdAt,
+        id: taskToSave.id,
+        title: taskToSave.title,
+        category: taskToSave.category,
+        full_data: taskToSave,
+        created_at: taskToSave.createdAt,
         updated_at: new Date().toISOString(),
       });
   } catch {}
@@ -755,7 +841,7 @@ export async function saveTaskToDb(task: TaskItem): Promise<TaskItem> {
     console.error('Error saving sys_global_tasks to Supabase:', e);
   }
 
-  return task;
+  return taskToSave;
 }
 
 export async function deleteTaskFromDb(id: string): Promise<boolean> {
@@ -768,7 +854,7 @@ export async function deleteTaskFromDb(id: string): Promise<boolean> {
     await supabase.from('app_tasks').delete().eq('id', id);
   } catch {}
 
-  // 2. Update Supabase 'quotations' registry
+  // 2. Save updated list to Supabase 'sys_global_tasks'
   try {
     await supabase
       .from('quotations')

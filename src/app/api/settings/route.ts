@@ -6,8 +6,14 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const userId = url.searchParams.get('userId') || undefined;
-    const settings = await getSettingsFromDb(userId);
+    const workspaceId =
+      url.searchParams.get('workspaceId') ||
+      req.headers.get('x-workspace-id') ||
+      url.searchParams.get('userId') ||
+      req.headers.get('x-user-id') ||
+      undefined;
+
+    const settings = await getSettingsFromDb(workspaceId);
     return NextResponse.json(settings, {
       headers: {
         'Cache-Control': 'no-store, max-age=0',
@@ -24,9 +30,15 @@ export async function POST(req: Request) {
     const url = new URL(req.url);
     const body = await req.json();
     const settings = body.settings || body;
-    const userId = body.userId || url.searchParams.get('userId') || undefined;
+    const workspaceId =
+      body.workspaceId ||
+      url.searchParams.get('workspaceId') ||
+      req.headers.get('x-workspace-id') ||
+      body.userId ||
+      url.searchParams.get('userId') ||
+      undefined;
 
-    const saved = await saveSettingsToDb(settings, userId);
+    const saved = await saveSettingsToDb(settings, workspaceId);
     return NextResponse.json(saved);
   } catch (error) {
     console.error('Error saving settings:', error);
