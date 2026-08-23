@@ -38,7 +38,12 @@ function NewQuotationContent() {
 
   // Initial quotation state
   const [quotation, setQuotation] = useState<Quotation>(() => {
-    const activeUserId = currentUser?.id || storage.getCurrentUser()?.id || 'user-super-admin';
+    const activeUser = currentUser || (typeof window !== 'undefined' ? storage.getCurrentUser() : null);
+    const activeUserId = activeUser?.id || 'user-super-admin';
+    const activeWs = activeUser?.role === 'super_admin' || activeUserId === 'user-super-admin'
+      ? 'ws_user-super-admin'
+      : (activeUser?.workspaceId || `ws_${activeUserId}`);
+
     if (editId) {
       const existing = storage.getQuotationById(editId);
       if (existing) return existing;
@@ -63,18 +68,24 @@ function NewQuotationContent() {
       },
     ];
 
+    const initialTodayDate = getTodayDateString();
+
     return {
       id: generateSecureId('quote'),
-      quotationNumber: storage.generateQuotationNumber(),
+      quotationNumber: storage.generateQuotationNumber(activeWs),
+      workspaceId: activeWs,
       userId: activeUserId,
+      createdByUserId: activeUserId,
+      updatedByUserId: activeUserId,
       status: 'sent',
       securityPin: generateRandomNumericId(6),
+      publicLinkDate: initialTodayDate,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       client: {
         name: '',
         phone: '',
-        quotationDate: getTodayDateString(),
+        quotationDate: initialTodayDate,
         eventDates: '',
       },
       packageType: 'multi_event',
@@ -132,14 +143,22 @@ function NewQuotationContent() {
     setIsSaving(true);
 
     const activeUser = currentUser || storage.getCurrentUser();
+    const activeUserId = activeUser?.id || 'user-super-admin';
+    const activeWs = activeUser?.role === 'super_admin' || activeUserId === 'user-super-admin'
+      ? 'ws_user-super-admin'
+      : (activeUser?.workspaceId || `ws_${activeUserId}`);
     const finalStatus = status || quotation.status || 'sent';
     const sortedEvents = sortEventsInSequence(quotation.events || []);
 
     const toSave: Quotation = {
       ...quotation,
       events: sortedEvents,
-      userId: activeUser?.id || quotation.userId || 'user-super-admin',
+      workspaceId: quotation.workspaceId || activeWs,
+      userId: activeUserId,
+      createdByUserId: quotation.createdByUserId || activeUserId,
+      updatedByUserId: activeUserId,
       status: finalStatus,
+      publicLinkDate: quotation.publicLinkDate || (quotation.client?.quotationDate ? quotation.client.quotationDate.split('T')[0] : getTodayDateString()),
       updatedAt: new Date().toISOString(),
     };
 

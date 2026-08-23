@@ -152,6 +152,7 @@ export interface Quotation {
   id: string;
   quotationNumber: string; // e.g., "SS-2026-001"
   securityPin?: string; // 4-digit to 8-digit secure random access PIN to prevent client ID enumeration
+  publicLinkDate?: string; // Permanent immutable URL date (YYYY-MM-DD) set at creation time
   workspaceId?: string; // Authoritative Workspace Boundary (e.g. "ws_user-super-admin" or "ws_user-xxx")
   userId?: string; // ID of the user who created this quotation (legacy/creator reference)
   createdByUserId?: string; // User ID who authored the quotation

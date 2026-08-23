@@ -257,21 +257,11 @@ export function generatePortalUrl(quotation: Quotation, originUrl?: string): str
   const baseUrl = originUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://portal.thesnapservice.com');
   const cleanNumber = (quotation.quotationNumber || quotation.id || 'SS-2026-001').trim();
   
-  // Format creation date automatically (YYYY-MM-DD)
-  let datePart = '';
-  if (quotation.createdAt) {
-    try {
-      datePart = new Date(quotation.createdAt).toISOString().split('T')[0];
-    } catch {
-      datePart = '';
-    }
-  }
-  if (!datePart && quotation.client?.quotationDate) {
-    datePart = quotation.client.quotationDate.split('T')[0];
-  }
-  if (!datePart) {
-    datePart = new Date().toISOString().split('T')[0];
-  }
+  // Format permanent immutable publicLinkDate (YYYY-MM-DD)
+  const datePart = (
+    quotation.publicLinkDate ||
+    (quotation.client?.quotationDate ? quotation.client.quotationDate.split('T')[0] : (quotation.createdAt ? quotation.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]))
+  ).trim();
 
   const pin = getQuotationSecurityPin(quotation);
 

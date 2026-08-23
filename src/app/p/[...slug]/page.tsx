@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Quotation, AppSettings } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { apiFetchQuotationById, apiSaveQuotation, apiFetchSettings } from '@/lib/api-client';
+import { apiFetchQuotationById, apiFetchPublicQuotation, apiSaveQuotation, apiFetchSettings } from '@/lib/api-client';
 import { decompactQuotationData, decodeQuotationData, formatCurrency, formatWhatsAppPhone, getQuotationSecurityPin } from '@/lib/utils';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check, ShieldAlert, Wallet } from 'lucide-react';
@@ -13,14 +13,16 @@ function ShortClientPortalContent() {
   const params = useParams();
   const searchParams = useSearchParams();
 
-  // Support both /p/2026-08-17/SS-2026-101/4928 and legacy /p/SS-2026-101
+  // Format: /p/[date]/[quotationNumber]/[pin]
   const rawSlug = params?.slug;
   const slugArray = Array.isArray(rawSlug) ? rawSlug : rawSlug ? [rawSlug] : [];
 
+  let urlDate = '';
   let quoteKey = '';
   let expectedPin = '';
 
   if (slugArray.length >= 3) {
+    urlDate = slugArray[0];
     quoteKey = slugArray[1];
     expectedPin = slugArray[2];
   } else if (slugArray.length === 2) {
@@ -52,9 +54,20 @@ function ShortClientPortalContent() {
     let isMounted = true;
 
     async function loadQuotationData() {
-      // 1. Direct Serverless Database API lookup
-      let q = quoteKey ? await apiFetchQuotationById(quoteKey) : null;
-      const liveSettings = await apiFetchSettings();
+      // 1. Authoritative 3-parameter exact lookup
+      let q: Quotation | null = null;
+      if (urlDate && quoteKey && expectedPin) {
+        q = await apiFetchPublicQuotation(urlDate, quoteKey, expectedPin);
+      } else if (quoteKey) {
+        q = await apiFetchQuotationById(quoteKey);
+        if (q && expectedPin) {
+          const candidatePin = (q.securityPin || '').trim();
+          const fallbackPin = getQuotationSecurityPin(q);
+          if (candidatePin !== expectedPin && fallbackPin !== expectedPin) {
+            q = null;
+          }
+        }
+      }
 
       // 2. Compact payload in query params fallback
       if (!q) {
@@ -81,10 +94,12 @@ function ShortClientPortalContent() {
       if (isMounted) {
         if (q) {
           setQuotation(q);
+          const qWs = q.workspaceId || (q.userId === 'user-super-admin' ? 'ws_user-super-admin' : `ws_${q.userId}`);
+          const liveSettings = await apiFetchSettings(qWs);
           if (liveSettings && liveSettings.bank) {
             setSettings(liveSettings);
           } else {
-            setSettings(storage.getSettings(q.userId));
+            setSettings(storage.getSettings(qWs));
           }
           const isAlreadyConfirmed = q.status === 'confirmed' || q.status === 'completed';
           setAccepted(isAlreadyConfirmed);
@@ -102,7 +117,7 @@ function ShortClientPortalContent() {
     return () => {
       isMounted = false;
     };
-  }, [quoteKey, expectedPin, searchParams]);
+  }, [urlDate, quoteKey, expectedPin, searchParams]);
 
   const handleOpenModal = () => {
     if (quotation) {

@@ -68,9 +68,9 @@ export function useTasks() {
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
     const local = storage.getTasks();
     if (local.length > 0) {
-      return local.filter((t) => (t.workspaceId ? t.workspaceId === targetWs : (currentUser?.role === 'super_admin' ? true : t.assignedToUserId === currentUser?.id)));
+      return local.filter((t) => (t.workspaceId || (t.assignedToUserId === 'user-super-admin' ? 'ws_user-super-admin' : `ws_${t.assignedToUserId}`)) === targetWs);
     }
-    return INITIAL_SEED_TASKS;
+    return targetWs === 'ws_user-super-admin' ? INITIAL_SEED_TASKS : [];
   });
   const [loading, setLoading] = useState(false);
 
@@ -82,7 +82,7 @@ export function useTasks() {
     try {
       const cloudTasks = await apiFetchTasks(ws);
       if (Array.isArray(cloudTasks)) {
-        const filtered = cloudTasks.filter((t) => (t.workspaceId ? t.workspaceId === ws : (currentUser?.role === 'super_admin' ? true : t.assignedToUserId === currentUser?.id)));
+        const filtered = cloudTasks.filter((t) => (t.workspaceId || (t.assignedToUserId === 'user-super-admin' ? 'ws_user-super-admin' : `ws_${t.assignedToUserId}`)) === ws);
         storage.setAllTasks(filtered);
         setTasks(filtered);
       }

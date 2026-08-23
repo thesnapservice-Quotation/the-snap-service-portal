@@ -8,16 +8,29 @@ import { apiFetchQuotations, apiSaveQuotation, apiDeleteQuotation } from '@/lib/
 import { syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
 import { uploadQuotationDirectToDrive } from '@/lib/google-drive-oauth';
 
+function resolveUserWs(u: any): string {
+  if (!u || !u.id) return 'ws_user-super-admin';
+  if (u.role === 'super_admin' || u.id === 'user-super-admin') return 'ws_user-super-admin';
+  return u.workspaceId || `ws_${u.id}`;
+}
+
+function matchesWorkspace(q: Quotation, targetWs: string): boolean {
+  if (q.workspaceId) return q.workspaceId === targetWs;
+  if (q.userId) {
+    const creatorWs = q.userId === 'user-super-admin' ? 'ws_user-super-admin' : `ws_${q.userId}`;
+    return creatorWs === targetWs;
+  }
+  return targetWs === 'ws_user-super-admin';
+}
+
 export function useQuotations() {
   const [quotations, setQuotations] = useState<Quotation[]>(() => {
     if (typeof window === 'undefined') return [];
     const local = storage.getQuotations();
     const user = storage.getCurrentUser();
     if (!user || !user.id) return [];
-    const targetWs = user.role === 'super_admin' || user.id === 'user-super-admin'
-      ? 'ws_user-super-admin'
-      : (user.workspaceId || `ws_${user.id}`);
-    return local.filter((q) => q.workspaceId ? q.workspaceId === targetWs : (user.role === 'super_admin' ? true : q.userId === user.id));
+    const targetWs = resolveUserWs(user);
+    return local.filter((q) => matchesWorkspace(q, targetWs));
   });
   const [loading, setLoading] = useState(false);
 
@@ -28,12 +41,10 @@ export function useQuotations() {
       return;
     }
 
-    const targetWs = user.role === 'super_admin' || user.id === 'user-super-admin'
-      ? 'ws_user-super-admin'
-      : (user.workspaceId || `ws_${user.id}`);
+    const targetWs = resolveUserWs(user);
 
     try {
-      // 1. Direct query to Central Production Database scoped by workspaceId
+      // 1. Direct query to Central Production Database scoped strictly by workspaceId
       const dbQuotations = await apiFetchQuotations(targetWs);
       const deletedIds = storage.getDeletedIds();
 
@@ -42,7 +53,7 @@ export function useQuotations() {
         const validDbQuotations = dbQuotations.filter((q) => {
           const idMatch = q.id && deletedIds.has(q.id.toLowerCase());
           const numMatch = q.quotationNumber && deletedIds.has(q.quotationNumber.toLowerCase());
-          const wsMatch = q.workspaceId ? q.workspaceId === targetWs : (user.role === 'super_admin' ? true : q.userId === user.id);
+          const wsMatch = matchesWorkspace(q, targetWs);
           return !idMatch && !numMatch && wsMatch;
         });
 
@@ -51,7 +62,7 @@ export function useQuotations() {
         setQuotations(validDbQuotations);
       } else {
         const local = storage.getQuotations();
-        const filtered = local.filter((q) => q.workspaceId ? q.workspaceId === targetWs : (user.role === 'super_admin' ? true : q.userId === user.id));
+        const filtered = local.filter((q) => matchesWorkspace(q, targetWs));
         if (filtered.length > 0) {
           setQuotations(filtered);
         }

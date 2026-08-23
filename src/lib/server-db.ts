@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { SEED_USERS } from './storage';
 import { generateRandomNumericId } from './crypto';
 import { DEFAULT_SETTINGS, DEFAULT_SERVICES } from './defaults';
+import { getQuotationSecurityPin } from './utils';
 
 /**
  * Production Central Database Persistence Engine
@@ -10,14 +11,16 @@ import { DEFAULT_SETTINGS, DEFAULT_SERVICES } from './defaults';
  * Guarantees permanent persistence with 0 data loss across all devices and serverless restarts.
  */
 
-const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://lwsmgogcxngolukwqnjj.supabase.co').replace(/\/$/, '');
-const SUPABASE_KEY = (
+const rawDbUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+const SUPABASE_URL = (rawDbUrl.startsWith('http') ? rawDbUrl : 'https://lwsmgogcxngolukwqnjj.supabase.co').replace(/\/$/, '');
+const rawDbKey = (
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   process.env.SUPABASE_KEY ||
   ''
 ).trim();
+const SUPABASE_KEY = rawDbKey === '[SENSITIVE]' ? '' : rawDbKey;
 
 // High-Availability Central Cloud Backup Endpoints
 const PRIMARY_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315584';
@@ -59,23 +62,12 @@ export function getWorkspaceId(userOrId?: string | { id?: string; role?: string;
 
 function parseSupabaseRow(r: any): Quotation {
   const base = r.full_data || {};
-  const creatorId = r.created_by_user_id || base.createdByUserId || r.user_id || base.userId || 'user-super-admin';
-  
-  // Historical Anchor Rule:
-  // SS-2026-101, SS-2026-102, SS-2026-105, SS-2026-106, SS-2026-107 belong to Zunair workspace 'ws_user-super-admin'
-  const qNum = (r.quotation_number || base.quotationNumber || '').toUpperCase().trim();
-  let wsId = r.workspace_id || base.workspaceId;
-  if (
-    qNum === 'SS-2026-101' ||
-    qNum === 'SS-2026-102' ||
-    qNum === 'SS-2026-105' ||
-    qNum === 'SS-2026-106' ||
-    qNum === 'SS-2026-107'
-  ) {
-    wsId = 'ws_user-super-admin';
-  } else if (!wsId) {
-    wsId = getWorkspaceId(creatorId);
-  }
+  const creatorId = base.createdByUserId || r.user_id || base.userId || 'user-super-admin';
+  const wsId = base.workspaceId || getWorkspaceId(creatorId);
+  const pubDate = (
+    base.publicLinkDate ||
+    (r.client?.quotationDate ? r.client.quotationDate.split('T')[0] : (r.created_at ? r.created_at.split('T')[0] : new Date().toISOString().split('T')[0]))
+  ).trim();
 
   return {
     id: r.id || base.id,
@@ -83,7 +75,7 @@ function parseSupabaseRow(r: any): Quotation {
     workspaceId: wsId,
     userId: creatorId,
     createdByUserId: creatorId,
-    updatedByUserId: r.updated_by_user_id || base.updatedByUserId || creatorId,
+    updatedByUserId: base.updatedByUserId || r.updated_by_user_id || creatorId,
     status: r.status || base.status || 'sent',
     client: r.client || base.client || { name: '', phone: '', quotationDate: '', eventDates: '' },
     packageType: base.packageType || 'multi_event',
@@ -93,6 +85,7 @@ function parseSupabaseRow(r: any): Quotation {
     termsAndConditions: base.termsAndConditions || [],
     internalAnalysis: base.internalAnalysis,
     securityPin: base.securityPin,
+    publicLinkDate: pubDate,
     createdAt: r.created_at || base.createdAt || new Date().toISOString(),
     updatedAt: r.updated_at || base.updatedAt || new Date().toISOString(),
   };
@@ -212,6 +205,51 @@ export async function getQuotationFromDb(idOrNumber: string): Promise<Quotation 
 }
 
 /**
+ * Authoritative Public Portal Quotation Lookup
+ * Strictly validates ALL THREE URL components:
+ * 1. publicLinkDate: URL date must match the quotation's permanent immutable publicLinkDate
+ * 2. quotationNumber: URL quotation number must match exact quotationNumber
+ * 3. securityPin: URL token must match stored securityPin
+ * If ANY of the three does NOT match -> returns null (404 Not Found).
+ */
+export async function getPublicQuotationFromDb(
+  urlDate: string,
+  quotationNumber: string,
+  uniquePin: string
+): Promise<Quotation | null> {
+  if (!urlDate || !quotationNumber || !uniquePin) return null;
+  const cleanQNum = quotationNumber.trim().toUpperCase();
+  const cleanPin = uniquePin.trim();
+  const cleanDate = urlDate.trim();
+
+  // Fetch all candidate quotations from database
+  const all = await getQuotationsFromDb();
+
+  for (const q of all) {
+    const candidateNum = (q.quotationNumber || q.id || '').trim().toUpperCase();
+    if (candidateNum !== cleanQNum) continue;
+
+    // Validate PIN / Security Token
+    const candidatePin = (q.securityPin || '').trim();
+    const fallbackPin = getQuotationSecurityPin(q);
+    if (candidatePin !== cleanPin && fallbackPin !== cleanPin) continue;
+
+    // Validate EXACT immutable publicLinkDate (NO alternative date fallbacks)
+    const candidateDate = (
+      q.publicLinkDate ||
+      (q.client?.quotationDate ? q.client.quotationDate.split('T')[0] : (q.createdAt ? q.createdAt.split('T')[0] : ''))
+    ).trim();
+
+    if (cleanDate !== candidateDate) continue;
+
+    // Exact 3-way match confirmed!
+    return q;
+  }
+
+  return null;
+}
+
+/**
  * Insert or Update quotation in Supabase Central Database & Central Backup Store
  */
 export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation> {
@@ -220,6 +258,23 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
   const authorId = quotation.createdByUserId || quotation.userId || 'user-super-admin';
   const wsId = quotation.workspaceId ? getWorkspaceId(quotation.workspaceId) : getWorkspaceId(authorId);
 
+  const existingQuotes = await getQuotationsFromDb();
+  const existingRecord = existingQuotes.find(
+    (q) => q.id?.toLowerCase() === quotation.id?.toLowerCase() || (q.quotationNumber && q.quotationNumber.toLowerCase() === quotation.quotationNumber?.toLowerCase())
+  );
+
+  // Preserve immutable publicLinkDate on edit; initialize once if new
+  let finalPublicLinkDate = existingRecord?.publicLinkDate || quotation.publicLinkDate;
+  if (!finalPublicLinkDate) {
+    if (quotation.client?.quotationDate) {
+      finalPublicLinkDate = quotation.client.quotationDate.split('T')[0];
+    } else if (quotation.createdAt) {
+      finalPublicLinkDate = quotation.createdAt.split('T')[0];
+    } else {
+      finalPublicLinkDate = new Date().toISOString().split('T')[0];
+    }
+  }
+
   const toSave: Quotation = {
     ...quotation,
     workspaceId: wsId,
@@ -227,13 +282,13 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
     createdByUserId: authorId,
     updatedByUserId: quotation.updatedByUserId || authorId,
     status: exactStatus,
+    publicLinkDate: finalPublicLinkDate,
     updatedAt: now,
-    createdAt: quotation.createdAt || now,
+    createdAt: quotation.createdAt || existingRecord?.createdAt || now,
   };
 
   // Enforce guaranteed global uniqueness for quotation URL security PIN
   let finalPin = toSave.securityPin;
-  const existingQuotes = await getQuotationsFromDb();
   const takenPins = new Set<string>();
   for (const q of existingQuotes) {
     if (q.id?.toLowerCase() !== toSave.id?.toLowerCase() && q.securityPin) {
@@ -427,29 +482,23 @@ export async function getSettingsFromDb(workspaceOrUserId?: string): Promise<App
     }
   } catch {}
 
-  // If user-specific settings not found, fall back to Super Admin workspace template
-  if (targetWs !== 'ws_user-super-admin') {
-    const adminSettings = await getSettingsFromDb('ws_user-super-admin');
-    if (adminSettings && adminSettings.bank) {
-      return { ...adminSettings, workspaceId: targetWs };
-    }
-  }
-
-  // 3. Fallback to secondary Cloud DB for global
-  try {
-    const res = await fetch(PRIMARY_SETTINGS_CLOUD_DB, {
-      headers: { 'Accept': 'application/json' },
-      cache: 'no-store',
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.bank) {
-        const parsed = { ...data, workspaceId: targetWs } as AppSettings;
-        cachedSettingsMap.set(targetWs, parsed);
-        return parsed;
+  // 3. Fallback to secondary Cloud DB ONLY for Super Admin workspace
+  if (targetWs === 'ws_user-super-admin') {
+    try {
+      const res = await fetch(PRIMARY_SETTINGS_CLOUD_DB, {
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.bank) {
+          const parsed = { ...data, workspaceId: targetWs } as AppSettings;
+          cachedSettingsMap.set(targetWs, parsed);
+          return parsed;
+        }
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
   return { ...DEFAULT_SETTINGS, workspaceId: targetWs };
 }
@@ -530,14 +579,6 @@ export async function getServicesFromDb(workspaceOrUserId?: string): Promise<Ser
       return list;
     }
   } catch {}
-
-  // If user-specific services not found, try falling back to admin template
-  if (targetWs !== 'ws_user-super-admin') {
-    const adminServices = await getServicesFromDb('ws_user-super-admin');
-    if (adminServices && adminServices.length > 0) {
-      return adminServices;
-    }
-  }
 
   return DEFAULT_SERVICES;
 }

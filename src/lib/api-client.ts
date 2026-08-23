@@ -58,6 +58,31 @@ export async function apiFetchQuotationById(id: string): Promise<Quotation | nul
   return null;
 }
 
+export async function apiFetchPublicQuotation(date: string, quotationNumber: string, pin: string): Promise<Quotation | null> {
+  if (!date || !quotationNumber || !pin) return null;
+  try {
+    const timestamp = Date.now();
+    const url = `/api/portal/resolve?date=${encodeURIComponent(date)}&quotationNumber=${encodeURIComponent(quotationNumber)}&pin=${encodeURIComponent(pin)}&_t=${timestamp}`;
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.quotation) {
+        return data.quotation;
+      }
+    }
+  } catch (e) {
+    console.error('API Fetch Public Quotation Error:', e);
+  }
+  return null;
+}
+
 export async function apiSaveQuotation(quotation: Quotation): Promise<Quotation> {
   try {
     const res = await fetch('/api/quotations', {

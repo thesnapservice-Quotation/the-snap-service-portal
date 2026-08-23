@@ -179,22 +179,31 @@ export const storage = {
     return storage.saveQuotation(newQuotation);
   },
 
-  // Service Library CRUD (Per-User)
-  getServices: (targetUserId?: string): Service[] => {
+  // Helper to resolve clean workspace key
+  resolveWorkspaceKey: (targetWorkspaceOrUserId?: string): string => {
+    if (targetWorkspaceOrUserId) {
+      const clean = targetWorkspaceOrUserId.trim();
+      if (clean === 'user-super-admin' || clean === 'global' || clean === 'super_admin' || clean === 'ws_user-super-admin' || clean === 'ws_global') {
+        return 'ws_user-super-admin';
+      }
+      if (clean.startsWith('ws_')) return clean;
+      return `ws_${clean}`;
+    }
+    if (typeof window === 'undefined') return 'ws_user-super-admin';
+    const currentUser = storage.getCurrentUser();
+    if (!currentUser || !currentUser.id) return 'ws_user-super-admin';
+    if (currentUser.role === 'super_admin' || currentUser.id === 'user-super-admin') return 'ws_user-super-admin';
+    return currentUser.workspaceId || `ws_${currentUser.id}`;
+  },
+
+  // Service Library CRUD (Per-Workspace)
+  getServices: (targetWorkspaceOrUserId?: string): Service[] => {
     if (typeof window === 'undefined') return DEFAULT_SERVICES;
     try {
-      const currentUser = storage.getCurrentUser();
-      const userId = targetUserId || currentUser?.id || 'default';
-      const userKey = `${STORAGE_KEYS.SERVICES}_${userId}`;
-      const data = localStorage.getItem(userKey);
+      const activeWs = storage.resolveWorkspaceKey(targetWorkspaceOrUserId);
+      const wsKey = `${STORAGE_KEYS.SERVICES}_${activeWs}`;
+      const data = localStorage.getItem(wsKey);
       if (!data) {
-        const globalData = localStorage.getItem(STORAGE_KEYS.SERVICES);
-        if (globalData) {
-          const parsed = JSON.parse(globalData);
-          localStorage.setItem(userKey, JSON.stringify(parsed));
-          return parsed;
-        }
-        localStorage.setItem(userKey, JSON.stringify(DEFAULT_SERVICES));
         return DEFAULT_SERVICES;
       }
       return JSON.parse(data);
@@ -204,58 +213,54 @@ export const storage = {
     }
   },
 
-  saveServices: (services: Service[], targetUserId?: string): void => {
+  saveServices: (services: Service[], targetWorkspaceOrUserId?: string): void => {
     if (typeof window !== 'undefined') {
-      const currentUser = storage.getCurrentUser();
-      const userId = targetUserId || currentUser?.id || 'default';
-      const userKey = `${STORAGE_KEYS.SERVICES}_${userId}`;
-      localStorage.setItem(userKey, JSON.stringify(services));
+      const activeWs = storage.resolveWorkspaceKey(targetWorkspaceOrUserId);
+      const wsKey = `${STORAGE_KEYS.SERVICES}_${activeWs}`;
+      localStorage.setItem(wsKey, JSON.stringify(services));
       storage.triggerAutoBackup();
     }
   },
 
-  // Settings CRUD (Per-User Studio Configurations)
-  getSettings: (targetUserId?: string): AppSettings => {
+  // Settings CRUD (Per-Workspace Studio Configurations)
+  getSettings: (targetWorkspaceOrUserId?: string): AppSettings => {
     if (typeof window === 'undefined') return DEFAULT_SETTINGS;
     try {
-      const currentUser = storage.getCurrentUser();
-      const userId = targetUserId || currentUser?.id || 'default';
-      const userKey = `${STORAGE_KEYS.SETTINGS}_${userId}`;
-      const data = localStorage.getItem(userKey);
+      const activeWs = storage.resolveWorkspaceKey(targetWorkspaceOrUserId);
+      const wsKey = `${STORAGE_KEYS.SETTINGS}_${activeWs}`;
+      const data = localStorage.getItem(wsKey);
 
       if (!data) {
-        // Fallback to global default settings if user key doesn't exist yet
-        const globalData = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-        if (globalData) {
-          const parsed = JSON.parse(globalData);
-          localStorage.setItem(userKey, JSON.stringify(parsed));
-          return parsed;
-        }
-        localStorage.setItem(userKey, JSON.stringify(DEFAULT_SETTINGS));
-        return DEFAULT_SETTINGS;
+        return { ...DEFAULT_SETTINGS, workspaceId: activeWs };
       }
       return JSON.parse(data);
     } catch (e) {
-      console.error('Error reading per-user settings from localStorage', e);
+      console.error('Error reading per-workspace settings from localStorage', e);
       return DEFAULT_SETTINGS;
     }
   },
 
-  saveSettings: (settings: AppSettings, targetUserId?: string): void => {
+  saveSettings: (settings: AppSettings, targetWorkspaceOrUserId?: string): void => {
     if (typeof window !== 'undefined') {
-      const currentUser = storage.getCurrentUser();
-      const userId = targetUserId || currentUser?.id || 'default';
-      const userKey = `${STORAGE_KEYS.SETTINGS}_${userId}`;
-      localStorage.setItem(userKey, JSON.stringify(settings));
+      const activeWs = storage.resolveWorkspaceKey(targetWorkspaceOrUserId || settings.workspaceId);
+      const wsKey = `${STORAGE_KEYS.SETTINGS}_${activeWs}`;
+      const settingsToSave: AppSettings = {
+        ...settings,
+        workspaceId: activeWs,
+      };
+      localStorage.setItem(wsKey, JSON.stringify(settingsToSave));
       storage.triggerAutoBackup();
     }
   },
 
-  // Auto-generate next quotation number with strict sequence increment
-  generateQuotationNumber: (): string => {
-    const settings = storage.getSettings();
-    const quotations = storage.getQuotations();
-    let maxSeq = settings.quotation.startingNumber - 1;
+  // Auto-generate next quotation number with strict sequence increment per workspace
+  generateQuotationNumber: (targetWorkspaceOrUserId?: string): string => {
+    const activeWs = storage.resolveWorkspaceKey(targetWorkspaceOrUserId);
+    const settings = storage.getSettings(activeWs);
+    const quotations = storage.getQuotations().filter(
+      (q) => (q.workspaceId ? q.workspaceId === activeWs : storage.resolveWorkspaceKey(q.userId) === activeWs)
+    );
+    let maxSeq = (settings.quotation.startingNumber || 101) - 1;
 
     quotations.forEach((q) => {
       if (q.quotationNumber) {
@@ -269,7 +274,8 @@ export const storage = {
     });
 
     const nextNumber = maxSeq + 1;
-    return `${settings.quotation.prefix}-${nextNumber}`;
+    const prefix = settings.quotation.prefix || 'SS-2026';
+    return `${prefix}-${nextNumber}`;
   },
 
   getDeletedUserIds: (): Set<string> => {
