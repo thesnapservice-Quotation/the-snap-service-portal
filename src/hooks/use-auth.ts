@@ -247,6 +247,50 @@ export function useAuth() {
     }
   };
 
+  const updateUserDetails = async (
+    userId: string,
+    updates: { name?: string; email?: string; phone?: string }
+  ): Promise<{ success: boolean; message: string }> => {
+    const allUsers = storage.getUsers();
+    const target = allUsers.find((u) => u.id === userId);
+    if (!target) {
+      return { success: false, message: 'User account not found.' };
+    }
+
+    if (updates.email) {
+      const cleanEmail = updates.email.trim().toLowerCase();
+      if (!cleanEmail.includes('@')) {
+        return { success: false, message: 'Please enter a valid email address.' };
+      }
+      const duplicate = allUsers.find((u) => u.id !== userId && u.email.toLowerCase() === cleanEmail);
+      if (duplicate) {
+        return { success: false, message: 'An account with this email address already exists.' };
+      }
+    }
+
+    const updated: UserAccount = {
+      ...target,
+      name: updates.name?.trim() || target.name,
+      email: updates.email?.trim().toLowerCase() || target.email,
+      phone: updates.phone !== undefined ? updates.phone.trim() : target.phone,
+    };
+
+    storage.saveUser(updated);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+
+    if (currentUser?.id === userId) {
+      storage.setCurrentUser(updated);
+      setCurrentUser(updated);
+    }
+
+    try {
+      await apiSaveUser(updated);
+    } catch {}
+
+    refreshAuth();
+    return { success: true, message: `Account details updated for ${updated.name}` };
+  };
+
   const deleteUser = async (userId: string) => {
     storage.deleteUser(userId);
     refreshAuth();
@@ -399,6 +443,7 @@ export function useAuth() {
     createUserDirectly,
     approveUser,
     updateUserRole,
+    updateUserDetails,
     toggleUserActive,
     deleteUser,
     changeUserPassword,
