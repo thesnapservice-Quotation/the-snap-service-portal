@@ -57,7 +57,8 @@ import {
   BellRing,
   Smartphone,
   Laptop,
-  Tablet
+  Tablet,
+  ListTodo
 } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 
@@ -96,6 +97,7 @@ export default function SettingsPage() {
     currentUser, 
     isSuperAdmin, 
     approveUser, 
+    updateUserRole,
     toggleUserActive, 
     deleteUser, 
     changeUserPassword,
@@ -1090,8 +1092,9 @@ export default function SettingsPage() {
                   onChange={(e) => setNewUserRole(e.target.value as UserRole)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold text-[#0D4F4F] focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none bg-white"
                 >
-                  <option value="user">Standard User (Photographer/Staff)</option>
-                  <option value="super_admin">👑 Super Admin (Owner)</option>
+                  <option value="user">👤 Standard User (Quotations & Studio Ops)</option>
+                  <option value="task_manager">🎯 Task Manager (Daily Tasks Only)</option>
+                  <option value="super_admin">👑 Super Admin (Owner / Full Access)</option>
                 </select>
               </div>
             </div>
@@ -1114,7 +1117,7 @@ export default function SettingsPage() {
                   <ShieldCheck className="w-4 h-4 text-[#D4AF37]" /> Registered User Accounts ({users.length})
                 </h3>
                 <p className="text-[11px] text-slate-400">
-                  Super Admin can approve pending signups or deactivate team access.
+                  Super Admin can approve pending signups, change roles, or deactivate team access.
                 </p>
               </div>
 
@@ -1137,16 +1140,39 @@ export default function SettingsPage() {
                 >
                   <div className="flex items-center gap-3 min-w-[240px]">
                     <div className="w-9 h-9 rounded-full bg-[#0D4F4F] text-[#D4AF37] flex items-center justify-center font-bold text-xs shrink-0">
-                      {u.role === 'super_admin' ? <Crown className="w-4.5 h-4.5" /> : u.name.charAt(0).toUpperCase()}
+                      {u.role === 'super_admin' ? (
+                        <Crown className="w-4.5 h-4.5" />
+                      ) : u.role === 'task_manager' ? (
+                        <ListTodo className="w-4.5 h-4.5" />
+                      ) : (
+                        u.name.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <h4 className="font-bold text-slate-800 text-sm">{u.name}</h4>
-                        <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider ${
-                          u.role === 'super_admin' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-100 text-slate-700'
-                        }`}>
-                          {u.role === 'super_admin' ? '👑 Super Admin' : '👤 Standard User'}
-                        </span>
+                        {isSuperAdmin && u.id !== currentUser?.id ? (
+                          <select
+                            value={u.role}
+                            onChange={(e) => updateUserRole(u.id, e.target.value as UserRole)}
+                            className="px-2 py-0.5 rounded-md text-[10px] font-bold border border-slate-300 bg-white text-slate-800 focus:ring-1 focus:ring-[#0D4F4F] cursor-pointer"
+                            title="Change User Role"
+                          >
+                            <option value="super_admin">👑 Super Admin</option>
+                            <option value="user">👤 Standard User</option>
+                            <option value="task_manager">🎯 Task Manager</option>
+                          </select>
+                        ) : (
+                          <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider ${
+                            u.role === 'super_admin'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                              : u.role === 'task_manager'
+                              ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {u.role === 'super_admin' ? '👑 Super Admin' : u.role === 'task_manager' ? '🎯 Task Manager' : '👤 Standard User'}
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-500 font-mono">{u.email} {u.phone ? `• ${u.phone}` : ''}</p>
                     </div>

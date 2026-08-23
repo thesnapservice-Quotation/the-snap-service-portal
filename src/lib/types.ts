@@ -1,5 +1,5 @@
 export type QuotationStatus = 'draft' | 'sent' | 'not_confirmed' | 'confirmed' | 'completed' | 'cancelled';
-export type UserRole = 'super_admin' | 'user';
+export type UserRole = 'super_admin' | 'user' | 'task_manager';
 
 export interface UserAccount {
   id: string;

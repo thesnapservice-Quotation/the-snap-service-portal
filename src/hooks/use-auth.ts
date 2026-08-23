@@ -48,7 +48,7 @@ export function useAuth() {
     refreshAuth();
   }, [refreshAuth]);
 
-  const login = async (email: string, pass: string): Promise<{ success: boolean; message: string }> => {
+  const login = async (email: string, pass: string): Promise<{ success: boolean; message: string; user?: UserAccount }> => {
     // 1. First ensure latest users from cloud are loaded
     let allUsers = storage.getUsers();
     try {
@@ -113,7 +113,7 @@ export function useAuth() {
 
     storage.setCurrentUser(match);
     setCurrentUser(match);
-    return { success: true, message: 'Login successful!' };
+    return { success: true, message: 'Login successful!', user: match };
   };
 
   const signup = async (
@@ -223,6 +223,23 @@ export function useAuth() {
       const updated: UserAccount = { ...target, active: !target.active };
       storage.saveUser(updated);
       setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+      try {
+        await apiSaveUser(updated);
+      } catch {}
+      refreshAuth();
+    }
+  };
+
+  const updateUserRole = async (userId: string, newRole: UserRole) => {
+    const target = users.find((u) => u.id === userId);
+    if (target) {
+      const updated: UserAccount = { ...target, role: newRole };
+      storage.saveUser(updated);
+      setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+      if (currentUser?.id === userId) {
+        storage.setCurrentUser(updated);
+        setCurrentUser(updated);
+      }
       try {
         await apiSaveUser(updated);
       } catch {}
@@ -367,6 +384,7 @@ export function useAuth() {
   };
 
   const isSuperAdmin = currentUser?.role === 'super_admin';
+  const isTaskManager = currentUser?.role === 'task_manager';
   const isImpersonating = !!currentUser?.originalAdminId;
 
   return {
@@ -374,11 +392,13 @@ export function useAuth() {
     users,
     loading,
     isSuperAdmin,
+    isTaskManager,
     isImpersonating,
     login,
     signup,
     createUserDirectly,
     approveUser,
+    updateUserRole,
     toggleUserActive,
     deleteUser,
     changeUserPassword,

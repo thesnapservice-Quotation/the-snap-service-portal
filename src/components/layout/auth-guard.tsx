@@ -21,7 +21,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!current && !isPublic) {
       router.push('/login');
     } else if (current && (pathname === '/login' || pathname === '/signup')) {
-      router.push('/');
+      if (current.role === 'task_manager') {
+        router.push('/tasks');
+      } else {
+        router.push('/');
+      }
+    } else if (current && current.role === 'task_manager' && !pathname.startsWith('/tasks') && !isPublic) {
+      router.push('/tasks');
     } else {
       setChecking(false);
     }

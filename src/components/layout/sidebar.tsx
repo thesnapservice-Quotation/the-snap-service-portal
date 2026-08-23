@@ -33,14 +33,18 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { currentUser, isSuperAdmin, isImpersonating, returnToSuperAdmin, logout } = useAuth();
+  const { currentUser, isSuperAdmin, isTaskManager, isImpersonating, returnToSuperAdmin, logout } = useAuth();
+
+  const allowedNavItems = isTaskManager
+    ? NAV_ITEMS.filter((item) => item.href === '/tasks')
+    : NAV_ITEMS;
 
   return (
     <aside className="w-64 bg-[#0D4F4F] text-[#FAF9F6] border-r border-[#156060] hidden md:flex flex-col justify-between shrink-0 shadow-xl min-h-screen">
       <div>
         {/* Brand Logo Header */}
         <div className="p-6 border-b border-[#156060] bg-[#093A3A]">
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link href={isTaskManager ? '/tasks' : '/'} className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-full border-2 border-[#D4AF37] overflow-hidden shadow-lg group-hover:scale-105 transition-transform shrink-0">
               {/* eslint-disable-next-next/no-img-element */}
               <img src="/snap-service-logo.png" alt="Snap Service Logo" className="w-full h-full object-cover" />
@@ -77,12 +81,18 @@ export function Sidebar() {
           <div className="mx-4 my-3 p-3 rounded-xl bg-[#093A3A] border border-[#D4AF37]/30 flex items-center justify-between gap-2 shadow-2xs">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="w-8 h-8 rounded-full bg-[#D4AF37] text-[#0D4F4F] flex items-center justify-center font-bold text-xs shrink-0">
-                {isSuperAdmin ? <Crown className="w-4 h-4 text-[#0D4F4F]" /> : <User className="w-4 h-4 text-[#0D4F4F]" />}
+                {isSuperAdmin ? (
+                  <Crown className="w-4 h-4 text-[#0D4F4F]" />
+                ) : isTaskManager ? (
+                  <ListTodo className="w-4 h-4 text-[#0D4F4F]" />
+                ) : (
+                  <User className="w-4 h-4 text-[#0D4F4F]" />
+                )}
               </div>
               <div className="overflow-hidden">
                 <span className="font-bold text-xs text-white block truncate">{currentUser.name}</span>
                 <span className="text-[9px] text-[#D4AF37] font-semibold uppercase tracking-wider block">
-                  {isSuperAdmin ? '👑 Super Admin' : '👤 Standard User'}
+                  {isSuperAdmin ? '👑 Super Admin' : isTaskManager ? '🎯 Task Manager' : '👤 Standard User'}
                 </span>
               </div>
             </div>
@@ -99,7 +109,7 @@ export function Sidebar() {
 
         {/* Navigation Items */}
         <nav className="p-4 space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {allowedNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
 

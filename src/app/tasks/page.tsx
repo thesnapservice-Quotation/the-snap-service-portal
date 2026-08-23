@@ -1073,7 +1073,7 @@ export default function TasksPage() {
                   >
                     {users.map((u) => (
                       <option key={u.id} value={u.id}>
-                        {u.name} ({u.role === 'super_admin' ? 'Owner' : 'Staff'})
+                        {u.name} ({u.role === 'super_admin' ? '👑 Super Admin' : u.role === 'task_manager' ? '🎯 Task Manager' : '👤 Standard User'})
                       </option>
                     ))}
                   </select>

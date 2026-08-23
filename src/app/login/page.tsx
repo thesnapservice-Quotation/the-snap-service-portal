@@ -24,7 +24,11 @@ export default function LoginPage() {
     if (res.success) {
       setSuccessMsg(res.message);
       setTimeout(() => {
-        router.push('/');
+        if (res.user?.role === 'task_manager') {
+          router.push('/tasks');
+        } else {
+          router.push('/');
+        }
       }, 500);
     } else {
       setErrorMsg(res.message);
