@@ -87,8 +87,9 @@ async function handleCronProcessing(request: NextRequest) {
 
   const isTestMode = request.nextUrl.searchParams.get('test') === '1';
   const isDryRun = request.nextUrl.searchParams.get('dryRun') === '1';
+  const skipDigest = request.nextUrl.searchParams.get('skipDigest') === '1' || request.nextUrl.searchParams.get('mode') === 'reminders_only';
 
-  console.log(`[CRON /api/tasks/reminders/process] ⏰ Automated reminder check started at ${nowIso}`);
+  console.log(`[CRON /api/tasks/reminders/process] ⏰ Automated reminder check started at ${nowIso} (skipDigest: ${skipDigest})`);
 
   // 1. Security Check
   if (!isCronAuthorized(request)) {
@@ -329,41 +330,75 @@ async function handleCronProcessing(request: NextRequest) {
 
     // -------------------------------------------------------------
     // 4. Hourly Studio Pending Operations Digest
-    // Window: 10:00 AM to 11:00 PM PKT (10:00 - 23:59 Asia/Karachi, UTC+5)
-    // Fires once every hour ONLY if there are active pending tasks
+    // Strict Operating Window: 10:00 AM (10) to 11:00 PM (23) PKT (Asia/Karachi, UTC+5)
+    // Timing Rule: Fires ONLY at exact hourly boundary (minute 00 to 02, e.g. 10:00, 11:00, 12:00, 1:00... 11:00)
+    // Frequency Rule: At most ONCE per hour across all cron calls
+    // Trigger Rule: ONLY sends to users who actually have pending tasks
     // -------------------------------------------------------------
     let hourlyDigestSent = false;
+    let hourlyDigestStatus = 'not_attempted';
+
     const pktDate = new Date(nowTime + 5 * 3600000);
     const pktHour = pktDate.getUTCHours(); // 0 to 23
+    const pktMinute = pktDate.getUTCMinutes(); // 0 to 59
     const pktDateStr = pktDate.toISOString().slice(0, 10);
     const currentHourKey = `${pktDateStr}-${pktHour}`;
 
-    // Active operating window: 10:00 AM (10) to 11:00 PM (23) inclusive
     const isWithinOperatingHours = pktHour >= 10 && pktHour <= 23;
+    const isAtHourlyBoundary = pktMinute >= 0 && pktMinute <= 2;
 
-    if (isWithinOperatingHours && !isDryRun) {
+    if (skipDigest) {
+      hourlyDigestStatus = 'skipped_client_or_param_flag';
+    } else if (!isWithinOperatingHours) {
+      hourlyDigestStatus = `outside_operating_hours_${pktHour}:00_pkt`;
+    } else if (!isAtHourlyBoundary) {
+      hourlyDigestStatus = `skipped_not_at_hourly_boundary_minute_${pktMinute}`;
+    } else if (isDryRun) {
+      hourlyDigestStatus = 'dry_run_mode';
+    } else {
       const lastSentHourKey = await getHourlyDigestTracker();
 
-      if (lastSentHourKey !== currentHourKey) {
-        // Collect active non-completed tasks
+      if (lastSentHourKey === currentHourKey) {
+        hourlyDigestStatus = `already_sent_for_hour_${currentHourKey}`;
+      } else {
+        // Record tracker immediately to avoid concurrent cron duplicate sends
+        await setHourlyDigestTracker(currentHourKey);
+
+        // Collect active (non-completed) tasks
         const pendingTasks = tasks.filter((t) => t.manualStatus !== 'completed');
 
         if (pendingTasks.length > 0) {
-          const pushTitle = `📋 Studio Operations (${pendingTasks.length} Pending Task${pendingTasks.length > 1 ? 's' : ''})`;
-          const pushBody = `You have ${pendingTasks.length} pending studio operation task${pendingTasks.length > 1 ? 's' : ''}. Tap to review.`;
-
-          const recipientIds = new Set<string>(['user-super-admin']);
-          pendingTasks.forEach((t) => {
-            if (t.assignedToUserId) recipientIds.add(t.assignedToUserId);
+          // 1. Send to Super Admin (Owner)
+          await sendPushNotificationToUser('user-super-admin', {
+            title: `📋 Studio Operations (${pendingTasks.length} Pending Task${pendingTasks.length > 1 ? 's' : ''})`,
+            body: `You have ${pendingTasks.length} pending studio operation task${pendingTasks.length > 1 ? 's' : ''}. Tap to review.`,
+            icon: '/snap-service-logo.png',
+            badge: '/icon.png',
+            tag: `hourly-digest-${currentHourKey}-user-super-admin`,
+            data: {
+              url: '/tasks',
+              type: 'hourly_digest',
+            },
           });
 
-          for (const uid of Array.from(recipientIds)) {
-            await sendPushNotificationToUser(uid, {
-              title: pushTitle,
-              body: pushBody,
+          // 2. Send to individual assigned users who have pending tasks
+          const assignedUserMap = new Map<string, number>();
+          for (const t of pendingTasks) {
+            if (t.assignedToUserId && t.assignedToUserId !== 'user-super-admin') {
+              assignedUserMap.set(
+                t.assignedToUserId,
+                (assignedUserMap.get(t.assignedToUserId) || 0) + 1
+              );
+            }
+          }
+
+          for (const [userId, userPendingCount] of assignedUserMap.entries()) {
+            await sendPushNotificationToUser(userId, {
+              title: `📋 Studio Operations (${userPendingCount} Pending Task${userPendingCount > 1 ? 's' : ''})`,
+              body: `You have ${userPendingCount} pending studio operation task${userPendingCount > 1 ? 's' : ''}. Tap to review.`,
               icon: '/snap-service-logo.png',
               badge: '/icon.png',
-              tag: `hourly-digest-${currentHourKey}-${uid}`,
+              tag: `hourly-digest-${currentHourKey}-${userId}`,
               data: {
                 url: '/tasks',
                 type: 'hourly_digest',
@@ -371,17 +406,17 @@ async function handleCronProcessing(request: NextRequest) {
             });
           }
 
-          console.log(`[CRON] ⏰ Hourly Digest dispatched for ${pktHour}:00 PKT to ${Array.from(recipientIds).join(', ')} (${pendingTasks.length} pending tasks)`);
+          console.log(`[CRON] ⏰ Hourly Digest dispatched at ${pktHour}:${pktMinute < 10 ? '0' + pktMinute : pktMinute} PKT (${pendingTasks.length} total pending tasks)`);
           hourlyDigestSent = true;
+          hourlyDigestStatus = `sent_for_${currentHourKey}`;
+        } else {
+          hourlyDigestStatus = 'zero_pending_tasks';
         }
-
-        // Mark this hour as processed to prevent repeated triggers during the same hour
-        await setHourlyDigestTracker(currentHourKey);
       }
     }
 
     const durationMs = Date.now() - startTime;
-    console.log(`[CRON] 🏁 Finished in ${durationMs}ms: ${remindersSent} reminders, ${followUpAlertsSent} follow-ups, ${overdueAlertsSent} overdue alerts sent. (Hourly Digest Sent: ${hourlyDigestSent})`);
+    console.log(`[CRON] 🏁 Finished in ${durationMs}ms: ${remindersSent} reminders, ${followUpAlertsSent} follow-ups, ${overdueAlertsSent} overdue alerts sent. (Hourly Digest: ${hourlyDigestStatus})`);
 
     return NextResponse.json({
       success: true,
@@ -399,6 +434,7 @@ async function handleCronProcessing(request: NextRequest) {
         followUpAlertsSent,
         overdueAlertsSent,
         hourlyDigestSent,
+        hourlyDigestStatus,
         tasksUpdatedCount,
       },
       registeredDevices: isTestMode

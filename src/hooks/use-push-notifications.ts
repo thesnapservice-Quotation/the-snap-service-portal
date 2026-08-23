@@ -252,10 +252,10 @@ export function usePushNotifications() {
     }
   };
 
-  // Background reminder trigger & 60s client-side heartbeat backup
+  // Background reminder trigger & 60s client-side heartbeat backup (reminders only, never hourly digest)
   const triggerReminderCheck = async () => {
     try {
-      await fetch('/api/tasks/reminders/process?secret=07c2bd3724930049d755d62352ce8dcaf046f5e355d3d910131b1f764fadb2ea');
+      await fetch('/api/tasks/reminders/process?secret=07c2bd3724930049d755d62352ce8dcaf046f5e355d3d910131b1f764fadb2ea&skipDigest=1');
     } catch {}
   };
 

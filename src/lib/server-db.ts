@@ -771,20 +771,28 @@ export async function deleteDeviceSubscriptionFromDb(idOrEndpoint: string): Prom
   return true;
 }
 
+let cachedLastHourlyDigestKey: string | null = null;
+
 export async function getHourlyDigestTracker(): Promise<string | null> {
+  if (cachedLastHourlyDigestKey) {
+    return cachedLastHourlyDigestKey;
+  }
   try {
     const { data } = await supabase
       .from('quotations')
       .select('full_data')
       .eq('id', 'sys_hourly_digest_tracker')
       .single();
-    return data?.full_data?.lastHourKey || null;
+    const key = data?.full_data?.lastHourKey || null;
+    if (key) cachedLastHourlyDigestKey = key;
+    return key;
   } catch {
-    return null;
+    return cachedLastHourlyDigestKey;
   }
 }
 
 export async function setHourlyDigestTracker(hourKey: string): Promise<void> {
+  cachedLastHourlyDigestKey = hourKey;
   try {
     await supabase
       .from('quotations')
