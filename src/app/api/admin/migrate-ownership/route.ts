@@ -55,6 +55,8 @@ export async function POST(req: Request) {
         userId: targetMeta.createdByUserId,
         createdByUserId: targetMeta.createdByUserId,
         updatedByUserId: targetMeta.updatedByUserId,
+        // Preserve exact existing updatedAt
+        updatedAt: existingFullData.updatedAt || r.updated_at,
       };
 
       const updatePayload = {
@@ -72,7 +74,7 @@ export async function POST(req: Request) {
         inclusions: r.inclusions,
         payment: r.payment,
         created_at: r.created_at,
-        updated_at: new Date().toISOString(),
+        updated_at: r.updated_at,
       };
 
       const { error: upsertErr } = await supabase
