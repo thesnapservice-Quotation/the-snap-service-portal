@@ -2,15 +2,12 @@ import webpush from 'web-push';
 import { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } from './vapid-keys';
 import { DeviceSubscription } from './types';
 import { getDeviceSubscriptionsFromDb, deleteDeviceSubscriptionFromDb } from './server-db';
-import { sendFCMMessage } from './firebase-admin';
 
 // Initialize Web Push VAPID Details
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  try {
-    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-  } catch (e) {
-    console.warn('[Web Push] Notice on VAPID setup:', e);
-  }
+try {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} catch (e) {
+  console.error('Error setting VAPID details:', e);
 }
 
 export interface PushNotificationPayload {
@@ -22,113 +19,76 @@ export interface PushNotificationPayload {
   data?: {
     url?: string;
     taskId?: string;
-    type?: 'reminder' | 'overdue' | 'follow_up' | 'test';
+    type?: 'reminder' | 'overdue' | 'follow_up' | 'test' | 'new_task';
   };
 }
 
 /**
- * Deliver push notification to a device (Using Firebase Admin FCM or Web Push)
+ * Deliver push notification to a specific Web Push device subscription
  */
-export async function sendPushToDevice(
+export async function sendPushToSubscription(
   device: DeviceSubscription,
   payload: PushNotificationPayload
-): Promise<{ success: boolean; shouldDelete?: boolean; error?: string; method?: 'fcm' | 'webpush' }> {
-  // 1. Primary Method: If device has an official FCM token, use Firebase Cloud Messaging
-  if (device.fcmToken) {
-    console.log(`[Push Server] 🚀 Attempting Firebase FCM delivery to ${device.deviceName} (${device.id})...`);
-    const fcmRes = await sendFCMMessage(device.fcmToken, {
-      title: payload.title,
-      body: payload.body,
-      icon: payload.icon || '/snap-service-logo.png',
-      badge: payload.badge || '/icon.png',
-      url: payload.data?.url || '/tasks',
-      taskId: payload.data?.taskId,
-      type: payload.data?.type || 'reminder',
-    });
-
-    if (fcmRes.success) {
-      console.log(`[Push Server] ✅ FCM delivery successful to ${device.deviceName}`);
-      return { success: true, method: 'fcm' };
-    } else {
-      console.warn(`[Push Server] ⚠️ FCM delivery notice: ${fcmRes.error}. Trying Web Push fallback...`);
-      if (fcmRes.shouldDelete) {
-        return { success: false, shouldDelete: true, error: fcmRes.error, method: 'fcm' };
-      }
-    }
+): Promise<{ success: boolean; shouldDelete?: boolean; error?: string }> {
+  if (!device.subscription || !device.subscription.endpoint) {
+    return { success: false, shouldDelete: true, error: 'Invalid subscription' };
   }
 
-  // 2. Secondary Method: Web Push Protocol via VAPID
-  if (device.subscription && device.subscription.endpoint) {
-    console.log(`[Push Server] 🌐 Attempting Web Push delivery to ${device.deviceName}...`);
-    const pushPayload = JSON.stringify({
-      title: payload.title,
-      body: payload.body,
-      icon: payload.icon || '/snap-service-logo.png',
-      badge: payload.badge || '/icon.png',
-      tag: payload.tag || `task-notif-${Date.now()}`,
-      data: payload.data || { url: '/tasks' },
+  const pushPayload = JSON.stringify({
+    title: payload.title,
+    body: payload.body,
+    icon: payload.icon || '/snap-service-logo.png',
+    badge: payload.badge || '/icon.png',
+    tag: payload.tag || `task-notif-${Date.now()}`,
+    data: payload.data || { url: '/tasks' },
+  });
+
+  try {
+    await webpush.sendNotification(device.subscription, pushPayload, {
+      TTL: 86400, // 24 hours
+      urgency: 'high',
     });
-
-    try {
-      await webpush.sendNotification(device.subscription, pushPayload, {
-        TTL: 86400, // 24 hours
-        urgency: 'high',
-      });
-      console.log(`[Push Server] ✅ Web Push delivery successful to ${device.deviceName}`);
-      return { success: true, method: 'webpush' };
-    } catch (error: any) {
-      console.error(`[Push Server] ❌ Web Push error to ${device.deviceName}:`, error?.statusCode || error?.message);
-      
-      const isRevoked = error?.statusCode === 404 || error?.statusCode === 410;
-      return {
-        success: false,
-        shouldDelete: isRevoked,
-        error: error?.message || 'Web Push failed',
-        method: 'webpush',
-      };
+    return { success: true };
+  } catch (error: any) {
+    console.error(`Push delivery error to ${device.deviceName} (${device.id}):`, error?.statusCode || error?.message);
+    
+    // Status 404 (Not Found) or 410 (Gone) indicates expired or revoked browser subscription
+    if (error?.statusCode === 404 || error?.statusCode === 410) {
+      return { success: false, shouldDelete: true, error: 'Subscription expired or revoked' };
     }
-  }
 
-  return { success: false, shouldDelete: true, error: 'No valid FCM token or Web Push subscription on device' };
+    return { success: false, shouldDelete: false, error: error?.message || 'Push failed' };
+  }
 }
 
 /**
- * Deliver push notification to ALL registered active devices belonging to a user (strictly by authenticated userId)
+ * Deliver push notification to ALL registered active devices belonging to a user
  */
 export async function sendPushNotificationToUser(
   userId: string,
   payload: PushNotificationPayload
-): Promise<{ sent: number; failed: number; total: number; methods: string[] }> {
-  if (!userId) return { sent: 0, failed: 0, total: 0, methods: [] };
+): Promise<{ sent: number; failed: number; total: number }> {
+  if (!userId) return { sent: 0, failed: 0, total: 0 };
 
-  console.log(`[Push Server] 🔍 Fetching device subscriptions strictly for user ID: "${userId}"...`);
-  
-  // 1. Fetch subscriptions from database filtered strictly by userId
-  const targetId = userId.trim().toLowerCase();
-  const allUserSubscriptions = await getDeviceSubscriptionsFromDb(targetId);
-  const activeSubscriptions = allUserSubscriptions.filter((d) => d.active);
-
-  console.log(`[Push Server] 📱 Found ${activeSubscriptions.length} active device(s) for user ID "${userId}".`);
+  const cleanUid = userId.trim().toLowerCase();
+  const allSubscriptions = await getDeviceSubscriptionsFromDb(cleanUid);
+  const activeSubscriptions = allSubscriptions.filter((d) => d.active);
 
   if (activeSubscriptions.length === 0) {
-    return { sent: 0, failed: 0, total: 0, methods: [] };
+    return { sent: 0, failed: 0, total: 0 };
   }
 
   let sent = 0;
   let failed = 0;
-  const methods: string[] = [];
 
   await Promise.all(
     activeSubscriptions.map(async (device) => {
-      console.log(`[Push Server] 📲 Sending to device: ${device.deviceName} (Device ID: ${device.id}, User ID: ${device.userId})`);
-      const res = await sendPushToDevice(device, payload);
+      const res = await sendPushToSubscription(device, payload);
       if (res.success) {
         sent++;
-        if (res.method) methods.push(res.method);
       } else {
         failed++;
         if (res.shouldDelete) {
-          console.log(`[Push Server] 🧹 Purging invalid/unregistered device token: ${device.id} (${device.deviceName})`);
           try {
             await deleteDeviceSubscriptionFromDb(device.id);
           } catch {}
@@ -137,6 +97,5 @@ export async function sendPushNotificationToUser(
     })
   );
 
-  console.log(`[Push Server] 📊 Dispatch complete for user ID "${userId}": ${sent} sent, ${failed} failed.`);
-  return { sent, failed, total: activeSubscriptions.length, methods };
+  return { sent, failed, total: activeSubscriptions.length };
 }

@@ -187,7 +187,6 @@ async function handleCronProcessing(request: NextRequest) {
                   status: 'dispatched',
                   devicesTargeted: pushResult.total,
                   devicesDelivered: pushResult.sent,
-                  methods: pushResult.methods,
                 });
               } else {
                 taskLogs.push({
@@ -247,7 +246,6 @@ async function handleCronProcessing(request: NextRequest) {
               assignedToName: task.assignedToName,
               status: 'dispatched',
               devicesDelivered: pushResult.sent,
-              methods: pushResult.methods,
             });
           }
         }
