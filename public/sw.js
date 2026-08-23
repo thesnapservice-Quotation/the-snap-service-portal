@@ -11,27 +11,25 @@ self.addEventListener('activate', (event) => {
 
 // Listen for incoming Web Push Notifications in background
 self.addEventListener('push', (event) => {
-  let data = {
-    title: 'Snap Service Task Reminder',
-    body: 'You have a pending studio operation task.',
-    icon: '/snap-service-logo.png',
-    badge: '/icon.png',
-    data: { url: '/tasks' },
-  };
+  let data = null;
 
   try {
     if (event.data) {
-      const parsed = event.data.json();
-      data = { ...data, ...parsed };
+      data = event.data.json();
     }
   } catch (e) {
     if (event.data) {
-      data.body = event.data.text();
+      data = { body: event.data.text() };
     }
   }
 
+  if (!data || (!data.title && !data.body)) {
+    return;
+  }
+
+  const title = data.title || 'Snap Service';
   const options = {
-    body: data.body,
+    body: data.body || '',
     icon: data.icon || '/snap-service-logo.png',
     badge: data.badge || '/icon.png',
     data: data.data || { url: '/tasks' },
@@ -43,7 +41,7 @@ self.addEventListener('push', (event) => {
     ],
   };
 
-  event.waitUntil(self.registration.showNotification(data.title, options));
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // Listen for notification clicks

@@ -17,9 +17,15 @@ const messaging = firebase.messaging();
 
 // Handle Background Firebase Messages
 messaging.onBackgroundMessage((payload) => {
-  const notificationTitle = payload.notification?.title || payload.data?.title || 'Snap Service Task Reminder';
+  const notificationTitle = payload.notification?.title || payload.data?.title;
+  const notificationBody = payload.notification?.body || payload.data?.body;
+
+  if (!notificationTitle && !notificationBody) {
+    return;
+  }
+
   const notificationOptions = {
-    body: payload.notification?.body || payload.data?.body || 'You have a pending studio operation task.',
+    body: notificationBody || '',
     icon: payload.notification?.icon || '/snap-service-logo.png',
     badge: '/icon.png',
     data: {
@@ -34,7 +40,7 @@ messaging.onBackgroundMessage((payload) => {
     ],
   };
 
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(notificationTitle || 'Snap Service', notificationOptions);
 });
 
 // Also include standard Web Push listener for direct VAPID delivery

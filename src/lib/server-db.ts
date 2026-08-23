@@ -770,3 +770,37 @@ export async function deleteDeviceSubscriptionFromDb(idOrEndpoint: string): Prom
 
   return true;
 }
+
+export async function getHourlyDigestTracker(): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from('quotations')
+      .select('full_data')
+      .eq('id', 'sys_hourly_digest_tracker')
+      .single();
+    return data?.full_data?.lastHourKey || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setHourlyDigestTracker(hourKey: string): Promise<void> {
+  try {
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: 'sys_hourly_digest_tracker',
+        quotation_number: 'SYS-DIGEST',
+        user_id: 'system',
+        status: 'confirmed',
+        client: { name: 'Hourly Digest Tracker', phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemTaskRecord: true, lastHourKey: hourKey, updatedAt: new Date().toISOString() },
+        updated_at: new Date().toISOString(),
+      });
+  } catch (e) {
+    console.error('Error saving hourly digest tracker:', e);
+  }
+}

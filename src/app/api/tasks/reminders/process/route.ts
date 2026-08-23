@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTasksFromDb, saveTaskToDb, getDeviceSubscriptionsFromDb } from '@/lib/server-db';
+import { getTasksFromDb, saveTaskToDb, getDeviceSubscriptionsFromDb, getHourlyDigestTracker, setHourlyDigestTracker } from '@/lib/server-db';
 import { sendPushNotificationToUser } from '@/lib/push-server';
 import { formatTaskDateTime } from '@/lib/tasks-utils';
 
@@ -327,8 +327,61 @@ async function handleCronProcessing(request: NextRequest) {
       }
     }
 
+    // -------------------------------------------------------------
+    // 4. Hourly Studio Pending Operations Digest
+    // Window: 10:00 AM to 11:00 PM PKT (10:00 - 23:59 Asia/Karachi, UTC+5)
+    // Fires once every hour ONLY if there are active pending tasks
+    // -------------------------------------------------------------
+    let hourlyDigestSent = false;
+    const pktDate = new Date(nowTime + 5 * 3600000);
+    const pktHour = pktDate.getUTCHours(); // 0 to 23
+    const pktDateStr = pktDate.toISOString().slice(0, 10);
+    const currentHourKey = `${pktDateStr}-${pktHour}`;
+
+    // Active operating window: 10:00 AM (10) to 11:00 PM (23) inclusive
+    const isWithinOperatingHours = pktHour >= 10 && pktHour <= 23;
+
+    if (isWithinOperatingHours && !isDryRun) {
+      const lastSentHourKey = await getHourlyDigestTracker();
+
+      if (lastSentHourKey !== currentHourKey) {
+        // Collect active non-completed tasks
+        const pendingTasks = tasks.filter((t) => t.manualStatus !== 'completed');
+
+        if (pendingTasks.length > 0) {
+          const pushTitle = `📋 Studio Operations (${pendingTasks.length} Pending Task${pendingTasks.length > 1 ? 's' : ''})`;
+          const pushBody = `You have ${pendingTasks.length} pending studio operation task${pendingTasks.length > 1 ? 's' : ''}. Tap to review.`;
+
+          const recipientIds = new Set<string>(['user-super-admin']);
+          pendingTasks.forEach((t) => {
+            if (t.assignedToUserId) recipientIds.add(t.assignedToUserId);
+          });
+
+          for (const uid of Array.from(recipientIds)) {
+            await sendPushNotificationToUser(uid, {
+              title: pushTitle,
+              body: pushBody,
+              icon: '/snap-service-logo.png',
+              badge: '/icon.png',
+              tag: `hourly-digest-${currentHourKey}-${uid}`,
+              data: {
+                url: '/tasks',
+                type: 'hourly_digest',
+              },
+            });
+          }
+
+          console.log(`[CRON] ⏰ Hourly Digest dispatched for ${pktHour}:00 PKT to ${Array.from(recipientIds).join(', ')} (${pendingTasks.length} pending tasks)`);
+          hourlyDigestSent = true;
+        }
+
+        // Mark this hour as processed to prevent repeated triggers during the same hour
+        await setHourlyDigestTracker(currentHourKey);
+      }
+    }
+
     const durationMs = Date.now() - startTime;
-    console.log(`[CRON] 🏁 Finished in ${durationMs}ms: ${remindersSent} reminders, ${followUpAlertsSent} follow-ups, ${overdueAlertsSent} overdue alerts sent.`);
+    console.log(`[CRON] 🏁 Finished in ${durationMs}ms: ${remindersSent} reminders, ${followUpAlertsSent} follow-ups, ${overdueAlertsSent} overdue alerts sent. (Hourly Digest Sent: ${hourlyDigestSent})`);
 
     return NextResponse.json({
       success: true,
@@ -345,6 +398,7 @@ async function handleCronProcessing(request: NextRequest) {
         remindersSent,
         followUpAlertsSent,
         overdueAlertsSent,
+        hourlyDigestSent,
         tasksUpdatedCount,
       },
       registeredDevices: isTestMode

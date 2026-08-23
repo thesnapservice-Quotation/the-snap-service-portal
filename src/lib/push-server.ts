@@ -19,7 +19,7 @@ export interface PushNotificationPayload {
   data?: {
     url?: string;
     taskId?: string;
-    type?: 'reminder' | 'overdue' | 'follow_up' | 'test' | 'new_task';
+    type?: 'reminder' | 'overdue' | 'follow_up' | 'test' | 'new_task' | 'hourly_digest' | 'status_update' | string;
   };
 }
 
