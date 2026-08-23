@@ -86,6 +86,7 @@ export default function TasksPage() {
   const [detailTask, setDetailTask] = useState<TaskItem | null>(null);
   const [waitingModalTask, setWaitingModalTask] = useState<TaskItem | null>(null);
   const [testPushStatus, setTestPushStatus] = useState<string | null>(null);
+  const [isSavingTask, setIsSavingTask] = useState(false);
 
   // Form State for Create / Edit
   const [formTitle, setFormTitle] = useState('');
@@ -338,7 +339,9 @@ export default function TasksPage() {
   // Save Task (Create or Update)
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formTitle.trim()) return;
+    if (!formTitle.trim() || isSavingTask) return;
+
+    setIsSavingTask(true);
 
     // Find assignee name
     const assignedUser = users.find((u) => u.id === formAssignedUserId);
@@ -355,76 +358,95 @@ export default function TasksPage() {
       }
     }
 
-    if (editingTask) {
-      await updateTask(
-        {
-          ...editingTask,
-          title: formTitle.trim(),
-          category: formCategory,
-          subCategory: formSubCategory,
-          quotationId: formQuotationId || undefined,
+    const titleToSave = formTitle.trim();
+    const catToSave = formCategory;
+    const subCatToSave = formSubCategory;
+    const quotIdToSave = formQuotationId || undefined;
+    const startDtToSave = formStartDateTime;
+    const deadlineDtToSave = formDeadlineDateTime;
+    const priorityToSave = formPriority;
+    const followUpDtToSave = formFollowUpDateTime || undefined;
+    const remindersToSave = [...formReminders];
+    const notesToSave = formNotes.trim();
+    const assignedUserIdToSave = formAssignedUserId;
+    const editing = editingTask;
+
+    // Immediately close modal so UI response is instant and blocks double clicks
+    setShowCreateModal(false);
+
+    try {
+      if (editing) {
+        await updateTask(
+          {
+            ...editing,
+            title: titleToSave,
+            category: catToSave,
+            subCategory: subCatToSave,
+            quotationId: quotIdToSave,
+            quotationNumber: quotationNumber || undefined,
+            clientName: clientName || undefined,
+            assignedToUserId: assignedUserIdToSave,
+            assignedToName: assignedName,
+            startDateTime: startDtToSave,
+            deadlineDateTime: deadlineDtToSave,
+            priority: priorityToSave,
+            followUpDateTime: followUpDtToSave,
+            reminders: remindersToSave,
+            reminderTiming: remindersToSave[0]?.timing || undefined,
+            reminderDateTime: remindersToSave[0]?.reminderDateTime || undefined,
+            notes: notesToSave,
+          },
+          'Task details updated'
+        );
+      } else {
+        await createTask({
+          title: titleToSave,
+          category: catToSave,
+          subCategory: subCatToSave,
+          quotationId: quotIdToSave,
           quotationNumber: quotationNumber || undefined,
           clientName: clientName || undefined,
-          assignedToUserId: formAssignedUserId,
+          assignedToUserId: assignedUserIdToSave,
           assignedToName: assignedName,
-          startDateTime: formStartDateTime,
-          deadlineDateTime: formDeadlineDateTime,
-          priority: formPriority,
-          followUpDateTime: formFollowUpDateTime || undefined,
-          reminders: formReminders,
-          reminderTiming: formReminders[0]?.timing || undefined,
-          reminderDateTime: formReminders[0]?.reminderDateTime || undefined,
-          notes: formNotes.trim(),
-        },
-        'Task details updated'
-      );
-    } else {
-      await createTask({
-        title: formTitle.trim(),
-        category: formCategory,
-        subCategory: formSubCategory,
-        quotationId: formQuotationId || undefined,
-        quotationNumber: quotationNumber || undefined,
-        clientName: clientName || undefined,
-        assignedToUserId: formAssignedUserId,
-        assignedToName: assignedName,
-        startDateTime: formStartDateTime,
-        deadlineDateTime: formDeadlineDateTime,
-        priority: formPriority,
-        followUpDateTime: formFollowUpDateTime || undefined,
-        reminders: formReminders,
-        reminderTiming: formReminders[0]?.timing || undefined,
-        reminderDateTime: formReminders[0]?.reminderDateTime || undefined,
-        notes: formNotes.trim(),
-      });
+          startDateTime: startDtToSave,
+          deadlineDateTime: deadlineDtToSave,
+          priority: priorityToSave,
+          followUpDateTime: followUpDtToSave,
+          reminders: remindersToSave,
+          reminderTiming: remindersToSave[0]?.timing || undefined,
+          reminderDateTime: remindersToSave[0]?.reminderDateTime || undefined,
+          notes: notesToSave,
+        });
 
-      // Instant Push Notification upon Task Generation
-      try {
-        const deadlineFormatted = formatTaskDateTime(formDeadlineDateTime);
-        const priorityLabel = formPriority === 'urgent' ? '🚨 URGENT' : formPriority === 'high' ? '⚠️ High' : '';
-        const bodyText = [
-          `Deadline: ${deadlineFormatted}`,
-          clientName ? `Client: ${clientName}` : '',
-          priorityLabel,
-        ].filter(Boolean).join(' • ');
+        // Instant Push Notification upon Task Generation (non-blocking)
+        try {
+          const deadlineFormatted = formatTaskDateTime(deadlineDtToSave);
+          const priorityLabel = priorityToSave === 'urgent' ? '🚨 URGENT' : priorityToSave === 'high' ? '⚠️ High' : '';
+          const bodyText = [
+            `Deadline: ${deadlineFormatted}`,
+            clientName ? `Client: ${clientName}` : '',
+            priorityLabel,
+          ].filter(Boolean).join(' • ');
 
-        fetch('/api/notifications/test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: formAssignedUserId,
-            userName: assignedName,
-            title: `✨ New Task Assigned: ${formTitle.trim()}`,
-            body: bodyText || `New studio task assigned. Tap to view.`,
-            url: '/tasks',
-            type: 'new_task',
-          }),
-        }).catch(() => {});
-      } catch {}
+          fetch('/api/notifications/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: assignedUserIdToSave,
+              userName: assignedName,
+              title: `✨ New Task Assigned: ${titleToSave}`,
+              body: bodyText || `New studio task assigned. Tap to view.`,
+              url: '/tasks',
+              type: 'new_task',
+            }),
+          }).catch(() => {});
+        } catch {}
+      }
+
+      triggerReminderCheck();
+    } finally {
+      setIsSavingTask(false);
     }
-
-    setShowCreateModal(false);
-    triggerReminderCheck();
   };
 
   // Submit Waiting / Follow-up
@@ -1255,10 +1277,13 @@ export default function TasksPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#0D4F4F] hover:bg-[#093A3A] text-white font-medium shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  disabled={isSavingTask}
+                  className={`px-5 py-2 rounded-xl bg-[#0D4F4F] hover:bg-[#093A3A] text-white font-medium shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isSavingTask ? 'opacity-60 cursor-not-allowed' : ''
+                  }`}
                 >
                   <Save className="w-4 h-4 text-[#D4AF37]" />
-                  <span>{editingTask ? 'Save Changes' : 'Create Task'}</span>
+                  <span>{isSavingTask ? 'Saving...' : editingTask ? 'Save Changes' : 'Create Task'}</span>
                 </button>
               </div>
             </form>
