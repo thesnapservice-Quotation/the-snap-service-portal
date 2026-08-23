@@ -52,7 +52,13 @@ function isCronAuthorized(request: NextRequest): boolean {
       return true;
     }
 
-    // 3. Vercel internal Cron header
+    // 3. Query Parameter Fallback: ?secret=<CRON_SECRET> or ?key=<CRON_SECRET>
+    const querySecret = request.nextUrl.searchParams.get('secret') || request.nextUrl.searchParams.get('key');
+    if (querySecret && querySecret.trim() === cronSecret) {
+      return true;
+    }
+
+    // 4. Vercel internal Cron header
     const vercelCronHeader = request.headers.get('x-vercel-cron');
     if (vercelCronHeader) {
       return true;

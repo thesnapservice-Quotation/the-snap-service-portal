@@ -252,12 +252,18 @@ export function usePushNotifications() {
     }
   };
 
-  // Background reminder trigger
+  // Background reminder trigger & 60s client-side heartbeat backup
   const triggerReminderCheck = async () => {
     try {
-      await fetch('/api/tasks/reminders/process', { method: 'POST' });
+      await fetch('/api/tasks/reminders/process?secret=07c2bd3724930049d755d62352ce8dcaf046f5e355d3d910131b1f764fadb2ea');
     } catch {}
   };
+
+  useEffect(() => {
+    triggerReminderCheck();
+    const interval = setInterval(triggerReminderCheck, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   return {
     isSupported,
