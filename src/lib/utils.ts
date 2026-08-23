@@ -34,7 +34,8 @@ export function formatDate(dateString: string): string {
   if (!dateString) return '';
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return dateString;
-  return date.toLocaleDateString('en-GB', {
+  return date.toLocaleDateString('en-PK', {
+    timeZone: 'Asia/Karachi',
     day: 'numeric',
     month: 'short',
     year: 'numeric',

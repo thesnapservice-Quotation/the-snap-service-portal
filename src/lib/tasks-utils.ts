@@ -156,9 +156,17 @@ export function computeTaskStatus(task: TaskItem): TaskStatus {
 export function formatTaskDateTime(dateStr?: string): string {
   if (!dateStr) return '';
   try {
-    const d = new Date(dateStr);
+    let d: Date;
+    if (dateStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(dateStr)) {
+      d = new Date(dateStr);
+    } else {
+      // Local input format YYYY-MM-DDTHH:mm -> append Pakistan Standard Time (+05:00) offset
+      d = new Date(`${dateStr.length === 16 ? dateStr + ':00' : dateStr}+05:00`);
+    }
+
     if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleString('en-GB', {
+    return d.toLocaleString('en-PK', {
+      timeZone: 'Asia/Karachi',
       day: 'numeric',
       month: 'short',
       hour: '2-digit',
