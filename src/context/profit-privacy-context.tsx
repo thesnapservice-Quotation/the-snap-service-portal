@@ -62,18 +62,21 @@ export function ProfitPrivacyProvider({ children }: { children: React.ReactNode 
 
     // 1. Check custom profit password from localStorage
     const customPass = getCustomProfitPassword(currentUser?.id);
-    if (customPass && password === customPass) {
-      isValid = true;
-    }
+    if (customPass) {
+      // Once a custom profit password is set, ONLY that password is accepted (all old/default passwords strictly expired)
+      if (password === customPass) {
+        isValid = true;
+      }
+    } else {
+      // 2. Only if no custom password was ever set, check initial user account password
+      if (currentUser?.password) {
+        isValid = await verifyPassword(password, currentUser.password);
+      }
 
-    // 2. Verify against current user account password
-    if (!isValid && currentUser?.password) {
-      isValid = await verifyPassword(password, currentUser.password);
-    }
-
-    // 3. Fallback check for admin / standard passwords
-    if (!isValid && (password === 'admin123' || password === 'admin' || password === 'staff123' || password === '5791')) {
-      isValid = true;
+      // 3. Initial default fallback only if user password not set
+      if (!isValid && (password === 'admin123' || password === 'admin' || password === 'staff123' || password === '5791')) {
+        isValid = true;
+      }
     }
 
     if (isValid) {
@@ -117,15 +120,17 @@ export function ProfitPrivacyProvider({ children }: { children: React.ReactNode 
     let isCurrentValid = false;
     const customPass = getCustomProfitPassword(currentUser?.id);
     if (customPass) {
-      if (currentPassword === customPass) isCurrentValid = true;
-    }
-
-    if (!isCurrentValid && currentUser?.password) {
-      isCurrentValid = await verifyPassword(currentPassword, currentUser.password);
-    }
-
-    if (!isCurrentValid && (currentPassword === 'admin123' || currentPassword === 'admin' || currentPassword === 'staff123' || currentPassword === '5791')) {
-      isCurrentValid = true;
+      // Only the current active custom password is valid
+      if (currentPassword === customPass) {
+        isCurrentValid = true;
+      }
+    } else {
+      if (currentUser?.password) {
+        isCurrentValid = await verifyPassword(currentPassword, currentUser.password);
+      }
+      if (!isCurrentValid && (currentPassword === 'admin123' || currentPassword === 'admin' || currentPassword === 'staff123' || currentPassword === '5791')) {
+        isCurrentValid = true;
+      }
     }
 
     if (!isCurrentValid) {
