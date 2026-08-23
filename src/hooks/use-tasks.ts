@@ -180,13 +180,35 @@ export function useTasks() {
     const nextManualStatus = isNowCompleted ? 'completed' : 'in_progress';
     const actionDesc = isNowCompleted ? 'Marked task as COMPLETED' : 'Reopened task';
 
-    return await updateTask(
+    const res = await updateTask(
       {
         ...task,
         manualStatus: nextManualStatus,
       },
       actionDesc
     );
+
+    // Notify Super Admin and Assignee about task completion / reopening
+    try {
+      const actorName = currentUser?.name || 'Studio Member';
+      const targets = Array.from(new Set([task.assignedToUserId, 'user-super-admin'])).filter(Boolean);
+      for (const uid of targets) {
+        fetch('/api/notifications/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: uid,
+            userName: actorName,
+            title: isNowCompleted ? `✅ Completed: ${task.title}` : `Reopened: ${task.title}`,
+            body: `${isNowCompleted ? 'Completed' : 'Reopened'} by ${actorName}`,
+            url: '/tasks',
+            type: 'status_update',
+          }),
+        }).catch(() => {});
+      }
+    } catch {}
+
+    return res;
   };
 
   const setTaskWaiting = async (taskId: string, followUpDateTime?: string, reasonNotes?: string): Promise<TaskItem | null> => {
@@ -200,10 +222,32 @@ export function useTasks() {
       notes: reasonNotes ? `${task.notes ? task.notes + '\n\n' : ''}[Waiting Note]: ${reasonNotes}` : task.notes,
     };
 
-    return await updateTask(
+    const res = await updateTask(
       updatedTask,
       `Status changed to WAITING (Follow-up scheduled for ${followUpDateTime || 'TBD'})`
     );
+
+    // Notify Super Admin and Assignee about waiting follow-up
+    try {
+      const actorName = currentUser?.name || 'Studio Member';
+      const targets = Array.from(new Set([task.assignedToUserId, 'user-super-admin'])).filter(Boolean);
+      for (const uid of targets) {
+        fetch('/api/notifications/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: uid,
+            userName: actorName,
+            title: `⏳ Waiting: ${task.title}`,
+            body: `Waiting follow-up set by ${actorName}${reasonNotes ? ` • ${reasonNotes}` : ''}`,
+            url: '/tasks',
+            type: 'follow_up',
+          }),
+        }).catch(() => {});
+      }
+    } catch {}
+
+    return res;
   };
 
   const deleteTask = async (taskId: string): Promise<boolean> => {

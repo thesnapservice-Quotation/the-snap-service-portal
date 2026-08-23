@@ -441,18 +441,21 @@ export default function TasksPage() {
           }
           const bodyText = bodyParts.join(' • ') || (deadlineFormatted ? `Deadline: ${deadlineFormatted}` : 'New task assigned.');
 
-          fetch('/api/notifications/test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: assignedUserIdToSave,
-              userName: assignedName,
-              title: titleToSave,
-              body: bodyText,
-              url: '/tasks',
-              type: 'new_task',
-            }),
-          }).catch(() => {});
+          const targets = Array.from(new Set([assignedUserIdToSave, 'user-super-admin'])).filter(Boolean);
+          for (const uid of targets) {
+            fetch('/api/notifications/test', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: uid,
+                userName: assignedName,
+                title: titleToSave,
+                body: bodyText,
+                url: '/tasks',
+                type: 'new_task',
+              }),
+            }).catch(() => {});
+          }
         } catch {}
       }
 
