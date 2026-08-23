@@ -71,7 +71,7 @@ function formatLocalDatetimeInput(d: Date = new Date()): string {
 
 export default function TasksPage() {
   const { tasks, createTask, updateTask, toggleTaskComplete, setTaskWaiting, deleteTask, refreshTasks } = useTasks();
-  const { currentUser, users } = useAuth();
+  const { currentUser, users, isSuperAdmin, isTaskManager } = useAuth();
   const { quotations } = useQuotations();
   const {
     isSupported: isPushSupported,
@@ -79,14 +79,15 @@ export default function TasksPage() {
     permission: pushPermission,
     loading: pushLoading,
     subscribe: subscribePush,
+    unsubscribe: unsubscribePush,
     sendTestNotification,
     triggerReminderCheck,
   } = usePushNotifications();
 
-  // Filters State
-  const [categoryFilter, setCategoryFilter] = useState<string>('all'); // 'all', 'my_tasks', 'team_tasks', or TaskCategory
-  const [statusFilter, setStatusFilter] = useState<string>('all'); // 'all', 'upcoming', 'due_now', 'overdue', 'waiting', 'completed'
-  const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'this_week' | 'overdue'>('all');
+  // Selected Category filter
+  const [categoryFilter, setCategoryFilter] = useState<TaskCategory | 'all' | 'my_tasks' | 'team_tasks'>('all');
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'overdue'>('all');
   const [eventFilter, setEventFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -249,13 +250,27 @@ export default function TasksPage() {
     setShowCreateModal(true);
   };
 
+  // Filter accessible tasks based on user role:
+  // - Super Admin & Standard Staff can view all tasks across the studio
+  // - Task Manager (e.g. Jawad) sees only tasks assigned to them or created by them
+  const accessibleTasks = useMemo(() => {
+    if (isTaskManager && currentUser?.id) {
+      return tasks.filter(
+        (t) =>
+          t.assignedToUserId === currentUser.id ||
+          t.history?.some((h) => h.userId === currentUser.id)
+      );
+    }
+    return tasks;
+  }, [tasks, isTaskManager, currentUser?.id]);
+
   // Computed Tasks with Dynamic Status
   const computedTasks = useMemo(() => {
-    return tasks.map((task) => ({
+    return accessibleTasks.map((task) => ({
       ...task,
       computedStatus: computeTaskStatus(task),
     }));
-  }, [tasks]);
+  }, [accessibleTasks]);
 
   // Status Counts
   const counts = useMemo(() => {
