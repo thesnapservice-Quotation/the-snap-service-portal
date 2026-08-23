@@ -89,6 +89,7 @@ export async function sendPushNotificationToUser(
   let sent = 0;
   let failed = 0;
   const details: any[] = [];
+  const toDeleteIds: string[] = [];
 
   await Promise.all(
     activeSubscriptions.map(async (device) => {
@@ -106,13 +107,17 @@ export async function sendPushNotificationToUser(
       } else {
         failed++;
         if (res.shouldDelete) {
-          try {
-            await deleteDeviceSubscriptionFromDb(device.id);
-          } catch {}
+          toDeleteIds.push(device.id);
         }
       }
     })
   );
+
+  for (const devId of toDeleteIds) {
+    try {
+      await deleteDeviceSubscriptionFromDb(devId);
+    } catch {}
+  }
 
   return { sent, failed, total: activeSubscriptions.length, details };
 }
