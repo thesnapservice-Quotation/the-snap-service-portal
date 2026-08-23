@@ -36,7 +36,7 @@ export function Sidebar() {
   const { currentUser, isSuperAdmin, isTaskManager, isImpersonating, returnToSuperAdmin, logout } = useAuth();
 
   const allowedNavItems = isTaskManager
-    ? NAV_ITEMS.filter((item) => item.href === '/tasks')
+    ? NAV_ITEMS.filter((item) => item.href === '/tasks' || item.href === '/settings')
     : NAV_ITEMS;
 
   return (

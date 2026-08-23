@@ -66,28 +66,30 @@ export function Header() {
         </Link>
 
         {!isTaskManager && (
-          <>
-            <Link
-              href="/analytics"
-              className="p-1.5 rounded-lg bg-[#156060] text-[#C3DFDF] hover:text-white"
-              title="Analytics"
-            >
-              <BarChart3 className="w-4 h-4" />
-            </Link>
-            <Link
-              href="/settings"
-              className="p-1.5 rounded-lg bg-[#156060] text-[#C3DFDF] hover:text-white"
-              title="Settings"
-            >
-              <Settings className="w-4 h-4" />
-            </Link>
-            <Link
-              href="/quotations/new"
-              className="flex items-center gap-1 bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs px-2 py-1.5 rounded-lg shadow ml-0.5"
-            >
-              <Plus className="w-4 h-4" />
-            </Link>
-          </>
+          <Link
+            href="/analytics"
+            className="p-1.5 rounded-lg bg-[#156060] text-[#C3DFDF] hover:text-white"
+            title="Analytics"
+          >
+            <BarChart3 className="w-4 h-4" />
+          </Link>
+        )}
+
+        <Link
+          href="/settings"
+          className="p-1.5 rounded-lg bg-[#156060] text-[#C3DFDF] hover:text-white"
+          title="Notification Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </Link>
+
+        {!isTaskManager && (
+          <Link
+            href="/quotations/new"
+            className="flex items-center gap-1 bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs px-2 py-1.5 rounded-lg shadow ml-0.5"
+          >
+            <Plus className="w-4 h-4" />
+          </Link>
         )}
 
         {currentUser ? (

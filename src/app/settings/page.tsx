@@ -96,6 +96,7 @@ export default function SettingsPage() {
     users, 
     currentUser, 
     isSuperAdmin, 
+    isTaskManager,
     approveUser, 
     updateUserRole,
     toggleUserActive, 
@@ -107,6 +108,14 @@ export default function SettingsPage() {
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'business' | 'bank' | 'services' | 'terms' | 'quotation' | 'users' | 'notifications' | 'backup'>('business');
+
+  // If task_manager, automatically default to notifications tab
+  useEffect(() => {
+    if (isTaskManager) {
+      setActiveTab('notifications');
+    }
+  }, [isTaskManager]);
+
   const [testPushMsg, setTestPushMsg] = useState('');
   const [formData, setFormData] = useState<AppSettings>(settings);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
@@ -475,19 +484,31 @@ export default function SettingsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
         <div>
           <h1 className="font-serif font-bold text-xl text-[#0D4F4F] flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-[#D4AF37]" /> Studio Settings & Configuration
+            {isTaskManager ? (
+              <>
+                <Bell className="w-5 h-5 text-[#D4AF37]" /> Push Notifications &amp; Devices
+              </>
+            ) : (
+              <>
+                <Sliders className="w-5 h-5 text-[#D4AF37]" /> Studio Settings &amp; Configuration
+              </>
+            )}
           </h1>
           <p className="text-xs text-slate-500">
-            Configure business contact info, bank details, service library, and quotation templates.
+            {isTaskManager
+              ? 'Configure Web Push & PWA Task Reminders on this device to receive alerts on your phone and laptop.'
+              : 'Configure business contact info, bank details, service library, and quotation templates.'}
           </p>
         </div>
 
-        <button
-          onClick={handleSaveSettings}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs shadow-md hover:brightness-105 transition-all"
-        >
-          <Save className="w-4 h-4" /> Save All Settings
-        </button>
+        {!isTaskManager && (
+          <button
+            onClick={handleSaveSettings}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs shadow-md hover:brightness-105 transition-all"
+          >
+            <Save className="w-4 h-4" /> Save All Settings
+          </button>
+        )}
       </div>
 
       {saveSuccessMsg && (
@@ -498,68 +519,72 @@ export default function SettingsPage() {
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
-        <button
-          onClick={() => setActiveTab('business')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === 'business'
-              ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <Building2 className="w-4 h-4" /> Business Info
-        </button>
-        <button
-          onClick={() => setActiveTab('bank')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === 'bank'
-              ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <Landmark className="w-4 h-4" /> Bank Details
-        </button>
-        <button
-          onClick={() => setActiveTab('services')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === 'services'
-              ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <Layers className="w-4 h-4" /> Service Library ({services.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('terms')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === 'terms'
-              ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <FileText className="w-4 h-4" /> Terms & Conditions
-        </button>
-        <button
-          onClick={() => setActiveTab('quotation')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === 'quotation'
-              ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" /> Quotation Defaults
-        </button>
+        {!isTaskManager && (
+          <>
+            <button
+              onClick={() => setActiveTab('business')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'business'
+                  ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Building2 className="w-4 h-4" /> Business Info
+            </button>
+            <button
+              onClick={() => setActiveTab('bank')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'bank'
+                  ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Landmark className="w-4 h-4" /> Bank Details
+            </button>
+            <button
+              onClick={() => setActiveTab('services')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'services'
+                  ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Layers className="w-4 h-4" /> Service Library ({services.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('terms')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'terms'
+                  ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <FileText className="w-4 h-4" /> Terms &amp; Conditions
+            </button>
+            <button
+              onClick={() => setActiveTab('quotation')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'quotation'
+                  ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" /> Quotation Defaults
+            </button>
 
-        {isSuperAdmin && (
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
-              activeTab === 'users'
-                ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#D4AF37] shadow-md'
-                : 'bg-[#D4AF37]/10 text-[#0D4F4F] border-[#D4AF37]/40 hover:bg-[#D4AF37]/20'
-            }`}
-          >
-            <Crown className="w-4 h-4 text-[#D4AF37]" /> User Accounts & Access ({users.length})
-          </button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+                  activeTab === 'users'
+                    ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#D4AF37] shadow-md'
+                    : 'bg-[#D4AF37]/10 text-[#0D4F4F] border-[#D4AF37]/40 hover:bg-[#D4AF37]/20'
+                }`}
+              >
+                <Crown className="w-4 h-4 text-[#D4AF37]" /> User Accounts &amp; Access ({users.length})
+              </button>
+            )}
+          </>
         )}
 
         <button
@@ -573,16 +598,18 @@ export default function SettingsPage() {
           <Bell className="w-4 h-4 text-[#D4AF37]" /> Push Notifications &amp; Devices ({registeredDevices.length})
         </button>
 
-        <button
-          onClick={() => setActiveTab('backup')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
-            activeTab === 'backup'
-              ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#D4AF37] shadow-md'
-              : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-          }`}
-        >
-          <Database className="w-4 h-4 text-[#D4AF37]" /> System Backup &amp; Data Restore ⚡
-        </button>
+        {!isTaskManager && (
+          <button
+            onClick={() => setActiveTab('backup')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+              activeTab === 'backup'
+                ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#D4AF37] shadow-md'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+            }`}
+          >
+            <Database className="w-4 h-4 text-[#D4AF37]" /> System Backup &amp; Data Restore ⚡
+          </button>
+        )}
       </div>
 
       {/* Tab 1: Business Profile */}

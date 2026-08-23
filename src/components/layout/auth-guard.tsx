@@ -26,7 +26,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       } else {
         router.push('/');
       }
-    } else if (current && current.role === 'task_manager' && !pathname.startsWith('/tasks') && !isPublic) {
+    } else if (current && current.role === 'task_manager' && !pathname.startsWith('/tasks') && !pathname.startsWith('/settings') && !isPublic) {
       router.push('/tasks');
     } else {
       setChecking(false);
