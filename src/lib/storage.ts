@@ -1,7 +1,7 @@
 import { Quotation, Service, AppSettings, UserAccount, PaymentTransaction, TaskItem } from './types';
 import { DEFAULT_SERVICES, DEFAULT_SETTINGS, DEFAULT_INCLUSIONS } from './defaults';
 import { getTodayDateString } from './utils';
-import { generateSecureId } from './crypto';
+import { generateSecureId, generateRandomNumericId } from './crypto';
 
 const STORAGE_KEYS = {
   QUOTATIONS: 'snap_service_persistent_quotations_v2',
@@ -176,6 +176,7 @@ export const storage = {
       ...target,
       id: generateSecureId('quote'),
       quotationNumber: nextNum,
+      securityPin: generateRandomNumericId(6),
       client: {
         ...target.client,
         name: `${target.client.name} (Copy)`,

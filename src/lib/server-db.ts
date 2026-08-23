@@ -1,6 +1,7 @@
 import { Quotation, UserAccount, TaskItem, DeviceSubscription } from './types';
 import { supabase } from './supabase';
 import { SEED_USERS } from './storage';
+import { generateRandomNumericId } from './crypto';
 
 /**
  * Production Central Database Persistence Engine
@@ -188,6 +189,29 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
     createdAt: quotation.createdAt || now,
     userId: quotation.userId || 'user-super-admin',
   };
+
+  // Enforce guaranteed global uniqueness for quotation URL security PIN
+  let finalPin = toSave.securityPin;
+  const existingQuotes = await getQuotationsFromDb();
+  const takenPins = new Set<string>();
+  for (const q of existingQuotes) {
+    if (q.id?.toLowerCase() !== toSave.id?.toLowerCase() && q.securityPin) {
+      takenPins.add(q.securityPin.trim());
+    }
+  }
+
+  // If no PIN assigned or collision detected, generate unique random 6-digit access code
+  if (!finalPin || takenPins.has(finalPin.trim())) {
+    let candidate = generateRandomNumericId(6);
+    let attempts = 0;
+    while (takenPins.has(candidate) && attempts < 100) {
+      candidate = generateRandomNumericId(6);
+      attempts++;
+    }
+    finalPin = candidate;
+  }
+
+  toSave.securityPin = finalPin;
 
   // 1. Update in-memory store immediately
   if (toSave.id) memoryStore.set(toSave.id.toLowerCase(), toSave);

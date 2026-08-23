@@ -227,43 +227,50 @@ export function decompactQuotationData(str: string): Quotation | null {
   return null;
 }
 
+import { generateRandomNumericId } from './crypto';
+
 /**
- * Generate a consistent 4-digit security PIN for a quotation
+ * Retrieve or generate the security access code for a quotation
+ * Preserves existing 4-8 digit numeric codes for backward compatibility.
  */
 export function getQuotationSecurityPin(quotation: Quotation): string {
-  if (quotation.securityPin && /^\d{4}$/.test(quotation.securityPin)) {
+  if (quotation.securityPin && /^\d{4,8}$/.test(quotation.securityPin)) {
     return quotation.securityPin;
   }
-  // Deterministic stable 4-digit hash based on clean quotationNumber
+  // Deterministic stable 6-digit hash fallback if no pin was persisted
   const key = (quotation.quotationNumber || quotation.id || '').toUpperCase().trim();
   let hash = 0;
   for (let i = 0; i < key.length; i++) {
     hash = (hash << 5) - hash + key.charCodeAt(i);
     hash |= 0;
   }
-  const pinNum = Math.abs(hash % 9000) + 1000; // 1000 to 9999
+  const pinNum = Math.abs(hash % 900000) + 100000; // 100000 to 999999
   return pinNum.toString();
 }
 
 /**
  * Generate luxury personalized portal URL with format:
- * Website Link / Date / Quotation# / Random 4-digit security PIN
- * e.g. https://portal.thesnapservice.com/portal/2026-08-17/SS-2026-101/4928
+ * Website Link / {Quotation Creation Date} / {Quotation#} / {Random Global Unique 6-digit Code}
+ * e.g. https://portal.thesnapservice.com/portal/2026-08-23/SS-2026-103/847291
  */
 export function generatePortalUrl(quotation: Quotation, originUrl?: string): string {
   const baseUrl = originUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://portal.thesnapservice.com');
   const cleanNumber = (quotation.quotationNumber || quotation.id || 'SS-2026-001').trim();
   
-  // Format creation date (YYYY-MM-DD)
-  let datePart = '2026-08-17';
+  // Format creation date automatically (YYYY-MM-DD)
+  let datePart = '';
   if (quotation.createdAt) {
     try {
       datePart = new Date(quotation.createdAt).toISOString().split('T')[0];
     } catch {
-      datePart = '2026-08-17';
+      datePart = '';
     }
-  } else if (quotation.client?.quotationDate) {
+  }
+  if (!datePart && quotation.client?.quotationDate) {
     datePart = quotation.client.quotationDate.split('T')[0];
+  }
+  if (!datePart) {
+    datePart = new Date().toISOString().split('T')[0];
   }
 
   const pin = getQuotationSecurityPin(quotation);

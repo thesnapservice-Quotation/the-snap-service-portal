@@ -9,7 +9,7 @@ import { useServices } from '@/hooks/use-services';
 import { useAuth } from '@/hooks/use-auth';
 import { storage } from '@/lib/storage';
 import { getTodayDateString, sortEventsInSequence } from '@/lib/utils';
-import { generateSecureId } from '@/lib/crypto';
+import { generateSecureId, generateRandomNumericId } from '@/lib/crypto';
 import { DEFAULT_INCLUSIONS } from '@/lib/defaults';
 import { apiFetchQuotationById } from '@/lib/api-client';
 import { ClientDetailsForm } from '@/components/quotation/client-details-form';
@@ -68,6 +68,7 @@ function NewQuotationContent() {
       quotationNumber: storage.generateQuotationNumber(),
       userId: activeUserId,
       status: 'sent',
+      securityPin: generateRandomNumericId(6),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       client: {
