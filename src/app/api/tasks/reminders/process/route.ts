@@ -34,41 +34,34 @@ function parseTaskTimestamp(dateStr?: string, defaultUtcOffset = '+05:00'): numb
 }
 
 /**
- * Validate Cron Secret for Vercel Cron and External Cron Services
+ * Validate Cron Secret for External Cron Services (Cron-Job.org) and Vercel Cron
  */
 function isCronAuthorized(request: NextRequest): boolean {
-  const searchParams = request.nextUrl.searchParams;
-  
-  // Allow test / diagnostic query from admin/owner
-  if (searchParams.get('test') === '1' || searchParams.get('dryRun') === '1') {
-    return true;
-  }
-
   const cronSecret = process.env.CRON_SECRET;
   
-  // If no CRON_SECRET is configured in environment, allow execution
-  if (!cronSecret) {
-    return true;
+  if (cronSecret) {
+    // 1. Standard Authorization Header: Bearer <CRON_SECRET> (Recommended for Cron-Job.org)
+    const authHeader = request.headers.get('authorization');
+    if (authHeader && authHeader.replace(/^Bearer\s+/i, '').trim() === cronSecret) {
+      return true;
+    }
+
+    // 2. Custom Header: x-cron-secret
+    const customHeader = request.headers.get('x-cron-secret');
+    if (customHeader && customHeader.trim() === cronSecret) {
+      return true;
+    }
+
+    // 3. Vercel internal Cron header
+    const vercelCronHeader = request.headers.get('x-vercel-cron');
+    if (vercelCronHeader) {
+      return true;
+    }
+
+    return false;
   }
 
-  // 1. Check standard Authorization Header: Bearer <CRON_SECRET>
-  const authHeader = request.headers.get('authorization');
-  if (authHeader && authHeader.replace(/^Bearer\s+/i, '') === cronSecret) {
-    return true;
-  }
-
-  // 2. Check query parameter: ?secret=<CRON_SECRET> or ?key=<CRON_SECRET>
-  const querySecret = searchParams.get('secret') || searchParams.get('key');
-  if (querySecret && querySecret === cronSecret) {
-    return true;
-  }
-
-  // 3. Check Vercel Cron header (when triggered automatically by Vercel infrastructure)
-  const vercelCronHeader = request.headers.get('x-vercel-cron');
-  if (vercelCronHeader) {
-    return true;
-  }
-
+  // Reject if CRON_SECRET is not configured
   return false;
 }
 
