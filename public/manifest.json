@@ -1,0 +1,30 @@
+{
+  "name": "The Snap Service — Wedding Studio OS",
+  "short_name": "Snap Service",
+  "description": "Operating system and task management portal for The Snap Service",
+  "start_url": "/tasks",
+  "display": "standalone",
+  "background_color": "#093A3A",
+  "theme_color": "#0D4F4F",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/snap-service-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/snap-service-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

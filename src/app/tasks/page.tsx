@@ -8,7 +8,8 @@ import {
   TaskItem, 
   TaskCategory, 
   TaskPriority, 
-  TaskStatus 
+  TaskStatus,
+  TaskReminderTiming
 } from '@/lib/types';
 import { 
   TASK_CATEGORIES_CONFIG, 
@@ -18,6 +19,7 @@ import {
   getPriorityBadgeConfig
 } from '@/lib/tasks-utils';
 import { DateTimePicker } from '@/components/tasks/date-time-picker';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { 
   ListTodo, 
   Plus, 
@@ -46,13 +48,26 @@ import {
   Film,
   Users,
   UserCheck,
-  Share2
+  Share2,
+  Bell,
+  BellRing,
+  BellOff,
+  Smartphone
 } from 'lucide-react';
 
 export default function TasksPage() {
   const { tasks, createTask, updateTask, toggleTaskComplete, setTaskWaiting, deleteTask, refreshTasks } = useTasks();
   const { currentUser, users } = useAuth();
   const { quotations } = useQuotations();
+  const {
+    isSupported: isPushSupported,
+    isSubscribed: isPushSubscribed,
+    permission: pushPermission,
+    loading: pushLoading,
+    subscribe: subscribePush,
+    sendTestNotification,
+    triggerReminderCheck,
+  } = usePushNotifications();
 
   // Filters State
   const [categoryFilter, setCategoryFilter] = useState<string>('all'); // 'all', 'my_tasks', 'team_tasks', or TaskCategory
@@ -66,6 +81,7 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [detailTask, setDetailTask] = useState<TaskItem | null>(null);
   const [waitingModalTask, setWaitingModalTask] = useState<TaskItem | null>(null);
+  const [testPushStatus, setTestPushStatus] = useState<string | null>(null);
 
   // Form State for Create / Edit
   const [formTitle, setFormTitle] = useState('');
@@ -84,6 +100,8 @@ export default function TasksPage() {
   });
   const [formPriority, setFormPriority] = useState<TaskPriority>('medium');
   const [formFollowUpDateTime, setFormFollowUpDateTime] = useState('');
+  const [formReminderTiming, setFormReminderTiming] = useState<TaskReminderTiming>('15_min_before');
+  const [formCustomReminderTime, setFormCustomReminderTime] = useState<string>('');
   const [formNotes, setFormNotes] = useState('');
 
   // Form State for Waiting / Follow-up modal
@@ -169,11 +187,25 @@ export default function TasksPage() {
     });
   }, [computedTasks, categoryFilter, statusFilter, timeFilter, eventFilter, searchQuery, currentUser?.id]);
 
+  function computeReminderDateTime(startStr: string, timing: TaskReminderTiming, customVal?: string): string {
+    if (timing === 'none') return '';
+    if (timing === 'custom') return customVal || '';
+    if (!startStr) return '';
+    const d = new Date(startStr);
+    if (isNaN(d.getTime())) return '';
+    if (timing === 'at_start') return startStr;
+    if (timing === '15_min_before') return new Date(d.getTime() - 15 * 60000).toISOString().slice(0, 16);
+    if (timing === '30_min_before') return new Date(d.getTime() - 30 * 60000).toISOString().slice(0, 16);
+    if (timing === '1_hour_before') return new Date(d.getTime() - 60 * 60000).toISOString().slice(0, 16);
+    return '';
+  }
+
   // Open Create Modal with clean fields
   const handleOpenCreateModal = () => {
     setEditingTask(null);
     setFormTitle('');
     setFormCategory('events');
+    setTemplateCategory('events');
     setFormSubCategory('');
     setFormQuotationId('');
     setFormAssignedUserId(currentUser?.id || 'user-super-admin');
@@ -183,6 +215,8 @@ export default function TasksPage() {
     setFormDeadlineDateTime(later.toISOString().slice(0, 16));
     setFormPriority('medium');
     setFormFollowUpDateTime('');
+    setFormReminderTiming('15_min_before');
+    setFormCustomReminderTime('');
     setFormNotes('');
     setShowCreateModal(true);
   };
@@ -192,6 +226,7 @@ export default function TasksPage() {
     setEditingTask(task);
     setFormTitle(task.title);
     setFormCategory(task.category);
+    setTemplateCategory(task.category);
     setFormSubCategory(task.subCategory || '');
     setFormQuotationId(task.quotationId || '');
     setFormAssignedUserId(task.assignedToUserId || currentUser?.id || 'user-super-admin');
@@ -199,6 +234,8 @@ export default function TasksPage() {
     setFormDeadlineDateTime(task.deadlineDateTime || '');
     setFormPriority(task.priority);
     setFormFollowUpDateTime(task.followUpDateTime || '');
+    setFormReminderTiming(task.reminderTiming || (task.reminderDateTime ? 'custom' : 'none'));
+    setFormCustomReminderTime(task.reminderDateTime || '');
     setFormNotes(task.notes || '');
     setShowCreateModal(true);
   };
@@ -230,6 +267,8 @@ export default function TasksPage() {
       }
     }
 
+    const reminderDateTime = computeReminderDateTime(formStartDateTime, formReminderTiming, formCustomReminderTime);
+
     if (editingTask) {
       await updateTask(
         {
@@ -246,6 +285,8 @@ export default function TasksPage() {
           deadlineDateTime: formDeadlineDateTime,
           priority: formPriority,
           followUpDateTime: formFollowUpDateTime || undefined,
+          reminderTiming: formReminderTiming,
+          reminderDateTime: reminderDateTime || undefined,
           notes: formNotes.trim(),
         },
         'Task details updated'
@@ -264,11 +305,14 @@ export default function TasksPage() {
         deadlineDateTime: formDeadlineDateTime,
         priority: formPriority,
         followUpDateTime: formFollowUpDateTime || undefined,
+        reminderTiming: formReminderTiming,
+        reminderDateTime: reminderDateTime || undefined,
         notes: formNotes.trim(),
       });
     }
 
     setShowCreateModal(false);
+    triggerReminderCheck();
   };
 
   // Submit Waiting / Follow-up
@@ -339,6 +383,75 @@ export default function TasksPage() {
           </button>
         </div>
       </div>
+
+      {/* PWA / WEB PUSH NOTIFICATION PERMISSION & TEST BANNER */}
+      {isPushSupported && (
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className={`p-2.5 rounded-xl ${
+                isPushSubscribed
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`}
+            >
+              {isPushSubscribed ? <BellRing className="w-5 h-5 text-emerald-600 animate-bounce" /> : <Bell className="w-5 h-5 text-amber-600" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-xs text-slate-900">
+                  {isPushSubscribed
+                    ? '🟢 Task Push Notifications Active on This Device'
+                    : '🔔 Enable Task Push Reminders'}
+                </h4>
+                {isPushSubscribed && (
+                  <span className="px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[9.5px] font-extrabold uppercase">
+                    Connected
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium">
+                {isPushSubscribed
+                  ? 'You will receive instant background task reminders & overdue alerts on this device.'
+                  : 'Receive background push reminders on your phone & laptop even when the portal is closed.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            {isPushSubscribed ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  setTestPushStatus('Sending test push...');
+                  const res = await sendTestNotification();
+                  setTestPushStatus(res.message || 'Sent!');
+                  setTimeout(() => setTestPushStatus(null), 4000);
+                }}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-[#0D4F4F]" />
+                <span>{testPushStatus || 'Send Test Push'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={pushLoading}
+                onClick={async () => {
+                  const res = await subscribePush();
+                  if (!res.success && res.error) {
+                    alert(res.error);
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs shadow-md hover:brightness-110 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                <span>{pushLoading ? 'Enabling...' : 'Enable Task Notifications'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* TOP 5 TIME-BASED STATUS KPI CARDS */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
@@ -929,6 +1042,55 @@ export default function TasksPage() {
                   onChange={(val) => setFormDeadlineDateTime(val)}
                   required
                 />
+              </div>
+
+              {/* Push Notification Reminder Selector */}
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-700 flex items-center gap-1.5 text-xs">
+                    <Bell className="w-3.5 h-3.5 text-[#0D4F4F]" />
+                    <span>Push Notification Reminder</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    Delivered to assigned user&apos;s phone &amp; laptop
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <select
+                      value={formReminderTiming}
+                      onChange={(e) => setFormReminderTiming(e.target.value as TaskReminderTiming)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-800 focus:ring-1 focus:ring-[#0D4F4F] focus:outline-none"
+                    >
+                      <option value="none">❌ No Reminder</option>
+                      <option value="at_start">🔔 At Start Time</option>
+                      <option value="15_min_before">⚡ 15 Minutes Before Start</option>
+                      <option value="30_min_before">⏱️ 30 Minutes Before Start</option>
+                      <option value="1_hour_before">⏰ 1 Hour Before Start</option>
+                      <option value="custom">📅 Custom Date &amp; Time...</option>
+                    </select>
+                  </div>
+
+                  {formReminderTiming === 'custom' ? (
+                    <DateTimePicker
+                      placeholder="Pick custom reminder time..."
+                      value={formCustomReminderTime}
+                      onChange={(val) => setFormCustomReminderTime(val)}
+                    />
+                  ) : (
+                    <div className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-[11px] text-slate-600 flex items-center gap-1.5 font-medium">
+                      <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>
+                        {formReminderTiming === 'none'
+                          ? 'No reminder push will be sent'
+                          : `Scheduled for: ${formatTaskDateTime(
+                              computeReminderDateTime(formStartDateTime, formReminderTiming)
+                            )}`}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Notes */}

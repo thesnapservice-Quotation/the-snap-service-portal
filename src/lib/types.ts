@@ -233,6 +233,14 @@ export interface TaskAttachment {
   size?: number;
 }
 
+export type TaskReminderTiming = 
+  | 'none'
+  | 'at_start'
+  | '15_min_before'
+  | '30_min_before'
+  | '1_hour_before'
+  | 'custom';
+
 export interface TaskItem {
   id: string;
   title: string;
@@ -249,9 +257,54 @@ export interface TaskItem {
   priority: TaskPriority;
   manualStatus?: 'waiting' | 'completed' | 'in_progress';
   followUpDateTime?: string; // ISO string YYYY-MM-DDTHH:mm
+  reminderTiming?: TaskReminderTiming;
+  reminderDateTime?: string; // ISO string YYYY-MM-DDTHH:mm
+  reminderSentAt?: string; // ISO timestamp
+  overdueAlertSentAt?: string; // ISO timestamp
+  followUpAlertSentAt?: string; // ISO timestamp
   notes?: string;
   attachments?: TaskAttachment[];
   history: TaskHistoryEntry[];
   createdAt: string;
   updatedAt: string;
+}
+
+// ----------------------------------------------------
+// Web Push & Device Subscription Types
+// ----------------------------------------------------
+
+export type DeviceType = 'ios_pwa' | 'android' | 'mac' | 'windows' | 'browser';
+
+export interface PushSubscriptionKeys {
+  p256dh: string;
+  auth: string;
+}
+
+export interface WebPushSubscription {
+  endpoint: string;
+  expirationTime?: number | null;
+  keys: PushSubscriptionKeys;
+}
+
+export interface DeviceSubscription {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  deviceType: DeviceType;
+  deviceName: string;
+  userAgent: string;
+  subscription: WebPushSubscription;
+  fcmToken?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationPreferences {
+  enabled: boolean;
+  taskReminders: boolean;
+  defaultReminderTiming: TaskReminderTiming;
+  overdueAlerts: boolean;
+  followUpAlerts: boolean;
 }

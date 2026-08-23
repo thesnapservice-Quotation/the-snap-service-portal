@@ -52,8 +52,14 @@ import {
   Eye,
   EyeOff,
   X,
-  ShieldAlert
+  ShieldAlert,
+  Bell,
+  BellRing,
+  Smartphone,
+  Laptop,
+  Tablet
 } from 'lucide-react';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 
 const ICON_OPTIONS = [
   'Camera',
@@ -74,6 +80,17 @@ export default function SettingsPage() {
   const { settings, updateSettings } = useSettings();
   const { services, addService, updateService, toggleServiceActive, deleteService } = useServices();
   const { quotations, saveQuotation } = useQuotations();
+  const {
+    isSupported: isPushSupported,
+    isSubscribed: isPushSubscribed,
+    permission: pushPermission,
+    loading: pushLoading,
+    registeredDevices,
+    subscribe: subscribePush,
+    unsubscribe: unsubscribePush,
+    sendTestNotification,
+    refreshDevices,
+  } = usePushNotifications();
   const { 
     users, 
     currentUser, 
@@ -87,7 +104,8 @@ export default function SettingsPage() {
     refreshAuth
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'business' | 'bank' | 'services' | 'terms' | 'quotation' | 'users' | 'backup'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'bank' | 'services' | 'terms' | 'quotation' | 'users' | 'notifications' | 'backup'>('business');
+  const [testPushMsg, setTestPushMsg] = useState('');
   const [formData, setFormData] = useState<AppSettings>(settings);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [restoreSuccessMsg, setRestoreSuccessMsg] = useState('');
@@ -543,6 +561,17 @@ export default function SettingsPage() {
         )}
 
         <button
+          onClick={() => setActiveTab('notifications')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+            activeTab === 'notifications'
+              ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#D4AF37] shadow-md'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <Bell className="w-4 h-4 text-[#D4AF37]" /> Push Notifications &amp; Devices ({registeredDevices.length})
+        </button>
+
+        <button
           onClick={() => setActiveTab('backup')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
             activeTab === 'backup'
@@ -550,7 +579,7 @@ export default function SettingsPage() {
               : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
           }`}
         >
-          <Database className="w-4 h-4 text-[#D4AF37]" /> System Backup & Data Restore ⚡
+          <Database className="w-4 h-4 text-[#D4AF37]" /> System Backup &amp; Data Restore ⚡
         </button>
       </div>
 
@@ -1386,6 +1415,192 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab: Push Notifications & Multi-Device Settings */}
+      {activeTab === 'notifications' && (
+        <div className="space-y-6 text-xs font-sans">
+          {/* Main Push Status Card */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-3 rounded-2xl ${
+                    isPushSubscribed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                  }`}
+                >
+                  {isPushSubscribed ? (
+                    <BellRing className="w-6 h-6 text-emerald-600 animate-bounce" />
+                  ) : (
+                    <Bell className="w-6 h-6 text-amber-600" />
+                  )}
+                </div>
+                <div>
+                  <h2 className="font-serif font-bold text-base text-[#0D4F4F] flex items-center gap-2">
+                    <span>Web Push &amp; PWA Task Reminders</span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isPushSubscribed
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : 'bg-amber-100 text-amber-900 border border-amber-300'
+                      }`}
+                    >
+                      {isPushSubscribed ? 'Active on This Device' : 'Not Subscribed'}
+                    </span>
+                  </h2>
+                  <p className="text-slate-500 text-xs">
+                    Receive operation reminders, follow-up alarms, and deadline alerts on your phone &amp; laptop even when portal is closed.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                {isPushSubscribed ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setTestPushMsg('Sending test push...');
+                        const res = await sendTestNotification();
+                        setTestPushMsg(res.message || 'Test delivered!');
+                        setTimeout(() => setTestPushMsg(''), 4000);
+                      }}
+                      className="px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Smartphone className="w-3.5 h-3.5 text-[#0D4F4F]" />
+                      <span>{testPushMsg || 'Send Test Push'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pushLoading}
+                      onClick={async () => {
+                        if (confirm('Unsubscribe this device from task push notifications?')) {
+                          await unsubscribePush();
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 font-bold text-xs transition-all cursor-pointer"
+                    >
+                      Unsubscribe Device
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={pushLoading || !isPushSupported}
+                    onClick={async () => {
+                      const res = await subscribePush();
+                      if (!res.success && res.error) {
+                        alert(res.error);
+                      }
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs shadow-md hover:brightness-110 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Bell className="w-4 h-4" />
+                    <span>{pushLoading ? 'Enabling...' : 'Enable Task Notifications on This Device'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Architecture Details Banner */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 text-xs space-y-2">
+              <span className="font-bold text-slate-800 block">
+                ⚡ Push Notification Architecture &amp; Device Compatibility:
+              </span>
+              <ul className="list-disc list-inside space-y-1 text-slate-600">
+                <li>
+                  <strong className="text-slate-800">iPhone / iPad (iOS 16.4+):</strong> Open Safari, tap Share, and select <em>&ldquo;Add to Home Screen&rdquo;</em>, then open the Snap Service app and tap Enable Notifications.
+                </li>
+                <li>
+                  <strong className="text-slate-800">Android:</strong> Works natively in Chrome or when installed as a Standalone PWA.
+                </li>
+                <li>
+                  <strong className="text-slate-800">Mac / Windows PC:</strong> Works natively in Chrome, Safari, Edge, and desktop browsers.
+                </li>
+                <li>
+                  <strong className="text-slate-800">Multi-Device Sync:</strong> One user can have multiple phones and computers registered. Reminders will be delivered to all active devices.
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Registered Devices for Current User */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-serif font-bold text-base text-[#0D4F4F]">
+                  Registered Devices for {currentUser?.name || 'Current User'}
+                </h3>
+                <p className="text-slate-500 text-xs">
+                  Active devices configured to receive task push reminders
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => refreshDevices()}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs flex items-center gap-1"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh Devices</span>
+              </button>
+            </div>
+
+            {registeredDevices.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 space-y-1">
+                <Smartphone className="w-8 h-8 mx-auto text-slate-300" />
+                <p className="font-semibold text-slate-600">No devices registered yet</p>
+                <p className="text-xs">
+                  Click &quot;Enable Task Notifications&quot; on your phone or laptop to register your device.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {registeredDevices.map((dev) => {
+                  return (
+                    <div key={dev.id} className="py-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-slate-100 text-[#0D4F4F]">
+                          {dev.deviceType === 'ios_pwa' || dev.deviceType === 'android' ? (
+                            <Smartphone className="w-5 h-5" />
+                          ) : (
+                            <Laptop className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-800 text-xs">{dev.deviceName}</span>
+                            <span className="px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[9.5px]">
+                              Active
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-slate-400 font-mono">
+                            Registered: {new Date(dev.createdAt).toLocaleDateString('en-GB')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (confirm(`Remove device "${dev.deviceName}"?`)) {
+                            await fetch(`/api/notifications/subscribe?id=${encodeURIComponent(dev.id)}`, {
+                              method: 'DELETE',
+                            });
+                            refreshDevices();
+                          }
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title="Remove device"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import { Quotation, UserAccount, TaskItem } from './types';
+import { Quotation, UserAccount, TaskItem, DeviceSubscription } from './types';
 import { supabase } from './supabase';
 import { SEED_USERS } from './storage';
 
@@ -613,6 +613,136 @@ export async function deleteTaskFromDb(id: string): Promise<boolean> {
         inclusions: [],
         payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
         full_data: { isSystemTaskRecord: true, tasks: updatedList },
+        updated_at: new Date().toISOString(),
+      });
+  } catch {}
+
+  return true;
+}
+
+// ----------------------------------------------------
+// Snap Service — Device Subscriptions (Push Notifications)
+// Dual-Layer Engine: Supabase table 'app_device_subscriptions' + Supabase registry record 'sys_device_subscriptions'
+// ----------------------------------------------------
+let cachedDeviceSubscriptions: DeviceSubscription[] | null = null;
+
+export async function getDeviceSubscriptionsFromDb(userId?: string): Promise<DeviceSubscription[]> {
+  // 1. Try Supabase table 'app_device_subscriptions'
+  try {
+    const query = supabase.from('app_device_subscriptions').select('*');
+    if (userId) query.eq('user_id', userId);
+    const { data, error } = await query;
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const parsed: DeviceSubscription[] = data.map((r) => r.full_data || r);
+      cachedDeviceSubscriptions = parsed;
+      return userId ? parsed.filter((d) => d.userId === userId) : parsed;
+    }
+  } catch {}
+
+  // 2. Query Supabase registry record 'sys_device_subscriptions' in quotations table
+  try {
+    const { data, error } = await supabase
+      .from('quotations')
+      .select('full_data')
+      .eq('id', 'sys_device_subscriptions')
+      .maybeSingle();
+
+    if (!error && data?.full_data && Array.isArray(data.full_data.subscriptions)) {
+      const allSubs: DeviceSubscription[] = data.full_data.subscriptions;
+      cachedDeviceSubscriptions = allSubs;
+      return userId ? allSubs.filter((d) => d.userId === userId) : allSubs;
+    }
+  } catch {}
+
+  // 3. Fallback to memory
+  if (cachedDeviceSubscriptions) {
+    return userId ? cachedDeviceSubscriptions.filter((d) => d.userId === userId) : cachedDeviceSubscriptions;
+  }
+
+  return [];
+}
+
+export async function saveDeviceSubscriptionToDb(device: DeviceSubscription): Promise<DeviceSubscription> {
+  const current = await getDeviceSubscriptionsFromDb();
+  // Check if subscription endpoint already exists or ID matches
+  const index = current.findIndex(
+    (d) => d.id === device.id || d.subscription?.endpoint === device.subscription?.endpoint
+  );
+
+  let updatedList: DeviceSubscription[];
+  if (index >= 0) {
+    updatedList = [...current];
+    updatedList[index] = { ...updatedList[index], ...device, updatedAt: new Date().toISOString() };
+  } else {
+    updatedList = [device, ...current];
+  }
+  cachedDeviceSubscriptions = updatedList;
+
+  // 1. Save to Supabase 'app_device_subscriptions'
+  try {
+    await supabase
+      .from('app_device_subscriptions')
+      .upsert({
+        id: device.id,
+        user_id: device.userId,
+        device_name: device.deviceName,
+        device_type: device.deviceType,
+        full_data: device,
+        active: device.active,
+        created_at: device.createdAt,
+        updated_at: new Date().toISOString(),
+      });
+  } catch {}
+
+  // 2. Save to Supabase 'quotations' table registry
+  try {
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: 'sys_device_subscriptions',
+        quotation_number: 'SYS-DEVICES',
+        user_id: 'system',
+        status: 'confirmed',
+        client: { name: 'Device Subscriptions Registry', phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemTaskRecord: true, subscriptions: updatedList },
+        updated_at: new Date().toISOString(),
+      });
+  } catch (e) {
+    console.error('Error saving sys_device_subscriptions to Supabase:', e);
+  }
+
+  return device;
+}
+
+export async function deleteDeviceSubscriptionFromDb(idOrEndpoint: string): Promise<boolean> {
+  const current = await getDeviceSubscriptionsFromDb();
+  const updatedList = current.filter(
+    (d) => d.id !== idOrEndpoint && d.subscription?.endpoint !== idOrEndpoint
+  );
+  cachedDeviceSubscriptions = updatedList;
+
+  // 1. Delete from Supabase
+  try {
+    await supabase.from('app_device_subscriptions').delete().eq('id', idOrEndpoint);
+  } catch {}
+
+  // 2. Update Supabase registry
+  try {
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: 'sys_device_subscriptions',
+        quotation_number: 'SYS-DEVICES',
+        user_id: 'system',
+        status: 'confirmed',
+        client: { name: 'Device Subscriptions Registry', phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemTaskRecord: true, subscriptions: updatedList },
         updated_at: new Date().toISOString(),
       });
   } catch {}
