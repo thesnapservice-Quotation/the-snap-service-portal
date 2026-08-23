@@ -59,6 +59,16 @@ import {
   Save
 } from 'lucide-react';
 
+function formatLocalDatetimeInput(d: Date = new Date()): string {
+  const pad = (n: number) => (n < 10 ? '0' + n : String(n));
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 export default function TasksPage() {
   const { tasks, createTask, updateTask, toggleTaskComplete, setTaskWaiting, deleteTask, refreshTasks } = useTasks();
   const { currentUser, users } = useAuth();
@@ -95,24 +105,15 @@ export default function TasksPage() {
   const [formSubCategory, setFormSubCategory] = useState('');
   const [formQuotationId, setFormQuotationId] = useState('');
   const [formAssignedUserId, setFormAssignedUserId] = useState(currentUser?.id || 'user-super-admin');
-  const [formStartDateTime, setFormStartDateTime] = useState(() => {
-    const d = new Date();
-    return d.toISOString().slice(0, 16);
-  });
-  const [formDeadlineDateTime, setFormDeadlineDateTime] = useState(() => {
-    const d = new Date(Date.now() + 2 * 3600000);
-    return d.toISOString().slice(0, 16);
-  });
+  const [formStartDateTime, setFormStartDateTime] = useState(() => formatLocalDatetimeInput(new Date()));
+  const [formDeadlineDateTime, setFormDeadlineDateTime] = useState(() => formatLocalDatetimeInput(new Date(Date.now() + 2 * 3600000)));
   const [formPriority, setFormPriority] = useState<TaskPriority>('medium');
   const [formFollowUpDateTime, setFormFollowUpDateTime] = useState('');
   const [formReminders, setFormReminders] = useState<TaskReminderItem[]>([]);
   const [formNotes, setFormNotes] = useState('');
 
   // Form State for Waiting / Follow-up modal
-  const [waitingFollowUpTime, setWaitingFollowUpTime] = useState(() => {
-    const d = new Date(Date.now() + 4 * 3600000);
-    return d.toISOString().slice(0, 16);
-  });
+  const [waitingFollowUpTime, setWaitingFollowUpTime] = useState(() => formatLocalDatetimeInput(new Date(Date.now() + 4 * 3600000)));
   const [waitingNotes, setWaitingNotes] = useState('');
 
   // Auto update reminders when start/deadline changes
@@ -182,10 +183,8 @@ export default function TasksPage() {
     setFormSubCategory('');
     setFormQuotationId('');
     setFormAssignedUserId(currentUser?.id || 'user-super-admin');
-    const now = new Date();
-    const startIso = now.toISOString().slice(0, 16);
-    const later = new Date(Date.now() + 2 * 3600000);
-    const deadlineIso = later.toISOString().slice(0, 16);
+    const startIso = formatLocalDatetimeInput(new Date());
+    const deadlineIso = formatLocalDatetimeInput(new Date(Date.now() + 2 * 3600000));
     setFormStartDateTime(startIso);
     setFormDeadlineDateTime(deadlineIso);
     setFormPriority('medium');
@@ -889,7 +888,7 @@ export default function TasksPage() {
                       onClick={() => {
                         setWaitingModalTask(task);
                         const d = new Date(Date.now() + 4 * 3600000);
-                        setWaitingFollowUpTime(d.toISOString().slice(0, 16));
+                        setWaitingFollowUpTime(formatLocalDatetimeInput(d));
                       }}
                       className="px-2 py-1 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-600 text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
                       title="Set task to Waiting and schedule follow-up alarm"

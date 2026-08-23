@@ -240,6 +240,16 @@ export function getPriorityBadgeConfig(priority: TaskPriority) {
   }
 }
 
+function formatLocalDatetimeString(d: Date): string {
+  const pad = (n: number) => (n < 10 ? '0' + n : String(n));
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 export function calculateReminderTimestamp(
   startStr: string,
   deadlineStr: string,
@@ -259,27 +269,27 @@ export function calculateReminderTimestamp(
       return startStr || '';
     case '15_min_before':
     case '15_min_before_start':
-      return startTime ? new Date(startTime - 15 * 60000).toISOString().slice(0, 16) : '';
+      return startTime ? formatLocalDatetimeString(new Date(startTime - 15 * 60000)) : '';
     case '30_min_before':
     case '30_min_before_start':
-      return startTime ? new Date(startTime - 30 * 60000).toISOString().slice(0, 16) : '';
+      return startTime ? formatLocalDatetimeString(new Date(startTime - 30 * 60000)) : '';
     case '1_hour_before':
     case '1_hour_before_start':
-      return startTime ? new Date(startTime - 60 * 60000).toISOString().slice(0, 16) : '';
+      return startTime ? formatLocalDatetimeString(new Date(startTime - 60 * 60000)) : '';
     case '30_min_before_deadline':
-      return deadlineTime ? new Date(deadlineTime - 30 * 60000).toISOString().slice(0, 16) : '';
+      return deadlineTime ? formatLocalDatetimeString(new Date(deadlineTime - 30 * 60000)) : '';
     case '1_hour_before_deadline':
-      return deadlineTime ? new Date(deadlineTime - 60 * 60000).toISOString().slice(0, 16) : '';
+      return deadlineTime ? formatLocalDatetimeString(new Date(deadlineTime - 60 * 60000)) : '';
     case '2_hours_before_deadline':
-      return deadlineTime ? new Date(deadlineTime - 120 * 60000).toISOString().slice(0, 16) : '';
+      return deadlineTime ? formatLocalDatetimeString(new Date(deadlineTime - 120 * 60000)) : '';
     case 'at_deadline':
       return deadlineStr || '';
     case 'halfway':
       if (startTime && deadlineTime && deadlineTime > startTime) {
         const mid = startTime + (deadlineTime - startTime) / 2;
-        return new Date(mid).toISOString().slice(0, 16);
+        return formatLocalDatetimeString(new Date(mid));
       }
-      return startTime ? new Date(startTime).toISOString().slice(0, 16) : '';
+      return startTime ? formatLocalDatetimeString(new Date(startTime)) : '';
     default:
       return '';
   }
