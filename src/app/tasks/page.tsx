@@ -142,10 +142,7 @@ export default function TasksPage() {
     );
   };
 
-  const addReminderPreset = (timing: TaskReminderTiming) => {
-    if (timing !== 'custom' && formReminders.some((r) => r.timing === timing)) {
-      return;
-    }
+  const addReminderPreset = (timing: TaskReminderTiming = '15_min_before_start') => {
     const calcTime = calculateReminderTimestamp(formStartDateTime, formDeadlineDateTime, timing);
     const newRem: TaskReminderItem = {
       id: `rem-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -1120,65 +1117,56 @@ export default function TasksPage() {
                 />
               </div>
 
-              {/* Push Notification Reminders (Multi-Alert Checkpoints) */}
-              <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80 space-y-2.5">
-                <div className="flex items-start sm:items-center justify-between gap-2">
-                  <div>
-                    <label className="font-semibold text-slate-800 flex items-center gap-1.5 text-xs">
-                      <Bell className="w-3.5 h-3.5 text-[#0D4F4F]" />
-                      <span>Multiple Push Notification Reminders ({formReminders.length})</span>
+              {/* Push Notification Reminders Container */}
+              <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-200 space-y-3">
+                {/* Header matching user's image */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-200/60 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-[#0D4F4F]" />
+                    <label className="font-bold text-slate-800 text-xs tracking-tight">
+                      Push Notification Reminder
                     </label>
-                    <p className="text-[10.5px] text-slate-500">
-                      Set multiple reminders per task — delivered directly to assigned user's phone &amp; laptop
-                    </p>
                   </div>
-
-                  {formReminders.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setFormReminders([])}
-                      className="text-[10.5px] font-medium text-red-600 hover:underline cursor-pointer shrink-0"
-                    >
-                      Clear All
-                    </button>
-                  )}
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    Delivered to assigned user's phone &amp; laptop
+                  </span>
                 </div>
 
-                {/* Active Reminder Items List */}
+                {/* Reminder Boxes List */}
                 {formReminders.length === 0 ? (
                   <div className="p-3 bg-white rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                    No reminders set. Click any of the presets below to add multiple push notification alarms.
+                    No reminder boxes added. Click the button below to add your first reminder.
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {formReminders.map((rem, idx) => {
                       const isSent = !!rem.sentAt;
                       return (
                         <div
                           key={rem.id}
-                          className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs"
+                          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
                         >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 font-bold text-[10px] flex items-center justify-center shrink-0 font-mono">
-                              {idx + 1}
-                            </span>
+                          {/* Left Box: Dropdown Selector */}
+                          <div className="flex-1 min-w-0">
                             <select
                               value={rem.timing}
                               onChange={(e) => updateReminderItem(rem.id, { timing: e.target.value as TaskReminderTiming })}
-                              className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none"
+                              className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D4F4F] transition-colors cursor-pointer"
                             >
+                              <optgroup label="⚡ Start Time Reminders">
+                                <option value="15_min_before_start">⚡ 15 Minutes Before Start</option>
+                                <option value="30_min_before_start">⌛ 30 Minutes Before Start</option>
+                                <option value="1_hour_before_start">🕒 1 Hour Before Start</option>
+                                <option value="at_start">🔔 At Start Time</option>
+                              </optgroup>
                               <optgroup label="⏰ Deadline & End Time Reminders">
-                                <option value="at_deadline">🏁 At Deadline / Task End Time</option>
                                 <option value="1_hour_before_deadline">⏰ 1 Hour Before Deadline</option>
                                 <option value="30_min_before_deadline">🚨 30 Mins Before Deadline</option>
                                 <option value="2_hours_before_deadline">⏳ 2 Hours Before Deadline</option>
+                                <option value="at_deadline">🏁 At Deadline / Task End Time</option>
                               </optgroup>
-                              <optgroup label="⏱️ Progress & Start Reminders">
+                              <optgroup label="⏱️ Progress Checkpoints">
                                 <option value="halfway">⏱️ Midway / Halfway Progress Check</option>
-                                <option value="at_start">🔔 At Start Time</option>
-                                <option value="15_min_before_start">⚡ 15 Mins Before Start</option>
-                                <option value="30_min_before_start">⌛ 30 Mins Before Start</option>
-                                <option value="1_hour_before_start">🕒 1 Hour Before Start</option>
                               </optgroup>
                               <optgroup label="📅 Custom">
                                 <option value="custom">📅 Custom Date &amp; Time...</option>
@@ -1186,33 +1174,37 @@ export default function TasksPage() {
                             </select>
                           </div>
 
-                          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                          {/* Right Box: Scheduled Time Display OR Custom DateTimePicker */}
+                          <div className="flex-1 min-w-0 flex items-center gap-2">
                             {rem.timing === 'custom' ? (
-                              <div className="min-w-[170px]">
+                              <div className="w-full">
                                 <DateTimePicker
                                   value={rem.reminderDateTime}
                                   onChange={(val) => updateReminderItem(rem.id, { reminderDateTime: val })}
                                 />
                               </div>
                             ) : (
-                              <div className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-mono text-slate-600 flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                <span>{formatTaskDateTime(rem.reminderDateTime)}</span>
+                              <div className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-600 flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                                <span className="truncate">
+                                  Scheduled for: <strong className="font-semibold text-slate-700">{formatTaskDateTime(rem.reminderDateTime)}</strong>
+                                </span>
                               </div>
                             )}
 
+                            {/* Delete Action */}
                             {isSent ? (
-                              <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-medium">
-                                Delivered ✓
+                              <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[10.5px] font-medium shrink-0">
+                                Sent ✓
                               </span>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => removeReminderItem(rem.id)}
-                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                                title="Remove reminder"
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer shrink-0"
+                                title="Delete this reminder box"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             )}
                           </div>
@@ -1222,54 +1214,27 @@ export default function TasksPage() {
                   </div>
                 )}
 
-                {/* Quick Add Presets Pills */}
-                <div className="space-y-1 pt-1">
-                  <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider block">
-                    + Click to Add Reminder Checkpoints:
-                  </span>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => addReminderPreset('halfway')}
-                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs"
-                    >
-                      + ⏱️ Midway Check
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addReminderPreset('1_hour_before_deadline')}
-                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs"
-                    >
-                      + ⏰ 1h Before Deadline
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addReminderPreset('at_deadline')}
-                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs"
-                    >
-                      + 🏁 At Deadline / End
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addReminderPreset('15_min_before_start')}
-                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-yellow-50 border border-slate-200 hover:border-yellow-300 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs"
-                    >
-                      + ⚡ 15m Before Start
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addReminderPreset('at_start')}
-                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs"
-                    >
-                      + 🔔 At Start Time
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addReminderPreset('custom')}
-                      className="px-2.5 py-1 rounded-lg bg-slate-900 text-white hover:bg-black text-[11px] font-medium transition-colors cursor-pointer shadow-2xs"
-                    >
-                      + 📅 Custom Time...
-                    </button>
+                {/* + Add Reminder Box Actions */}
+                <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addReminderPreset('15_min_before_start')}
+                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 border border-dashed border-slate-300 hover:border-[#0D4F4F] text-[#0D4F4F] text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <span>+ Add Another Reminder Box</span>
+                  </button>
+
+                  <div className="flex items-center gap-1.5 justify-end">
+                    {formReminders.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setFormReminders([])}
+                        className="text-[11px] text-slate-400 hover:text-red-600 transition-colors cursor-pointer px-2 py-1"
+                      >
+                        Clear All ({formReminders.length})
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
