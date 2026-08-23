@@ -239,7 +239,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {redPriorityTasks.map((task) => {
-                const statusConfig = getStatusBadgeConfig(task.computedStatus);
+                const statusConfig = getStatusBadgeConfig(task.computedStatus, task);
                 const isUrgent = task.priority === 'urgent';
                 return (
                   <div
@@ -333,7 +333,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {recentTasks.map((task) => {
-                const statusConfig = getStatusBadgeConfig(task.computedStatus);
+                const statusConfig = getStatusBadgeConfig(task.computedStatus, task);
                 const catConfig = TASK_CATEGORIES_CONFIG[task.category];
                 const isDone = task.computedStatus === 'completed';
 

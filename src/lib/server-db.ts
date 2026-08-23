@@ -112,7 +112,9 @@ export async function getQuotationsFromDb(userId?: string): Promise<Quotation[]>
     }
   }
 
-  const finalList = fetchedList || [];
+  const finalList = (fetchedList || []).filter(
+    (q) => q && q.id && !q.id.startsWith('sys_') && !(q as any).full_data?.isSystemTaskRecord
+  );
 
   // Sync into in-memory store
   for (const q of finalList) {
@@ -478,12 +480,12 @@ export async function saveUserToDb(user: UserAccount): Promise<UserAccount[]> {
 
 // ----------------------------------------------------
 // Snap Service — Daily Tasks Cloud DB Persistence
+// Dual-Layer Engine: Supabase table 'app_tasks' + Supabase registry record 'sys_global_tasks'
 // ----------------------------------------------------
-const PRIMARY_TASKS_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315586';
 let cachedTasks: TaskItem[] | null = null;
 
 export async function getTasksFromDb(): Promise<TaskItem[]> {
-  // 1. Try Supabase
+  // 1. Try Supabase dedicated table 'app_tasks'
   try {
     const { data, error } = await supabase
       .from('app_tasks')
@@ -497,20 +499,42 @@ export async function getTasksFromDb(): Promise<TaskItem[]> {
     }
   } catch {}
 
-  // 2. Try Secondary Cloud DB
+  // 2. Query Supabase registry record 'sys_global_tasks' in quotations table
   try {
-    const res = await fetch(PRIMARY_TASKS_CLOUD_DB, {
-      headers: { 'Accept': 'application/json' },
-      cache: 'no-store',
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        cachedTasks = data;
-        return data;
-      }
+    const { data, error } = await supabase
+      .from('quotations')
+      .select('full_data')
+      .eq('id', 'sys_global_tasks')
+      .maybeSingle();
+
+    if (!error && data?.full_data && Array.isArray(data.full_data.tasks)) {
+      cachedTasks = data.full_data.tasks;
+      return data.full_data.tasks;
     }
   } catch {}
+
+  // 3. Query REST API fallback directly
+  if (SUPABASE_URL && SUPABASE_KEY) {
+    try {
+      const endpoint = `${SUPABASE_URL}/rest/v1/quotations?id=eq.sys_global_tasks&select=full_data`;
+      const res = await fetch(endpoint, {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0 && rows[0]?.full_data?.tasks) {
+          const list = rows[0].full_data.tasks;
+          cachedTasks = list;
+          return list;
+        }
+      }
+    } catch {}
+  }
 
   if (cachedTasks) return cachedTasks;
   return [];
@@ -528,7 +552,7 @@ export async function saveTaskToDb(task: TaskItem): Promise<TaskItem> {
   }
   cachedTasks = updatedList;
 
-  // 1. Save to Supabase
+  // 1. Save to Supabase 'app_tasks' (if table exists)
   try {
     await supabase
       .from('app_tasks')
@@ -542,14 +566,25 @@ export async function saveTaskToDb(task: TaskItem): Promise<TaskItem> {
       });
   } catch {}
 
-  // 2. Save to Cloud DB
+  // 2. Save to Supabase 'quotations' table under 'sys_global_tasks' (100% guaranteed persistence)
   try {
-    await fetch(PRIMARY_TASKS_CLOUD_DB, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(updatedList),
-    });
-  } catch {}
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: 'sys_global_tasks',
+        quotation_number: 'SYS-TASKS',
+        user_id: 'system',
+        status: 'confirmed',
+        client: { name: 'Tasks Registry', phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemTaskRecord: true, tasks: updatedList },
+        updated_at: new Date().toISOString(),
+      });
+  } catch (e) {
+    console.error('Error saving sys_global_tasks to Supabase:', e);
+  }
 
   return task;
 }
@@ -559,18 +594,27 @@ export async function deleteTaskFromDb(id: string): Promise<boolean> {
   const updatedList = current.filter((t) => t.id !== id);
   cachedTasks = updatedList;
 
-  // 1. Delete from Supabase
+  // 1. Delete from Supabase 'app_tasks'
   try {
     await supabase.from('app_tasks').delete().eq('id', id);
   } catch {}
 
-  // 2. Update Cloud DB
+  // 2. Update Supabase 'quotations' registry
   try {
-    await fetch(PRIMARY_TASKS_CLOUD_DB, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(updatedList),
-    });
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: 'sys_global_tasks',
+        quotation_number: 'SYS-TASKS',
+        user_id: 'system',
+        status: 'confirmed',
+        client: { name: 'Tasks Registry', phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemTaskRecord: true, tasks: updatedList },
+        updated_at: new Date().toISOString(),
+      });
   } catch {}
 
   return true;

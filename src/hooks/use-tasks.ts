@@ -69,18 +69,21 @@ export function useTasks() {
   const { currentUser } = useAuth();
 
   const syncTasks = useCallback(async () => {
-    let local = storage.getTasks();
-    if (local.length === 0) {
-      storage.setAllTasks(INITIAL_SEED_TASKS);
-      local = INITIAL_SEED_TASKS;
-    }
-    setTasks(local);
-
     try {
       const cloudTasks = await apiFetchTasks();
-      if (Array.isArray(cloudTasks) && cloudTasks.length > 0) {
-        storage.setAllTasks(cloudTasks);
-        setTasks(cloudTasks);
+      if (Array.isArray(cloudTasks)) {
+        if (cloudTasks.length > 0) {
+          storage.setAllTasks(cloudTasks);
+          setTasks(cloudTasks);
+        } else {
+          // Cloud empty: sync local tasks to cloud registry
+          const local = storage.getTasks();
+          if (local.length > 0) {
+            for (const t of local) {
+              await apiSaveTask(t);
+            }
+          }
+        }
       }
     } catch (e) {
       console.error('Error syncing tasks with cloud:', e);
@@ -90,6 +93,11 @@ export function useTasks() {
   useEffect(() => {
     syncTasks();
 
+    // 8-second live sync interval across all active devices
+    const interval = setInterval(() => {
+      syncTasks();
+    }, 8000);
+
     const handleStorage = () => {
       setTasks(storage.getTasks());
     };
@@ -97,6 +105,7 @@ export function useTasks() {
     window.addEventListener('snap_tasks_updated', handleStorage);
     window.addEventListener('storage', handleStorage);
     return () => {
+      clearInterval(interval);
       window.removeEventListener('snap_tasks_updated', handleStorage);
       window.removeEventListener('storage', handleStorage);
     };

@@ -574,7 +574,7 @@ export default function TasksPage() {
           </div>
         ) : (
           filteredTasks.map((task) => {
-            const statusConfig = getStatusBadgeConfig(task.computedStatus);
+            const statusConfig = getStatusBadgeConfig(task.computedStatus, task);
             const catConfig = TASK_CATEGORIES_CONFIG[task.category];
             const isDone = task.computedStatus === 'completed';
 

@@ -114,10 +114,16 @@ export const TASK_CATEGORIES_CONFIG: Record<TaskCategory, CategoryMeta> = {
   },
 };
 
+export function isFollowUpDue(task: TaskItem): boolean {
+  if (task.manualStatus !== 'waiting' || !task.followUpDateTime) return false;
+  const t = new Date(task.followUpDateTime).getTime();
+  return !isNaN(t) && new Date().getTime() >= t;
+}
+
 /**
  * Real-time dynamic time-based status calculator:
  * 1. Completed -> completed
- * 2. Waiting -> If follow-up time reached -> due_now (follow-up due); else waiting
+ * 2. Waiting -> waiting (with follow-up due alert flag)
  * 3. Before Start -> upcoming
  * 4. Start <= Now <= Deadline -> due_now
  * 5. Past Deadline -> overdue
@@ -127,19 +133,12 @@ export function computeTaskStatus(task: TaskItem): TaskStatus {
     return 'completed';
   }
 
-  const now = new Date().getTime();
-
-  // If manually set to waiting, check if follow-up time is due
+  // If manually set to waiting, always remain in waiting
   if (task.manualStatus === 'waiting') {
-    if (task.followUpDateTime) {
-      const followUpTime = new Date(task.followUpDateTime).getTime();
-      if (!isNaN(followUpTime) && now >= followUpTime) {
-        return 'due_now'; // Follow-up time has arrived!
-      }
-    }
     return 'waiting';
   }
 
+  const now = new Date().getTime();
   const startTime = task.startDateTime ? new Date(task.startDateTime).getTime() : 0;
   const deadlineTime = task.deadlineDateTime ? new Date(task.deadlineDateTime).getTime() : 0;
 
@@ -171,12 +170,21 @@ export function formatTaskDateTime(dateStr?: string): string {
   }
 }
 
-export function getStatusBadgeConfig(status: TaskStatus) {
+export function getStatusBadgeConfig(status: TaskStatus, task?: TaskItem) {
+  if (status === 'waiting' && task && isFollowUpDue(task)) {
+    return {
+      label: '🔔 Follow-up Due Now!',
+      badgeClass: 'bg-yellow-100 text-yellow-950 border-yellow-400 font-extrabold animate-pulse',
+      dotColor: 'bg-amber-600',
+      icon: 'Hourglass',
+    };
+  }
+
   switch (status) {
     case 'upcoming':
       return {
         label: 'Upcoming',
-        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
         dotColor: 'bg-blue-500',
         icon: 'Clock',
       };
@@ -197,14 +205,14 @@ export function getStatusBadgeConfig(status: TaskStatus) {
     case 'waiting':
       return {
         label: 'Waiting / Follow-up',
-        badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-300',
+        badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-300 font-bold',
         dotColor: 'bg-yellow-500',
         icon: 'Hourglass',
       };
     case 'completed':
       return {
         label: 'Completed',
-        badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+        badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold',
         dotColor: 'bg-emerald-600',
         icon: 'CheckCircle2',
       };
