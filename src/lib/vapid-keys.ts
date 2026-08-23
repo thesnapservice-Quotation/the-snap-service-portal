@@ -4,8 +4,9 @@
  */
 
 export const VAPID_PUBLIC_KEY =
+  process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  'BDHMHFL4Pu9FDA3A4pASAMsCbu5LpYshJiGL1wlCPHMekKFKOvaywv5SAWgPw1Wm5mpIH81-T4dLxGoMjqy2Oq0';
+  '';
 
 export const VAPID_PRIVATE_KEY =
   process.env.VAPID_PRIVATE_KEY ||

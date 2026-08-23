@@ -133,13 +133,16 @@ export function usePushNotifications() {
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
       await navigator.serviceWorker.ready;
 
-      // 3. Fetch public VAPID key
-      const configRes = await fetch('/api/notifications/subscribe');
-      const configData = await configRes.json();
-      const vapidPublicKey = configData.publicKey;
+      // 3. Obtain VAPID Public Key (from env or API)
+      let vapidPublicKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+      if (!vapidPublicKey) {
+        const configRes = await fetch('/api/notifications/subscribe');
+        const configData = await configRes.json();
+        vapidPublicKey = configData.publicKey;
+      }
 
       if (!vapidPublicKey) {
-        throw new Error('VAPID public key not found');
+        throw new Error('VAPID public key not found in environment or server');
       }
 
       // 4. Subscribe with PushManager
