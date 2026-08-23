@@ -17,6 +17,7 @@ import {
   getStatusBadgeConfig,
   getPriorityBadgeConfig
 } from '@/lib/tasks-utils';
+import { DateTimePicker } from '@/components/tasks/date-time-picker';
 import { 
   ListTodo, 
   Plus, 
@@ -893,34 +894,20 @@ export default function TasksPage() {
               {/* Start Time & Deadline Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Start Date & Time */}
-                <div className="space-y-1">
-                  <label className="block font-bold text-slate-700 flex items-center justify-between">
-                    <span>Start Date & Time</span>
-                    <span className="text-[10px] text-blue-600 font-semibold">When work starts</span>
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={formStartDateTime}
-                    onChange={(e) => setFormStartDateTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium focus:ring-1 focus:ring-[#0D4F4F] focus:outline-none"
-                  />
-                </div>
+                <DateTimePicker
+                  label="Start Date & Time"
+                  value={formStartDateTime}
+                  onChange={(val) => setFormStartDateTime(val)}
+                  required
+                />
 
                 {/* Deadline */}
-                <div className="space-y-1">
-                  <label className="block font-bold text-slate-700 flex items-center justify-between">
-                    <span>Deadline</span>
-                    <span className="text-[10px] text-red-600 font-semibold">Must finish by</span>
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={formDeadlineDateTime}
-                    onChange={(e) => setFormDeadlineDateTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium focus:ring-1 focus:ring-[#0D4F4F] focus:outline-none"
-                  />
-                </div>
+                <DateTimePicker
+                  label="Deadline"
+                  value={formDeadlineDateTime}
+                  onChange={(val) => setFormDeadlineDateTime(val)}
+                  required
+                />
               </div>
 
               {/* Notes */}
@@ -994,16 +981,12 @@ export default function TasksPage() {
               </div>
 
               {/* Follow-up DateTime */}
-              <div className="space-y-1">
-                <label className="block font-bold text-slate-700">Follow-up Date & Time *</label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={waitingFollowUpTime}
-                  onChange={(e) => setWaitingFollowUpTime(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium focus:ring-1 focus:ring-[#0D4F4F] focus:outline-none"
-                />
-              </div>
+              <DateTimePicker
+                label="Follow-up Date & Time *"
+                value={waitingFollowUpTime}
+                onChange={(val) => setWaitingFollowUpTime(val)}
+                required
+              />
 
               {/* Waiting Reason */}
               <div className="space-y-1">
