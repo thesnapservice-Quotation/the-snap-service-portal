@@ -138,7 +138,9 @@ async function handleCronProcessing(request: NextRequest) {
               const priorityInfo = task.priority === 'urgent' ? '🚨 URGENT' : task.priority === 'high' ? '⚠️ High Priority' : '';
 
               let pushTitle = `🔔 Snap Service Reminder: ${task.title}`;
-              if (rem.timing === '1_hour_before_deadline') {
+              if (rem.timing === 'at_deadline') {
+                pushTitle = `🏁 Task Deadline Reached: ${task.title}`;
+              } else if (rem.timing === '1_hour_before_deadline') {
                 pushTitle = `⏳ 1 Hour Until Deadline: ${task.title}`;
               } else if (rem.timing === '2_hours_before_deadline') {
                 pushTitle = `⏳ 2 Hours Until Deadline: ${task.title}`;

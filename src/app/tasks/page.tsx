@@ -192,17 +192,25 @@ export default function TasksPage() {
     setFormPriority('medium');
     setFormFollowUpDateTime('');
 
-    // Default multi-reminder presets: 1 Hour Before Deadline + 15 Mins Before Start
+    // Standard Automatic Default Checkpoints for Every Task:
+    // 1. Midway Progress Check (50% of task duration)
+    // 2. 1 Hour Before Deadline
+    // 3. At Deadline / End Time
     const defaultReminders: TaskReminderItem[] = [
       {
-        id: `rem-1-${Date.now()}`,
+        id: `rem-mid-${Date.now()}-1`,
+        timing: 'halfway',
+        reminderDateTime: calculateReminderTimestamp(startIso, deadlineIso, 'halfway'),
+      },
+      {
+        id: `rem-1h-${Date.now()}-2`,
         timing: '1_hour_before_deadline',
         reminderDateTime: calculateReminderTimestamp(startIso, deadlineIso, '1_hour_before_deadline'),
       },
       {
-        id: `rem-2-${Date.now()}`,
-        timing: '15_min_before_start',
-        reminderDateTime: calculateReminderTimestamp(startIso, deadlineIso, '15_min_before_start'),
+        id: `rem-end-${Date.now()}-3`,
+        timing: 'at_deadline',
+        reminderDateTime: calculateReminderTimestamp(startIso, deadlineIso, 'at_deadline'),
       },
     ];
     setFormReminders(defaultReminders);
@@ -388,6 +396,30 @@ export default function TasksPage() {
         reminderDateTime: formReminders[0]?.reminderDateTime || undefined,
         notes: formNotes.trim(),
       });
+
+      // Instant Push Notification upon Task Generation
+      try {
+        const deadlineFormatted = formatTaskDateTime(formDeadlineDateTime);
+        const priorityLabel = formPriority === 'urgent' ? '🚨 URGENT' : formPriority === 'high' ? '⚠️ High' : '';
+        const bodyText = [
+          `Deadline: ${deadlineFormatted}`,
+          clientName ? `Client: ${clientName}` : '',
+          priorityLabel,
+        ].filter(Boolean).join(' • ');
+
+        fetch('/api/notifications/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: formAssignedUserId,
+            userName: assignedName,
+            title: `✨ New Task Assigned: ${formTitle.trim()}`,
+            body: bodyText || `New studio task assigned. Tap to view.`,
+            url: '/tasks',
+            type: 'new_task',
+          }),
+        }).catch(() => {});
+      } catch {}
     }
 
     setShowCreateModal(false);
@@ -1170,7 +1202,8 @@ export default function TasksPage() {
                               onChange={(e) => updateReminderItem(rem.id, { timing: e.target.value as TaskReminderTiming })}
                               className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:outline-none"
                             >
-                              <optgroup label="⏰ Deadline-Based Reminders">
+                              <optgroup label="⏰ Deadline & End Time Reminders">
+                                <option value="at_deadline">🏁 At Deadline / Task End Time</option>
                                 <option value="1_hour_before_deadline">⏰ 1 Hour Before Deadline</option>
                                 <option value="30_min_before_deadline">🚨 30 Mins Before Deadline</option>
                                 <option value="2_hours_before_deadline">⏳ 2 Hours Before Deadline</option>
@@ -1232,6 +1265,13 @@ export default function TasksPage() {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
+                      onClick={() => addReminderPreset('halfway')}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-blue-50 border border-blue-300 text-blue-900 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
+                    >
+                      + ⏱️ Midway Progress
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => addReminderPreset('1_hour_before_deadline')}
                       className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 border border-amber-300 text-amber-900 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
                     >
@@ -1239,17 +1279,10 @@ export default function TasksPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => addReminderPreset('30_min_before_deadline')}
-                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-red-50 border border-red-300 text-red-900 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
+                      onClick={() => addReminderPreset('at_deadline')}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
                     >
-                      + 🚨 30m Before Deadline
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addReminderPreset('halfway')}
-                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-blue-50 border border-blue-300 text-blue-900 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
-                    >
-                      + ⏱️ Midway Progress
+                      + 🏁 At Deadline / End
                     </button>
                     <button
                       type="button"

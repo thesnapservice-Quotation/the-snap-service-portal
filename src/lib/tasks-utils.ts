@@ -272,6 +272,8 @@ export function calculateReminderTimestamp(
       return deadlineTime ? new Date(deadlineTime - 60 * 60000).toISOString().slice(0, 16) : '';
     case '2_hours_before_deadline':
       return deadlineTime ? new Date(deadlineTime - 120 * 60000).toISOString().slice(0, 16) : '';
+    case 'at_deadline':
+      return deadlineStr || '';
     case 'halfway':
       if (startTime && deadlineTime && deadlineTime > startTime) {
         const mid = startTime + (deadlineTime - startTime) / 2;
@@ -285,6 +287,8 @@ export function calculateReminderTimestamp(
 
 export function getReminderTimingLabel(timing: TaskReminderTiming): string {
   switch (timing) {
+    case 'at_deadline':
+      return '🏁 At Deadline / End Time';
     case '1_hour_before_deadline':
       return '⏰ 1 Hour Before Deadline';
     case '2_hours_before_deadline':
