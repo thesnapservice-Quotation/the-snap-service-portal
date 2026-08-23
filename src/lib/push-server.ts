@@ -53,8 +53,15 @@ export async function sendPushToSubscription(
     const errDetail = `${error?.statusCode || 'ERR'}: ${error?.body || error?.message || 'Push delivery failed'}`;
     console.error(`Push delivery error to ${device.deviceName} (${device.id}):`, errDetail);
     
-    // Status 404 (Not Found) or 410 (Gone) indicates expired or revoked browser subscription
-    if (error?.statusCode === 404 || error?.statusCode === 410) {
+    // Status 404, 410, or 400/403 VAPID mismatch indicates expired or revoked browser subscription
+    if (
+      error?.statusCode === 404 ||
+      error?.statusCode === 410 ||
+      error?.statusCode === 400 ||
+      error?.statusCode === 403 ||
+      errDetail.includes('VapidPkHashMismatch') ||
+      errDetail.includes('do not correspond')
+    ) {
       return { success: false, shouldDelete: true, error: errDetail };
     }
 
