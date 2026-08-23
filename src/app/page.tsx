@@ -3,9 +3,17 @@
 import React from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
+import { useTasks } from '@/hooks/use-tasks';
 import { useProfitPrivacy } from '@/context/profit-privacy-context';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { StatusBadge } from '@/components/quotation/status-badge';
+import { 
+  computeTaskStatus, 
+  formatTaskDateTime, 
+  getStatusBadgeConfig, 
+  getPriorityBadgeConfig,
+  TASK_CATEGORIES_CONFIG 
+} from '@/lib/tasks-utils';
 import { 
   FileText, 
   CheckCircle2, 
@@ -18,11 +26,17 @@ import {
   Edit3,
   Sparkles,
   Lock,
-  Unlock
+  Unlock,
+  ListTodo,
+  AlertTriangle,
+  Check,
+  User,
+  Calendar
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const { quotations, loading } = useQuotations();
+  const { tasks, toggleTaskComplete } = useTasks();
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
 
   // Metrics calculations
@@ -46,6 +60,20 @@ export default function DashboardPage() {
   const overallMargin = totalValue > 0 ? (totalNetProfit / totalValue) * 100 : 0;
 
   const recentQuotations = quotations.slice(0, 5);
+
+  // Tasks with computed dynamic statuses
+  const computedTasks = tasks.map((t) => ({
+    ...t,
+    computedStatus: computeTaskStatus(t),
+  }));
+
+  // 1. Red Priority 5 Tasks (Urgent and High Priority active tasks)
+  const redPriorityTasks = computedTasks
+    .filter((t) => (t.priority === 'urgent' || t.priority === 'high') && t.computedStatus !== 'completed')
+    .slice(0, 5);
+
+  // 2. Recent 5 Tasks
+  const recentTasks = computedTasks.slice(0, 5);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
@@ -170,6 +198,199 @@ export default function DashboardPage() {
               {isProfitUnlocked ? `Avg Margin: ${overallMargin.toFixed(1)}%` : '🔒 Click to enter password'}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* DAILY TASKS DASHBOARD OVERVIEW: RED PRIORITY + RECENT TASKS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 1. RED PRIORITY (URGENT / HIGH) TASKS */}
+        <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-5 space-y-3.5 relative overflow-hidden">
+          <div className="flex items-center justify-between border-b border-red-100 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-red-100 text-red-700">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-serif font-bold text-sm text-red-900 flex items-center gap-1.5">
+                  <span>🚨 Urgent & High Priority Tasks</span>
+                  <span className="px-1.5 py-0.5 rounded-md bg-red-600 text-white font-mono text-[10px] font-black">
+                    {redPriorityTasks.length}
+                  </span>
+                </h3>
+                <p className="text-[10.5px] text-slate-500 font-medium">
+                  Critical actions requiring immediate attention
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/tasks"
+              className="text-[11px] font-bold text-red-700 hover:text-red-900 flex items-center gap-0.5"
+            >
+              Task Manager <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {redPriorityTasks.length === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-400 space-y-1">
+              <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto opacity-80" />
+              <p className="font-semibold text-slate-600">No urgent tasks pending!</p>
+              <p className="text-[10.5px]">All critical operations are up to date.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {redPriorityTasks.map((task) => {
+                const statusConfig = getStatusBadgeConfig(task.computedStatus);
+                const isUrgent = task.priority === 'urgent';
+                return (
+                  <div
+                    key={task.id}
+                    className={`p-3 rounded-xl border flex items-start justify-between gap-3 transition-all ${
+                      isUrgent
+                        ? 'bg-red-50/60 border-red-300 ring-1 ring-red-300/60'
+                        : 'bg-amber-50/40 border-amber-200'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleTaskComplete(task.id)}
+                        className="mt-0.5 w-4 h-4 rounded border border-slate-300 hover:border-emerald-600 flex items-center justify-center bg-white shrink-0 cursor-pointer"
+                        title="Mark as complete"
+                      >
+                        {task.computedStatus === 'completed' && <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />}
+                      </button>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            href="/tasks"
+                            className="font-bold text-xs text-slate-900 hover:text-red-700 truncate"
+                          >
+                            {task.title}
+                          </Link>
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${getPriorityBadgeConfig(task.priority)}`}>
+                            {task.priority}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-500">
+                          {task.assignedToName && (
+                            <span className="flex items-center gap-1 font-medium text-slate-700">
+                              <User className="w-3 h-3 text-slate-400" />
+                              {task.assignedToName}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1 text-red-700 font-bold">
+                            <Clock className="w-3 h-3 text-red-500" />
+                            Due: {formatTaskDateTime(task.deadlineDateTime)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold border shrink-0 ${statusConfig.badgeClass}`}>
+                      {statusConfig.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 2. RECENT 5 DAILY TASKS */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3.5 relative overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-[#0D4F4F]/10 text-[#0D4F4F]">
+                <ListTodo className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-serif font-bold text-sm text-[#0D4F4F] flex items-center gap-1.5">
+                  <span>Recent Daily Tasks</span>
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#0D4F4F] text-[#D4AF37] font-mono text-[10px] font-bold">
+                    {recentTasks.length}
+                  </span>
+                </h3>
+                <p className="text-[10.5px] text-slate-500 font-medium">
+                  Latest active studio & operational items
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/tasks"
+              className="text-[11px] font-bold text-[#0D4F4F] hover:text-[#093A3A] flex items-center gap-0.5"
+            >
+              View All <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {recentTasks.length === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-400 space-y-1">
+              <ListTodo className="w-6 h-6 text-slate-300 mx-auto" />
+              <p className="font-semibold text-slate-600">No recent tasks</p>
+              <Link href="/tasks" className="text-[10.5px] text-[#0D4F4F] font-bold underline">
+                Create a task in Task Manager
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {recentTasks.map((task) => {
+                const statusConfig = getStatusBadgeConfig(task.computedStatus);
+                const catConfig = TASK_CATEGORIES_CONFIG[task.category];
+                const isDone = task.computedStatus === 'completed';
+
+                return (
+                  <div
+                    key={task.id}
+                    className={`p-3 rounded-xl border flex items-start justify-between gap-3 transition-all ${
+                      isDone ? 'bg-slate-50/60 border-slate-200 opacity-75' : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleTaskComplete(task.id)}
+                        className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+                          isDone ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 hover:border-[#0D4F4F] bg-white'
+                        }`}
+                        title={isDone ? 'Reopen task' : 'Mark as complete'}
+                      >
+                        {isDone && <Check className="w-3 h-3 text-white stroke-[3]" />}
+                      </button>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            href="/tasks"
+                            className={`font-bold text-xs truncate transition-colors ${
+                              isDone ? 'line-through text-slate-400' : 'text-slate-900 hover:text-[#0D4F4F]'
+                            }`}
+                          >
+                            {task.title}
+                          </Link>
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${catConfig.badgeBg} ${catConfig.badgeText}`}>
+                            {catConfig.label}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-500">
+                          {task.assignedToName && (
+                            <span className="flex items-center gap-1 font-medium text-slate-700">
+                              <User className="w-3 h-3 text-slate-400" />
+                              {task.assignedToName}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            {formatTaskDateTime(task.startDateTime)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold border shrink-0 ${statusConfig.badgeClass}`}>
+                      {statusConfig.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
