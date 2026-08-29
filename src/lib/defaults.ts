@@ -136,7 +136,7 @@ export const DEFAULT_TERMS: string[] = [
   'Couple shoot duration approximately one hour.',
 ];
 
-export const DEFAULT_SETTINGS: AppSettings = {
+export const SUPER_ADMIN_DEFAULT_SETTINGS: AppSettings = {
   business: {
     name: 'The Snap Service',
     logoUrl: '/snap-service-logo.png',
@@ -153,7 +153,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     iban: 'PK84MEZN0004240104676435',
   },
   quotation: {
-    startingNumber: 101,
+    startingNumber: 2000,
     prefix: 'SS-2026',
     defaultTerms: DEFAULT_TERMS,
     defaultInclusions: DEFAULT_INCLUSIONS.map((i) => i.name),
@@ -165,3 +165,50 @@ export const DEFAULT_SETTINGS: AppSettings = {
     googleDriveFolderName: 'Snap Service Quotations Archive',
   },
 };
+
+export const STANDARD_USER_DEFAULT_SETTINGS: AppSettings = {
+  business: {
+    name: 'Studio',
+    logoUrl: '/snap-service-logo.png',
+    phone: '',
+    address: '',
+    instagram: '',
+    website: '',
+  },
+  bank: {
+    accountTitle: '',
+    bank: '',
+    branch: '',
+    accountNumber: '',
+    iban: '',
+  },
+  quotation: {
+    startingNumber: 101,
+    prefix: 'SS-2026',
+    defaultTerms: DEFAULT_TERMS,
+    defaultInclusions: DEFAULT_INCLUSIONS.map((i) => i.name),
+    defaultFooter: 'Thank you for choosing our photography services!',
+  },
+  integrations: {
+    googleDriveWebhookUrl: '',
+    autoSyncGoogleDrive: false,
+    googleDriveFolderName: '',
+  },
+};
+
+export const DEFAULT_SETTINGS: AppSettings = SUPER_ADMIN_DEFAULT_SETTINGS;
+
+export function getDefaultSettingsForWorkspace(workspaceId?: string): AppSettings {
+  const isSuperAdmin =
+    !workspaceId ||
+    workspaceId === 'ws_user-super-admin' ||
+    workspaceId === 'user-super-admin' ||
+    workspaceId === 'global' ||
+    workspaceId === 'ws_global';
+
+  if (isSuperAdmin) {
+    return { ...SUPER_ADMIN_DEFAULT_SETTINGS, workspaceId: 'ws_user-super-admin' };
+  }
+  const cleanWs = workspaceId.startsWith('ws_') ? workspaceId : `ws_${workspaceId}`;
+  return { ...STANDARD_USER_DEFAULT_SETTINGS, workspaceId: cleanWs };
+}

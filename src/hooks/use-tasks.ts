@@ -61,35 +61,51 @@ const INITIAL_SEED_TASKS: TaskItem[] = [
 
 export function useTasks() {
   const { currentUser } = useAuth();
-  const targetWs = currentUser?.role === 'super_admin' || currentUser?.id === 'user-super-admin'
+  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.id === 'user-super-admin';
+  const currentUserId = currentUser?.id || 'user-super-admin';
+  const targetWs = isSuperAdmin
     ? 'ws_user-super-admin'
-    : (currentUser?.workspaceId || `ws_${currentUser?.id || 'user-super-admin'}`);
+    : (currentUser?.workspaceId || `ws_${currentUserId}`);
+
+  const isTaskAccessible = useCallback(
+    (t: TaskItem): boolean => {
+      if (isSuperAdmin) return true;
+      const cleanWs = targetWs.startsWith('ws_') ? targetWs : `ws_${targetWs}`;
+      return (
+        t.workspaceId === cleanWs ||
+        t.assignedToUserId === currentUserId ||
+        (t.assignedToUserId ? (t.assignedToUserId.startsWith('ws_') ? t.assignedToUserId === cleanWs : `ws_${t.assignedToUserId}` === cleanWs) : false) ||
+        t.createdByUserId === currentUserId ||
+        (Array.isArray(t.history) && t.history.some((h) => h.userId === currentUserId))
+      );
+    },
+    [isSuperAdmin, targetWs, currentUserId]
+  );
 
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
     const local = storage.getTasks();
     if (local.length > 0) {
-      return local.filter((t) => (t.workspaceId || (t.assignedToUserId === 'user-super-admin' ? 'ws_user-super-admin' : `ws_${t.assignedToUserId}`)) === targetWs);
+      return local.filter(isTaskAccessible);
     }
-    return targetWs === 'ws_user-super-admin' ? INITIAL_SEED_TASKS : [];
+    return isSuperAdmin ? INITIAL_SEED_TASKS : [];
   });
   const [loading, setLoading] = useState(false);
 
   const syncTasks = useCallback(async () => {
-    const ws = currentUser?.role === 'super_admin' || currentUser?.id === 'user-super-admin'
-      ? 'ws_user-super-admin'
-      : (currentUser?.workspaceId || `ws_${currentUser?.id || 'user-super-admin'}`);
-
     try {
-      const cloudTasks = await apiFetchTasks(ws);
+      setLoading(true);
+      const cloudTasks = await apiFetchTasks(targetWs);
       if (Array.isArray(cloudTasks)) {
-        const filtered = cloudTasks.filter((t) => (t.workspaceId || (t.assignedToUserId === 'user-super-admin' ? 'ws_user-super-admin' : `ws_${t.assignedToUserId}`)) === ws);
-        storage.setAllTasks(filtered);
+        storage.setAllTasks(cloudTasks);
+        const filtered = cloudTasks.filter(isTaskAccessible);
         setTasks(filtered);
       }
     } catch (e) {
       console.error('Error syncing tasks with cloud:', e);
+    } finally {
+      setLoading(false);
     }
-  }, [currentUser]);
+  }, [targetWs, isTaskAccessible]);
 
   useEffect(() => {
     syncTasks();
@@ -101,18 +117,20 @@ export function useTasks() {
 
     const handleStorage = () => {
       const all = storage.getTasks();
-      const filtered = all.filter((t) => (t.workspaceId ? t.workspaceId === targetWs : (currentUser?.role === 'super_admin' ? true : t.assignedToUserId === currentUser?.id)));
+      const filtered = all.filter(isTaskAccessible);
       setTasks(filtered);
     };
 
     window.addEventListener('snap_tasks_updated', handleStorage);
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('snap_user_switched', syncTasks);
     return () => {
       clearInterval(interval);
       window.removeEventListener('snap_tasks_updated', handleStorage);
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('snap_user_switched', syncTasks);
     };
-  }, [syncTasks, targetWs, currentUser]);
+  }, [syncTasks, isTaskAccessible]);
 
   const createTask = async (payload: Omit<TaskItem, 'id' | 'createdAt' | 'updatedAt' | 'history'>): Promise<TaskItem> => {
     const taskId = generateSecureId('task');

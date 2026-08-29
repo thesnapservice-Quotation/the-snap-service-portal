@@ -63,6 +63,7 @@ export function useSettings(overrideWorkspaceId?: string) {
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', handleUserOrStorageChange);
       window.addEventListener('snap_user_switched', handleUserOrStorageChange);
+      window.addEventListener('snap_settings_updated', handleUserOrStorageChange);
     }
 
     return () => {
@@ -70,6 +71,7 @@ export function useSettings(overrideWorkspaceId?: string) {
       if (typeof window !== 'undefined') {
         window.removeEventListener('storage', handleUserOrStorageChange);
         window.removeEventListener('snap_user_switched', handleUserOrStorageChange);
+        window.removeEventListener('snap_settings_updated', handleUserOrStorageChange);
       }
     };
   }, [overrideWorkspaceId]);
@@ -80,7 +82,7 @@ export function useSettings(overrideWorkspaceId?: string) {
     setSettings(current);
   }, [overrideWorkspaceId]);
 
-  const updateSettings = (newSettings: AppSettings) => {
+  const updateSettings = async (newSettings: AppSettings) => {
     const ws = resolveWorkspaceId(overrideWorkspaceId);
     const settingsWithWs: AppSettings = {
       ...newSettings,
@@ -88,7 +90,15 @@ export function useSettings(overrideWorkspaceId?: string) {
     };
     storage.saveSettings(settingsWithWs, ws);
     setSettings(settingsWithWs);
-    apiSaveSettings(settingsWithWs, ws).catch((err) => console.error('Cloud settings save err:', err));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('snap_settings_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+    try {
+      await apiSaveSettings(settingsWithWs, ws);
+    } catch (err) {
+      console.error('Cloud settings save err:', err);
+    }
   };
 
   return {

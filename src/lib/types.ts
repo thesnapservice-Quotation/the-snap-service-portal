@@ -343,3 +343,34 @@ export interface NotificationPreferences {
   overdueAlerts: boolean;
   followUpAlerts: boolean;
 }
+
+// ----------------------------------------------------
+// Studio Expenses & Team Advances Ledger Types
+// ----------------------------------------------------
+
+export type ExpenseCategory =
+  | 'team_advance'       // Advance payment disbursed to team member / freelancer
+  | 'salary'             // Monthly salary payout
+  | 'gear_equipment'     // Cameras, lenses, lighting, memory cards, batteries, repairs
+  | 'travel_fuel'        // Fuel, taxi, flight, travel & transport expenses
+  | 'printing_albums'    // Photobook lab printing, album binding & packaging
+  | 'studio_utilities'   // Studio rent, electricity, high-speed internet, office tea
+  | 'marketing_ads'      // Meta/Instagram advertising, social campaigns
+  | 'vendor_payout'      // External vendors, third-party sub-contractors
+  | 'other';             // Miscellaneous studio operational expense
+
+export interface StudioExpense {
+  id: string;
+  workspaceId: string;
+  amount: number;
+  category: ExpenseCategory;
+  date: string;                  // YYYY-MM-DD
+  personName?: string;          // e.g. "Jawad Murtaza", "Ali Photographer", "Farhan Editor"
+  userId?: string;              // Optional link to UserAccount if matching team user exists
+  paymentMethod: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'other';
+  description: string;          // Purpose / description in English
+  reference?: string;           // Optional bank transaction ID, receipt reference
+  receiptUrl?: string;          // Optional receipt image / file attachment URL
+  createdAt: string;
+  updatedAt: string;
+}

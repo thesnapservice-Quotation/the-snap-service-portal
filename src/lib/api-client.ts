@@ -1,4 +1,4 @@
-import { Quotation } from './types';
+import { Quotation, StudioExpense } from './types';
 
 /**
  * REST API Client for Central Production Database Operations
@@ -343,6 +343,73 @@ export async function apiDeleteTask(id: string): Promise<boolean> {
     return res.ok;
   } catch (e) {
     console.error('API Delete Task Error:', e);
+    return false;
+  }
+}
+
+// ----------------------------------------------------
+// Studio Expenses & Team Advances API
+// ----------------------------------------------------
+
+export async function apiFetchExpenses(workspaceId?: string): Promise<StudioExpense[]> {
+  try {
+    const url = workspaceId
+      ? `/api/expenses?workspaceId=${encodeURIComponent(workspaceId)}&_t=${Date.now()}`
+      : `/api/expenses?_t=${Date.now()}`;
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.expenses)) {
+        return data.expenses as StudioExpense[];
+      }
+    }
+  } catch (e) {
+    console.error('API Fetch Expenses Error:', e);
+  }
+  return [];
+}
+
+export async function apiSaveExpense(expense: StudioExpense): Promise<StudioExpense> {
+  try {
+    const res = await fetch('/api/expenses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      body: JSON.stringify(expense),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.expense) {
+        return data.expense;
+      }
+    }
+  } catch (e) {
+    console.error('API Save Expense Error:', e);
+  }
+  return expense;
+}
+
+export async function apiDeleteExpense(id: string, workspaceId?: string): Promise<boolean> {
+  try {
+    const url = workspaceId
+      ? `/api/expenses?id=${encodeURIComponent(id)}&workspaceId=${encodeURIComponent(workspaceId)}`
+      : `/api/expenses?id=${encodeURIComponent(id)}`;
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    return res.ok;
+  } catch (e) {
+    console.error('API Delete Expense Error:', e);
     return false;
   }
 }

@@ -51,17 +51,17 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const url = new URL(request.url);
-    let userId = url.searchParams.get('id') || url.searchParams.get('userId');
+    let userId = url.searchParams.get('id') || url.searchParams.get('userId') || url.searchParams.get('email');
     if (!userId) {
       const body = await request.json().catch(() => ({}));
-      userId = body.id || body.userId;
+      userId = body.id || body.userId || body.email;
     }
 
     if (!userId) {
       return NextResponse.json({ error: 'Missing userId parameter' }, { status: 400 });
     }
 
-    if (userId === 'user-super-admin') {
+    if (userId === 'user-super-admin' || userId.toLowerCase() === 'admin@snapservice.com') {
       return NextResponse.json({ error: 'Cannot delete Super Admin account' }, { status: 403 });
     }
 

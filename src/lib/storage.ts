@@ -1,5 +1,5 @@
-import { Quotation, Service, AppSettings, UserAccount, PaymentTransaction, TaskItem } from './types';
-import { DEFAULT_SERVICES, DEFAULT_SETTINGS, DEFAULT_INCLUSIONS } from './defaults';
+import { Quotation, Service, AppSettings, UserAccount, PaymentTransaction, TaskItem, StudioExpense } from './types';
+import { DEFAULT_SERVICES, DEFAULT_SETTINGS, DEFAULT_INCLUSIONS, getDefaultSettingsForWorkspace } from './defaults';
 import { getTodayDateString } from './utils';
 import { generateSecureId, generateRandomNumericId } from './crypto';
 
@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
   USERS: 'snap_service_users',
   CURRENT_USER: 'snap_service_current_user',
   TASKS: 'snap_service_tasks_v1',
+  EXPENSES: 'snap_service_expenses_v1',
 };
 
 // Seed Users: Super Admin (Owner)
@@ -224,19 +225,19 @@ export const storage = {
 
   // Settings CRUD (Per-Workspace Studio Configurations)
   getSettings: (targetWorkspaceOrUserId?: string): AppSettings => {
-    if (typeof window === 'undefined') return DEFAULT_SETTINGS;
+    const activeWs = storage.resolveWorkspaceKey(targetWorkspaceOrUserId);
+    if (typeof window === 'undefined') return getDefaultSettingsForWorkspace(activeWs);
     try {
-      const activeWs = storage.resolveWorkspaceKey(targetWorkspaceOrUserId);
       const wsKey = `${STORAGE_KEYS.SETTINGS}_${activeWs}`;
       const data = localStorage.getItem(wsKey);
 
       if (!data) {
-        return { ...DEFAULT_SETTINGS, workspaceId: activeWs };
+        return getDefaultSettingsForWorkspace(activeWs);
       }
       return JSON.parse(data);
     } catch (e) {
       console.error('Error reading per-workspace settings from localStorage', e);
-      return DEFAULT_SETTINGS;
+      return getDefaultSettingsForWorkspace(activeWs);
     }
   },
 
@@ -350,10 +351,12 @@ export const storage = {
     return user;
   },
 
-  deleteUser: (id: string): void => {
-    storage.addDeletedUserId(id);
+  deleteUser: (idOrEmail: string): void => {
+    if (!idOrEmail || idOrEmail === 'user-super-admin' || idOrEmail === 'admin@snapservice.com') return;
+    const clean = idOrEmail.trim().toLowerCase();
+    storage.addDeletedUserId(clean);
     const list = storage.getUsers();
-    const updated = list.filter((u) => u.id !== id);
+    const updated = list.filter((u) => u.id.toLowerCase() !== clean && u.email.toLowerCase() !== clean);
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updated));
       storage.triggerAutoBackup();
@@ -607,6 +610,65 @@ export const storage = {
       window.dispatchEvent(new Event('snap_tasks_updated'));
     } catch (e) {
       console.error('Error writing all tasks to localStorage', e);
+    }
+  },
+
+  // Studio Expenses & Team Advances LocalStorage Engine
+  getExpenses: (): StudioExpense[] => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+      if (!data) return [];
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error('Error reading expenses from localStorage', e);
+      return [];
+    }
+  },
+
+  saveExpense: (expense: StudioExpense): StudioExpense => {
+    if (typeof window === 'undefined') return expense;
+    try {
+      const expenses = storage.getExpenses();
+      const idx = expenses.findIndex((e) => e.id === expense.id);
+      let updated: StudioExpense[];
+      if (idx >= 0) {
+        updated = [...expenses];
+        updated[idx] = { ...expense, updatedAt: new Date().toISOString() };
+      } else {
+        updated = [expense, ...expenses];
+      }
+      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(updated));
+      window.dispatchEvent(new Event('snap_expenses_updated'));
+      return expense;
+    } catch (e) {
+      console.error('Error saving expense to localStorage', e);
+      return expense;
+    }
+  },
+
+  deleteExpense: (id: string): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const expenses = storage.getExpenses();
+      const filtered = expenses.filter((e) => e.id !== id);
+      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(filtered));
+      window.dispatchEvent(new Event('snap_expenses_updated'));
+      return true;
+    } catch (e) {
+      console.error('Error deleting expense from localStorage', e);
+      return false;
+    }
+  },
+
+  setAllExpenses: (expenses: StudioExpense[]) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+      window.dispatchEvent(new Event('snap_expenses_updated'));
+    } catch (e) {
+      console.error('Error writing all expenses to localStorage', e);
     }
   },
 };

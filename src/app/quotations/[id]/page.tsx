@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Quotation } from '@/lib/types';
+import { Quotation, AppSettings } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { apiFetchQuotationById } from '@/lib/api-client';
+import { apiFetchQuotationById, apiFetchSettings } from '@/lib/api-client';
 import { useSettings } from '@/hooks/use-settings';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { QuotationActions } from '@/components/quotation/quotation-actions';
@@ -20,12 +20,23 @@ export default function QuotationDetailPage() {
   const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLedgerModal, setShowLedgerModal] = useState(false);
-  const { settings } = useSettings();
+  const { settings: defaultSettings } = useSettings();
+  const [quotationSettings, setQuotationSettings] = useState<AppSettings>(defaultSettings);
 
   useEffect(() => {
     if (id) {
       apiFetchQuotationById(id).then((fromDb) => {
         setQuotation(fromDb);
+        if (fromDb) {
+          const qWs = fromDb.workspaceId || (fromDb.userId === 'user-super-admin' ? 'ws_user-super-admin' : `ws_${fromDb.userId}`);
+          const local = storage.getSettings(qWs);
+          setQuotationSettings(local);
+          apiFetchSettings(qWs).then((cloud) => {
+            if (cloud && cloud.bank) {
+              setQuotationSettings(cloud);
+            }
+          });
+        }
         setLoading(false);
       });
     }
@@ -125,7 +136,7 @@ export default function QuotationDetailPage() {
 
       {/* Full Screen High-Res Preview */}
       <div className="bg-white p-2 md:p-6 rounded-xl border border-slate-200 shadow-md">
-        <QuotationPreview quotation={quotation} settings={settings} />
+        <QuotationPreview quotation={quotation} settings={quotationSettings} />
       </div>
 
       {/* Payment Ledger Modal */}

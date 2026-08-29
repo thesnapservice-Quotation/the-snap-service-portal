@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuotations } from '@/hooks/use-quotations';
+import { useExpenses } from '@/hooks/use-expenses';
 import { useProfitPrivacy } from '@/context/profit-privacy-context';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Quotation } from '@/lib/types';
@@ -27,12 +28,14 @@ import {
   ArrowRight,
   Filter,
   ExternalLink,
-  Calendar
+  Calendar,
+  UserCheck
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function StudioAnalyticsPage() {
   const { quotations, refreshQuotations } = useQuotations();
+  const { expenses, totalExpenses, totalTeamAdvances } = useExpenses();
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -144,28 +147,50 @@ export default function StudioAnalyticsPage() {
     return clientName.includes(term) || quoteNum.includes(term) || eventDates.includes(term);
   });
 
+  // Date Range filter helper for Studio Expenses & Team Advances
+  const isExpenseInDateRange = (exp: any): boolean => {
+    if (!dateRange.startDate && !dateRange.endDate) return true;
+    const expTime = new Date(exp.date).getTime();
+    if (isNaN(expTime)) return true;
+
+    if (dateRange.startDate) {
+      const startTime = new Date(dateRange.startDate).getTime();
+      if (expTime < startTime) return false;
+    }
+    if (dateRange.endDate) {
+      const endTime = new Date(dateRange.endDate + 'T23:59:59.999Z').getTime();
+      if (expTime > endTime) return false;
+    }
+    return true;
+  };
+
+  const targetExpensesList = expenses.filter(isExpenseInDateRange);
+  const aggregateLedgerExpenses = targetExpensesList.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const aggregateTeamAdvancesFiltered = targetExpensesList
+    .filter((e) => e.category === 'team_advance')
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
   // Top Aggregate KPI Calculations:
   // 1. Event Total Amount
   const aggregateEventTotal = targetQuotations.reduce((sum, q) => sum + getEventTotal(q), 0);
 
-  // 2. Total Event Expenses
-  const aggregateExpenses = targetQuotations.reduce((sum, q) => sum + getEventExpenses(q), 0);
+  // 2. Event Direct Quoted Expenses
+  const aggregateEventExpenses = targetQuotations.reduce((sum, q) => sum + getEventExpenses(q), 0);
 
-  // 3. Remaining / Profit Amount = Event Total - Total Expenses
-  const aggregateProfit = aggregateEventTotal - aggregateExpenses;
+  // 3. Combined Total Studio Outflow (Event Quoted Costs + Actual Team Advances & Studio Expenses)
+  const totalCombinedExpenses = aggregateEventExpenses + aggregateLedgerExpenses;
+
+  // 4. Net Profit = Event Total - Combined Total Outflow
+  const aggregateProfit = aggregateEventTotal - totalCombinedExpenses;
   const aggregateProfitMargin = aggregateEventTotal > 0 ? (aggregateProfit / aggregateEventTotal) * 100 : 0;
 
-  // 4. Received Amount = Synced from Live Payment Ledger
+  // 5. Received Amount = Synced from Live Payment Ledger
   const aggregateReceived = targetQuotations.reduce((sum, q) => sum + getReceivedAmount(q), 0);
 
-  // 5. Profit Amount Received (Realized Cash Profit in Hand = max(0, Received - Expenses))
-  const aggregateProfitReceived = targetQuotations.reduce((sum, q) => {
-    const evExp = getEventExpenses(q);
-    const evRec = getReceivedAmount(q);
-    return sum + Math.max(0, evRec - evExp);
-  }, 0);
+  // 6. Net Realized In-Hand Profit = Received - Total Combined Outflow
+  const aggregateProfitReceived = aggregateReceived - totalCombinedExpenses;
 
-  // 6. Pending Amount = Event Total - Total Received
+  // 7. Pending Amount = Event Total - Total Received
   const aggregatePending = Math.max(0, aggregateEventTotal - aggregateReceived);
 
   // Count crew deployments
@@ -202,10 +227,20 @@ export default function StudioAnalyticsPage() {
             </p>
           </div>
 
-          {/* Confirmed Bookings Badge */}
-          <div className="flex items-center gap-2 bg-emerald-950/60 backdrop-blur-md px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-bold text-emerald-300 shadow-md">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>{targetQuotations.length} Confirmed Bookings</span>
+          {/* Top Badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href="/expenses"
+              className="flex items-center gap-2 bg-[#FAF9F6]/10 hover:bg-[#FAF9F6]/20 backdrop-blur-md px-3.5 py-2 rounded-xl border border-[#D4AF37]/40 text-xs font-bold text-[#D4AF37] shadow-md transition-all"
+            >
+              <Receipt className="w-4 h-4" />
+              <span>Expenses & Team Ledger</span>
+            </Link>
+
+            <div className="flex items-center gap-2 bg-emerald-950/60 backdrop-blur-md px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-bold text-emerald-300 shadow-md">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>{targetQuotations.length} Confirmed Bookings</span>
+            </div>
           </div>
         </div>
       </div>
@@ -269,7 +304,7 @@ export default function StudioAnalyticsPage() {
             </div>
           </div>
 
-          {/* STEP 2: TOTAL EVENT EXPENSES */}
+          {/* STEP 2: TOTAL EXPENSES & TEAM ADVANCES */}
           <div 
             onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
             className="bg-white p-3.5 rounded-2xl border-2 border-red-100 shadow-xs flex flex-col justify-between cursor-pointer group hover:border-red-300 transition-all relative overflow-hidden"
@@ -277,7 +312,7 @@ export default function StudioAnalyticsPage() {
           >
             <div className="flex items-center justify-between">
               <span className="text-red-700 font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
-                2. Expenses {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-red-500" /> : <Lock className="w-2.5 h-2.5 text-red-500" />}
+                2. Outflow / Costs {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-red-500" /> : <Lock className="w-2.5 h-2.5 text-red-500" />}
               </span>
               <div className="p-1 rounded-lg bg-red-50 text-red-600">
                 <Receipt className="w-3.5 h-3.5" />
@@ -285,15 +320,15 @@ export default function StudioAnalyticsPage() {
             </div>
             <div className="mt-2.5">
               <span className="font-serif font-bold text-lg text-red-700 block tracking-wider">
-                {isProfitUnlocked ? formatCurrency(aggregateExpenses) : '••••••••'}
+                {isProfitUnlocked ? formatCurrency(totalCombinedExpenses) : '••••••••'}
               </span>
-              <span className="text-[9.5px] text-slate-400 block mt-0.5 font-medium">
-                {isProfitUnlocked ? 'Crew & Printing' : '🔒 Protected'}
+              <span className="text-[9.5px] text-slate-400 block mt-0.5 font-medium truncate" title={`Events: ${formatCurrency(aggregateEventExpenses)} + Ledger: ${formatCurrency(aggregateLedgerExpenses)}`}>
+                {isProfitUnlocked ? `Events + Studio Ledger` : '🔒 Protected'}
               </span>
             </div>
           </div>
 
-          {/* STEP 3: REMAINING / PROFIT AMOUNT */}
+          {/* STEP 3: NET PROFIT AMOUNT */}
           <div 
             onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
             className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-3.5 rounded-2xl border-2 border-[#D4AF37] shadow-md flex flex-col justify-between cursor-pointer group hover:brightness-105 transition-all relative overflow-hidden"
@@ -301,7 +336,7 @@ export default function StudioAnalyticsPage() {
           >
             <div className="flex items-center justify-between">
               <span className="text-[#D4AF37] font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
-                3. Total Profit {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-emerald-300" /> : <Lock className="w-2.5 h-2.5 text-[#D4AF37]" />}
+                3. Net Profit {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-emerald-300" /> : <Lock className="w-2.5 h-2.5 text-[#D4AF37]" />}
               </span>
               <div className="p-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37]">
                 <Sparkles className="w-3.5 h-3.5 fill-[#D4AF37]" />
@@ -312,7 +347,7 @@ export default function StudioAnalyticsPage() {
                 {isProfitUnlocked ? formatCurrency(aggregateProfit) : '••••••••'}
               </span>
               <span className="text-[9.5px] text-[#C3DFDF] block mt-0.5 font-medium">
-                {isProfitUnlocked ? `Margin: ${aggregateProfitMargin.toFixed(0)}%` : '🔒 Expected'}
+                {isProfitUnlocked ? `Net Margin: ${aggregateProfitMargin.toFixed(0)}%` : '🔒 Expected'}
               </span>
             </div>
           </div>
@@ -337,7 +372,7 @@ export default function StudioAnalyticsPage() {
             </div>
           </div>
 
-          {/* STEP 5: PROFIT AMOUNT RECEIVED (REALIZED IN-HAND PROFIT) */}
+          {/* STEP 5: NET PROFIT RECEIVED (REALIZED IN-HAND PROFIT) */}
           <div 
             onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
             className="bg-emerald-950 text-white p-3.5 rounded-2xl border-2 border-emerald-400 shadow-md flex flex-col justify-between cursor-pointer group hover:brightness-110 transition-all relative overflow-hidden"
@@ -345,7 +380,7 @@ export default function StudioAnalyticsPage() {
           >
             <div className="flex items-center justify-between">
               <span className="text-emerald-300 font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
-                5. Profit Received {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-emerald-300" /> : <Lock className="w-2.5 h-2.5 text-emerald-300" />}
+                5. Net Realized {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-emerald-300" /> : <Lock className="w-2.5 h-2.5 text-emerald-300" />}
               </span>
               <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-300">
                 <DollarSign className="w-3.5 h-3.5" />
@@ -356,7 +391,7 @@ export default function StudioAnalyticsPage() {
                 {isProfitUnlocked ? formatCurrency(aggregateProfitReceived) : '••••••••'}
               </span>
               <span className="text-[9.5px] text-emerald-300/80 block mt-0.5 font-medium">
-                {isProfitUnlocked ? 'In-Hand Realized' : '🔒 Protected'}
+                {isProfitUnlocked ? 'In-Hand Realized Net' : '🔒 Protected'}
               </span>
             </div>
           </div>
@@ -380,6 +415,46 @@ export default function StudioAnalyticsPage() {
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Studio Expenses & Team Advances Deduction Summary */}
+      <div className="bg-gradient-to-r from-amber-50/80 via-white to-amber-50/50 p-4 sm:p-5 rounded-2xl border border-amber-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 shadow-2xs">
+            <Receipt className="w-5 h-5 text-amber-700" />
+          </div>
+          <div>
+            <h3 className="font-serif font-bold text-sm text-[#0D4F4F] flex items-center gap-2">
+              Studio Expenses & Team Advances Sync
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                ⚡ Active & Deducted
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Team advances and studio costs are synchronized live from the Expenses Ledger and deducted from overall Net Profit.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 text-xs shrink-0 flex-wrap">
+          <div className="bg-white px-3 py-1.5 rounded-xl border border-amber-200 shadow-2xs">
+            <span className="text-[10px] text-slate-400 font-bold block uppercase">Team Advances</span>
+            <span className="font-serif font-bold text-amber-800 text-sm">{formatCurrency(aggregateTeamAdvancesFiltered)}</span>
+          </div>
+
+          <div className="bg-white px-3 py-1.5 rounded-xl border border-amber-200 shadow-2xs">
+            <span className="text-[10px] text-slate-400 font-bold block uppercase">Total Deductions</span>
+            <span className="font-serif font-bold text-rose-600 text-sm">{formatCurrency(aggregateLedgerExpenses)}</span>
+          </div>
+
+          <Link
+            href="/expenses"
+            className="px-3.5 py-2 rounded-xl bg-[#0D4F4F] hover:bg-[#156060] text-[#D4AF37] font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
+          >
+            <span>Open Ledger</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </div>
 

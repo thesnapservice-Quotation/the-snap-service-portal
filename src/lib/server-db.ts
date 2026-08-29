@@ -1,8 +1,8 @@
-import { Quotation, UserAccount, TaskItem, DeviceSubscription, Service, AppSettings } from './types';
+import { Quotation, UserAccount, TaskItem, DeviceSubscription, Service, AppSettings, StudioExpense } from './types';
 import { supabase } from './supabase';
 import { SEED_USERS } from './storage';
 import { generateRandomNumericId } from './crypto';
-import { DEFAULT_SETTINGS, DEFAULT_SERVICES } from './defaults';
+import { DEFAULT_SETTINGS, DEFAULT_SERVICES, getDefaultSettingsForWorkspace } from './defaults';
 import { getQuotationSecurityPin } from './utils';
 
 /**
@@ -500,7 +500,7 @@ export async function getSettingsFromDb(workspaceOrUserId?: string): Promise<App
     } catch {}
   }
 
-  return { ...DEFAULT_SETTINGS, workspaceId: targetWs };
+  return getDefaultSettingsForWorkspace(targetWs);
 }
 
 export async function saveSettingsToDb(settings: AppSettings, workspaceOrUserId?: string): Promise<AppSettings> {
@@ -626,7 +626,23 @@ function mergeWithSeedUsers(users: UserAccount[]): UserAccount[] {
 }
 
 export async function getUsersFromDb(): Promise<UserAccount[]> {
-  // 1. Try fetching from Supabase table 'app_users'
+  // 1. Try fetching from Supabase 'quotations' table under 'sys_users' (100% reliable registry)
+  try {
+    const { data, error } = await supabase
+      .from('quotations')
+      .select('full_data')
+      .eq('id', 'sys_users')
+      .maybeSingle();
+
+    if (!error && data?.full_data && Array.isArray(data.full_data.users)) {
+      const parsed: UserAccount[] = data.full_data.users;
+      const merged = mergeWithSeedUsers(parsed);
+      cachedUsers = merged;
+      return merged;
+    }
+  } catch {}
+
+  // 2. Try fetching from Supabase table 'app_users'
   try {
     const { data, error } = await supabase
       .from('app_users')
@@ -641,7 +657,7 @@ export async function getUsersFromDb(): Promise<UserAccount[]> {
     }
   } catch {}
 
-  // 2. Try fetching from secondary Cloud DB
+  // 3. Try fetching from secondary Cloud DB
   try {
     const res = await fetch(PRIMARY_USERS_CLOUD_DB, {
       headers: { 'Accept': 'application/json' },
@@ -668,7 +684,11 @@ export async function saveUserToDb(user: UserAccount): Promise<UserAccount[]> {
     workspaceId: wsId,
   };
   const current = await getUsersFromDb();
-  const index = current.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+  const index = current.findIndex(
+    (u) =>
+      u.id === user.id ||
+      (u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase())
+  );
   let updatedList: UserAccount[];
   if (index >= 0) {
     updatedList = [...current];
@@ -678,7 +698,27 @@ export async function saveUserToDb(user: UserAccount): Promise<UserAccount[]> {
   }
   cachedUsers = updatedList;
 
-  // 1. Save to Supabase
+  // 1. Save to Supabase 'quotations' table under 'sys_users' (100% guaranteed persistence)
+  try {
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: 'sys_users',
+        quotation_number: 'SYS-USERS',
+        user_id: 'ws_user-super-admin',
+        status: 'confirmed',
+        client: { name: 'Users Registry', phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemRecord: true, users: updatedList },
+        updated_at: new Date().toISOString(),
+      });
+  } catch (e) {
+    console.error('Error saving users to Supabase quotations:', e);
+  }
+
+  // 2. Save to Supabase app_users table
   try {
     await supabase
       .from('app_users')
@@ -694,7 +734,7 @@ export async function saveUserToDb(user: UserAccount): Promise<UserAccount[]> {
       });
   } catch {}
 
-  // 2. Save to Cloud DB
+  // 3. Save to Cloud DB
   try {
     await fetch(PRIMARY_USERS_CLOUD_DB, {
       method: 'PUT',
@@ -706,24 +746,53 @@ export async function saveUserToDb(user: UserAccount): Promise<UserAccount[]> {
   return updatedList;
 }
 
-export async function deleteUserFromDb(userId: string): Promise<UserAccount[]> {
-  if (!userId || userId === 'user-super-admin') {
+export async function deleteUserFromDb(userIdOrEmail: string): Promise<UserAccount[]> {
+  if (
+    !userIdOrEmail ||
+    userIdOrEmail === 'user-super-admin' ||
+    userIdOrEmail.toLowerCase() === 'admin@snapservice.com'
+  ) {
     return getUsersFromDb();
   }
 
+  const cleanTarget = userIdOrEmail.trim().toLowerCase();
   const current = await getUsersFromDb();
-  const updatedList = current.filter((u) => u.id !== userId);
+  const updatedList = current.filter(
+    (u) =>
+      u.id.toLowerCase() !== cleanTarget &&
+      u.email.toLowerCase() !== cleanTarget
+  );
   cachedUsers = updatedList;
 
-  // 1. Delete from Supabase app_users table ONLY
-  // PERMANENT NON-CASCADE RULE: Workspace quotations, tasks, and settings are NEVER deleted!
+  // 1. Save updated list to Supabase 'quotations' under 'sys_users'
   try {
-    await supabase.from('app_users').delete().eq('id', userId);
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: 'sys_users',
+        quotation_number: 'SYS-USERS',
+        user_id: 'ws_user-super-admin',
+        status: 'confirmed',
+        client: { name: 'Users Registry', phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemRecord: true, users: updatedList },
+        updated_at: new Date().toISOString(),
+      });
   } catch (e) {
-    console.error('Error deleting user from Supabase app_users:', e);
+    console.error('Error updating sys_users in Supabase:', e);
   }
 
-  // 2. Update Cloud DB
+  // 2. Delete from Supabase app_users table
+  try {
+    await supabase.from('app_users').delete().eq('id', userIdOrEmail);
+  } catch {}
+  try {
+    await supabase.from('app_users').delete().eq('email', cleanTarget);
+  } catch {}
+
+  // 3. Update Cloud DB
   try {
     await fetch(PRIMARY_USERS_CLOUD_DB, {
       method: 'PUT',
@@ -740,6 +809,29 @@ export async function deleteUserFromDb(userId: string): Promise<UserAccount[]> {
 // Dual-Layer Engine: Supabase table 'app_tasks' + Supabase registry record 'sys_global_tasks'
 // ----------------------------------------------------
 let cachedTasks: TaskItem[] | null = null;
+
+function isTaskAccessibleInScope(t: TaskItem, targetWs?: string): boolean {
+  if (!targetWs) return true;
+  if (
+    targetWs === 'ws_user-super-admin' ||
+    targetWs === 'user-super-admin' ||
+    targetWs === 'global' ||
+    targetWs === 'ws_global'
+  ) {
+    // Super Admin oversees all studio tasks
+    return true;
+  }
+  const cleanWs = targetWs.startsWith('ws_') ? targetWs : `ws_${targetWs}`;
+  const userId = cleanWs.replace(/^ws_/, '');
+
+  return (
+    t.workspaceId === cleanWs ||
+    t.assignedToUserId === userId ||
+    (t.assignedToUserId ? getWorkspaceId(t.assignedToUserId) === cleanWs : false) ||
+    t.createdByUserId === userId ||
+    (Array.isArray(t.history) && t.history.some((h) => h.userId === userId))
+  );
+}
 
 export async function getTasksFromDb(workspaceOrUserId?: string): Promise<TaskItem[]> {
   const targetWs = workspaceOrUserId ? getWorkspaceId(workspaceOrUserId) : undefined;
@@ -761,7 +853,7 @@ export async function getTasksFromDb(workspaceOrUserId?: string): Promise<TaskIt
       });
       cachedTasks = parsed;
       if (targetWs) {
-        return parsed.filter((t) => (t.workspaceId ? t.workspaceId === targetWs : getWorkspaceId(t.assignedToUserId) === targetWs));
+        return parsed.filter((t) => isTaskAccessibleInScope(t, targetWs));
       }
       return parsed;
     }
@@ -782,7 +874,7 @@ export async function getTasksFromDb(workspaceOrUserId?: string): Promise<TaskIt
       }));
       cachedTasks = parsed;
       if (targetWs) {
-        return parsed.filter((t) => (t.workspaceId ? t.workspaceId === targetWs : getWorkspaceId(t.assignedToUserId) === targetWs));
+        return parsed.filter((t) => isTaskAccessibleInScope(t, targetWs));
       }
       return parsed;
     }
@@ -809,7 +901,7 @@ export async function getTasksFromDb(workspaceOrUserId?: string): Promise<TaskIt
           }));
           cachedTasks = list;
           if (targetWs) {
-            return list.filter((t) => (t.workspaceId ? t.workspaceId === targetWs : getWorkspaceId(t.assignedToUserId) === targetWs));
+            return list.filter((t) => isTaskAccessibleInScope(t, targetWs));
           }
           return list;
         }
@@ -819,7 +911,7 @@ export async function getTasksFromDb(workspaceOrUserId?: string): Promise<TaskIt
 
   if (cachedTasks) {
     if (targetWs) {
-      return cachedTasks.filter((t) => (t.workspaceId ? t.workspaceId === targetWs : getWorkspaceId(t.assignedToUserId) === targetWs));
+      return cachedTasks.filter((t) => isTaskAccessibleInScope(t, targetWs));
     }
     return cachedTasks;
   }
@@ -1104,4 +1196,120 @@ export async function setHourlyDigestTracker(hourKey: string): Promise<void> {
   } catch (e) {
     console.error('Error saving hourly digest tracker:', e);
   }
+}
+
+// ----------------------------------------------------
+// Studio Expenses & Team Advances Central Persistence
+// ----------------------------------------------------
+
+let cachedExpenses: StudioExpense[] | null = null;
+
+export async function getExpensesFromDb(workspaceId?: string): Promise<StudioExpense[]> {
+  const ws = workspaceId || 'ws_user-super-admin';
+  const recordId = ws === 'ws_user-super-admin' ? 'sys_studio_expenses' : `sys_studio_expenses_${ws}`;
+
+  // 1. Try Supabase quotations table
+  try {
+    const { data, error } = await supabase
+      .from('quotations')
+      .select('full_data')
+      .eq('id', recordId)
+      .maybeSingle();
+
+    if (!error && data?.full_data && Array.isArray(data.full_data.expenses)) {
+      cachedExpenses = data.full_data.expenses;
+      return data.full_data.expenses;
+    }
+  } catch (e) {
+    console.error('Error fetching expenses from Supabase:', e);
+  }
+
+  // 2. Fallback to main record if workspace specific not found
+  if (recordId !== 'sys_studio_expenses') {
+    try {
+      const { data, error } = await supabase
+        .from('quotations')
+        .select('full_data')
+        .eq('id', 'sys_studio_expenses')
+        .maybeSingle();
+
+      if (!error && data?.full_data && Array.isArray(data.full_data.expenses)) {
+        const filtered = data.full_data.expenses.filter(
+          (e: StudioExpense) => !e.workspaceId || e.workspaceId === ws
+        );
+        return filtered;
+      }
+    } catch {}
+  }
+
+  if (cachedExpenses) return cachedExpenses;
+  return [];
+}
+
+export async function saveExpenseToDb(expense: StudioExpense): Promise<StudioExpense[]> {
+  const ws = expense.workspaceId || 'ws_user-super-admin';
+  const recordId = ws === 'ws_user-super-admin' ? 'sys_studio_expenses' : `sys_studio_expenses_${ws}`;
+  const current = await getExpensesFromDb(ws);
+
+  const idx = current.findIndex((e) => e.id === expense.id);
+  let updatedList: StudioExpense[];
+  if (idx >= 0) {
+    updatedList = [...current];
+    updatedList[idx] = { ...expense, updatedAt: new Date().toISOString() };
+  } else {
+    updatedList = [expense, ...current];
+  }
+  cachedExpenses = updatedList;
+
+  // Save to Supabase 'quotations' table under dedicated system record
+  try {
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: recordId,
+        quotation_number: 'SYS-STUDIO-EXPENSES',
+        user_id: ws,
+        status: 'confirmed',
+        client: { name: 'Studio Expenses Registry', phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemRecord: true, expenses: updatedList },
+        updated_at: new Date().toISOString(),
+      });
+  } catch (e) {
+    console.error('Error saving expenses to Supabase:', e);
+  }
+
+  return updatedList;
+}
+
+export async function deleteExpenseFromDb(expenseId: string, workspaceId?: string): Promise<StudioExpense[]> {
+  const ws = workspaceId || 'ws_user-super-admin';
+  const recordId = ws === 'ws_user-super-admin' ? 'sys_studio_expenses' : `sys_studio_expenses_${ws}`;
+  const current = await getExpensesFromDb(ws);
+
+  const updatedList = current.filter((e) => e.id !== expenseId);
+  cachedExpenses = updatedList;
+
+  try {
+    await supabase
+      .from('quotations')
+      .upsert({
+        id: recordId,
+        quotation_number: 'SYS-STUDIO-EXPENSES',
+        user_id: ws,
+        status: 'confirmed',
+        client: { name: 'Studio Expenses Registry', phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
+        events: [],
+        inclusions: [],
+        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+        full_data: { isSystemRecord: true, expenses: updatedList },
+        updated_at: new Date().toISOString(),
+      });
+  } catch (e) {
+    console.error('Error deleting expense in Supabase:', e);
+  }
+
+  return updatedList;
 }

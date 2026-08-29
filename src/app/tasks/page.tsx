@@ -255,14 +255,18 @@ export default function TasksPage() {
   // - Standard Users & Task Managers see ONLY tasks assigned to them or created by them (admin tasks hidden unless assigned)
   const accessibleTasks = useMemo(() => {
     if (!isSuperAdmin && currentUser?.id) {
+      const userWs = currentUser.workspaceId || `ws_${currentUser.id}`;
       return tasks.filter(
         (t) =>
           t.assignedToUserId === currentUser.id ||
+          (t.assignedToUserId ? (t.assignedToUserId.startsWith('ws_') ? t.assignedToUserId === userWs : `ws_${t.assignedToUserId}` === userWs) : false) ||
+          t.workspaceId === userWs ||
+          t.createdByUserId === currentUser.id ||
           t.history?.some((h) => h.userId === currentUser.id)
       );
     }
     return tasks;
-  }, [tasks, isSuperAdmin, currentUser?.id]);
+  }, [tasks, isSuperAdmin, currentUser?.id, currentUser?.workspaceId]);
 
   // Computed Tasks with Dynamic Status
   const computedTasks = useMemo(() => {

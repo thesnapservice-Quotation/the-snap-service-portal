@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Quotation, AppSettings, EventItem } from '@/lib/types';
-import { formatCurrency, formatDate, sortEventsInSequence } from '@/lib/utils';
+import { formatCurrency, formatDate, sortEventsInSequence, calculatePaymentMilestones } from '@/lib/utils';
 import { 
   User, 
   Calendar, 
@@ -240,6 +240,13 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
   // Auto-sort events chronologically (Engagement -> Nikkah -> Ubtan/Mayun -> Mehndi -> Barat -> Walima -> Couple Shoot)
   const sortedEvents = sortEventsInSequence(events);
 
+  // Dynamic 3-stage milestone schedule with unpaid advance redistribution
+  const milestones = calculatePaymentMilestones(
+    payment.grandTotal,
+    payment.advanceReceived,
+    payment.advancePercentage
+  );
+
   const hasAdvance = payment.advanceReceived > 0;
   const packageTypeTitle = quotation.packageType === 'single_day' || sortedEvents.length === 1 
     ? 'SINGLE DAY PACKAGE' 
@@ -448,7 +455,7 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
               <div className="text-left">
                 <span className="text-[8px] sm:text-[8.5px] text-slate-400 font-bold block uppercase">50% ADVANCE TO CONFIRM BOOKING</span>
                 <span className="font-bold text-[#0D4F4F] text-xs">
-                  {formatCurrency(payment.advanceReceived > 0 ? payment.advanceReceived : Math.round(payment.grandTotal * 0.5))}
+                  {formatCurrency(milestones.stage1Amount)}
                 </span>
               </div>
             </div>
@@ -461,7 +468,7 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
               <div className="text-left">
                 <span className="text-[8px] sm:text-[8.5px] text-slate-400 font-bold block uppercase">25% AFTER EVENT COMPLETION</span>
                 <span className="font-bold text-[#0D4F4F] text-xs">
-                  {formatCurrency(Math.round(payment.grandTotal * 0.25))}
+                  {formatCurrency(milestones.stage2Amount)}
                 </span>
               </div>
             </div>
@@ -474,11 +481,7 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
               <div className="text-left">
                 <span className="text-[8px] sm:text-[8.5px] text-slate-400 font-bold block uppercase">25% BEFORE FINAL DELIVERY</span>
                 <span className="font-bold text-[#0D4F4F] text-xs">
-                  {formatCurrency(
-                    payment.grandTotal -
-                    (payment.advanceReceived > 0 ? payment.advanceReceived : Math.round(payment.grandTotal * 0.5)) -
-                    Math.round(payment.grandTotal * 0.25)
-                  )}
+                  {formatCurrency(milestones.stage3Amount)}
                 </span>
               </div>
             </div>
@@ -585,29 +588,42 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
 
             {/* Bank Details */}
             <div className="bg-white p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-[#E5E0D5]">
-              <h4 className="font-serif font-bold text-xs text-[#0D4F4F] uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                <Building2 className="w-4 h-4 text-[#0D4F4F]" />
+              <h4 className="font-serif font-bold text-[#0D4F4F] uppercase tracking-wider text-[11px] mb-2 flex items-center gap-1.5 border-b border-[#D4AF37]/30 pb-1">
+                <Building2 className="w-3 h-3 text-[#D4AF37]" />
                 BANK DETAILS
               </h4>
               <div className="space-y-1.5 text-[10.5px]">
-                <div>
-                  <span className="text-slate-400 block text-[9px] uppercase font-bold">Account Title:</span>
-                  <span className="font-bold text-slate-900 uppercase">{bank.accountTitle || 'MUHAMMAD ARIF'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[9px] uppercase font-bold">Account Number:</span>
-                  <span className="font-mono font-bold text-[#0D4F4F]">{bank.accountNumber || '04010103463346'}</span>
-                </div>
+                {bank.accountTitle && (
+                  <div>
+                    <span className="text-slate-400 block text-[9px] uppercase font-bold">Account Title:</span>
+                    <span className="font-bold text-slate-900 uppercase">{bank.accountTitle}</span>
+                  </div>
+                )}
+                {bank.accountNumber && (
+                  <div>
+                    <span className="text-slate-400 block text-[9px] uppercase font-bold">Account Number:</span>
+                    <span className="font-mono font-bold text-[#0D4F4F]">{bank.accountNumber}</span>
+                  </div>
+                )}
                 {bank.iban && (
                   <div>
                     <span className="text-slate-400 block text-[9px] uppercase font-bold">IBAN:</span>
                     <span className="font-mono font-bold text-slate-800 text-[9.5px]">{bank.iban}</span>
                   </div>
                 )}
-                <div>
-                  <span className="text-slate-400 block text-[9px] uppercase font-bold">Bank / Branch:</span>
-                  <span className="font-bold text-slate-800 uppercase">{bank.bank} — {bank.branch}</span>
-                </div>
+                {(bank.bank || bank.branch) && (
+                  <div>
+                    <span className="text-slate-400 block text-[9px] uppercase font-bold">Bank / Branch:</span>
+                    <span className="font-bold text-slate-800 uppercase">
+                      {[bank.bank, bank.branch].filter(Boolean).join(' — ')}
+                    </span>
+                  </div>
+                )}
+                {!bank.accountTitle && !bank.accountNumber && (
+                  <div className="text-slate-400 italic text-[9.5px]">
+                    No bank details configured
+                  </div>
+                )}
               </div>
             </div>
           </div>

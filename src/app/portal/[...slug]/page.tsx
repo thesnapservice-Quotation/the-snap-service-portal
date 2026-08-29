@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { Quotation, AppSettings } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { apiFetchQuotationById, apiFetchPublicQuotation, apiSaveQuotation, apiFetchSettings } from '@/lib/api-client';
-import { formatCurrency, formatWhatsAppPhone, decodeQuotationData, getQuotationSecurityPin } from '@/lib/utils';
+import { formatCurrency, formatWhatsAppPhone, decodeQuotationData, getQuotationSecurityPin, calculatePaymentMilestones } from '@/lib/utils';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check, ShieldAlert, Wallet } from 'lucide-react';
 
@@ -183,7 +183,17 @@ function ClientPortalContent() {
   const businessPhone = settings.business.phone || '0323-9244924';
   const formattedWhatsApp = formatWhatsAppPhone(businessPhone);
 
-  const proposedAdv = Number(customAdvanceAmount) || quotation.payment.clientProposedAdvance || (quotation.payment.advanceReceived > 0 ? quotation.payment.advanceReceived : Math.round((quotation.payment.grandTotal || 0) * 0.5));
+  const effectiveAdv = customAdvanceAmount !== ''
+    ? (Number(customAdvanceAmount) || 0)
+    : (quotation.payment.clientProposedAdvance ?? quotation.payment.advanceReceived ?? 0);
+
+  const portalMilestones = calculatePaymentMilestones(
+    quotation.payment.grandTotal,
+    effectiveAdv,
+    quotation.payment.advancePercentage
+  );
+
+  const proposedAdv = effectiveAdv > 0 ? effectiveAdv : portalMilestones.stage1Amount;
 
   const whatsappMessage = encodeURIComponent(
     `Assalam-o-Alaikum! I have confirmed booking for Quotation #${quotation.quotationNumber} (${quotation.client.name}). Advance Amount: ${formatCurrency(proposedAdv)} (Bank Transfer / Cash). Here is my payment receipt screenshot!`
@@ -368,7 +378,7 @@ function ClientPortalContent() {
                       <span className="text-slate-700 font-medium">50% Advance to confirm booking</span>
                     </div>
                     <span className="font-bold text-[#0D4F4F]">
-                      {formatCurrency(quotation.payment.advanceReceived > 0 ? quotation.payment.advanceReceived : Math.round(quotation.payment.grandTotal * 0.5))}
+                      {formatCurrency(portalMilestones.stage1Amount)}
                     </span>
                   </div>
 
@@ -378,7 +388,7 @@ function ClientPortalContent() {
                       <span className="text-slate-700 font-medium">25% After event completion</span>
                     </div>
                     <span className="font-bold text-slate-800">
-                      {formatCurrency(Math.round(quotation.payment.grandTotal * 0.25))}
+                      {formatCurrency(portalMilestones.stage2Amount)}
                     </span>
                   </div>
 
@@ -388,11 +398,7 @@ function ClientPortalContent() {
                       <span className="text-slate-700 font-medium">25% Before final delivery</span>
                     </div>
                     <span className="font-bold text-slate-800">
-                      {formatCurrency(
-                        quotation.payment.grandTotal -
-                        (quotation.payment.advanceReceived > 0 ? quotation.payment.advanceReceived : Math.round(quotation.payment.grandTotal * 0.5)) -
-                        Math.round(quotation.payment.grandTotal * 0.25)
-                      )}
+                      {formatCurrency(portalMilestones.stage3Amount)}
                     </span>
                   </div>
 
@@ -442,71 +448,79 @@ function ClientPortalContent() {
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Bank Name:</span>
-                    <span className="font-bold text-slate-800">{settings.bank.bank || 'Meezan Bank'}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Account Title:</span>
-                    <span className="font-bold text-slate-800">{settings.bank.accountTitle || 'The Snap Service'}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-0.5">
-                    <span className="text-slate-500">Account Number:</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold font-mono text-slate-800 select-all">
-                        {settings.bank.accountNumber || '04240104676435'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyText(settings.bank.accountNumber || '04240104676435', 'acc')}
-                        className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold transition-all flex items-center gap-1 border shadow-2xs ${
-                          copiedField === 'acc'
-                            ? 'bg-emerald-600 text-white border-emerald-600'
-                            : 'bg-[#0D4F4F]/10 text-[#0D4F4F] hover:bg-[#0D4F4F] hover:text-white border-[#0D4F4F]/30'
-                        }`}
-                      >
-                        {copiedField === 'acc' ? (
-                          <>
-                            <Check className="w-2.5 h-2.5 text-emerald-200" /> Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-2.5 h-2.5" /> Copy
-                          </>
-                        )}
-                      </button>
+                  {(settings.bank.bank || settings.bank.branch) && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Bank Name:</span>
+                      <span className="font-bold text-slate-800">{[settings.bank.bank, settings.bank.branch].filter(Boolean).join(' — ')}</span>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="flex justify-between items-center pt-0.5">
-                    <span className="text-slate-500">IBAN:</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold font-mono text-[10.5px] text-slate-800 select-all">
-                        {settings.bank.iban || 'PK84MEZN0004240104676435'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyText(settings.bank.iban || 'PK84MEZN0004240104676435', 'iban')}
-                        className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold transition-all flex items-center gap-1 border shadow-2xs ${
-                          copiedField === 'iban'
-                            ? 'bg-emerald-600 text-white border-emerald-600'
-                            : 'bg-[#0D4F4F]/10 text-[#0D4F4F] hover:bg-[#0D4F4F] hover:text-white border-[#0D4F4F]/30'
-                        }`}
-                      >
-                        {copiedField === 'iban' ? (
-                          <>
-                            <Check className="w-2.5 h-2.5 text-emerald-200" /> Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-2.5 h-2.5" /> Copy
-                          </>
-                        )}
-                      </button>
+                  {settings.bank.accountTitle && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Account Title:</span>
+                      <span className="font-bold text-slate-800">{settings.bank.accountTitle}</span>
                     </div>
-                  </div>
+                  )}
+
+                  {settings.bank.accountNumber && (
+                    <div className="flex justify-between items-center pt-0.5">
+                      <span className="text-slate-500">Account Number:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold font-mono text-slate-800 select-all">
+                          {settings.bank.accountNumber}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(settings.bank.accountNumber, 'acc')}
+                          className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold transition-all flex items-center gap-1 border shadow-2xs ${
+                            copiedField === 'acc'
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-[#0D4F4F]/10 text-[#0D4F4F] hover:bg-[#0D4F4F] hover:text-white border-[#0D4F4F]/30'
+                          }`}
+                        >
+                          {copiedField === 'acc' ? (
+                            <>
+                              <Check className="w-2.5 h-2.5 text-emerald-200" /> Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-2.5 h-2.5" /> Copy
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {settings.bank.iban && (
+                    <div className="flex justify-between items-center pt-0.5">
+                      <span className="text-slate-500">IBAN:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold font-mono text-[10.5px] text-slate-800 select-all">
+                          {settings.bank.iban}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(settings.bank.iban || '', 'iban')}
+                          className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold transition-all flex items-center gap-1 border shadow-2xs ${
+                            copiedField === 'iban'
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-[#0D4F4F]/10 text-[#0D4F4F] hover:bg-[#0D4F4F] hover:text-white border-[#0D4F4F]/30'
+                          }`}
+                        >
+                          {copiedField === 'iban' ? (
+                            <>
+                              <Check className="w-2.5 h-2.5 text-emerald-200" /> Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-2.5 h-2.5" /> Copy
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

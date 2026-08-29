@@ -475,8 +475,8 @@ export default function SettingsPage() {
     }
   }, [settings]);
 
-  const handleSaveSettings = () => {
-    updateSettings(formData);
+  const handleSaveSettings = async () => {
+    await updateSettings(formData);
     setSaveSuccessMsg('Settings saved successfully!');
     setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
@@ -1367,9 +1367,9 @@ export default function SettingsPage() {
                     {u.id !== currentUser?.id && (
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm(`Delete account for ${u.name}?`)) {
-                            deleteUser(u.id);
+                            await deleteUser(u.id);
                           }
                         }}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"

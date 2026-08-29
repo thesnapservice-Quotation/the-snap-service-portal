@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
-import { Plus, LayoutDashboard, FileText, Settings, LogOut, Calendar, PackageCheck, BarChart3, LogIn, ListTodo } from 'lucide-react';
+import { Plus, LayoutDashboard, FileText, Settings, LogOut, Calendar, PackageCheck, BarChart3, LogIn, ListTodo, Receipt } from 'lucide-react';
 
 export function Header() {
   const { currentUser, isTaskManager, logout } = useAuth();
@@ -64,6 +64,16 @@ export function Header() {
         >
           <ListTodo className="w-4 h-4" />
         </Link>
+
+        {!isTaskManager && (
+          <Link
+            href="/expenses"
+            className="p-1.5 rounded-lg bg-[#156060] text-[#C3DFDF] hover:text-white"
+            title="Expenses & Team Ledger"
+          >
+            <Receipt className="w-4 h-4" />
+          </Link>
+        )}
 
         {!isTaskManager && (
           <Link

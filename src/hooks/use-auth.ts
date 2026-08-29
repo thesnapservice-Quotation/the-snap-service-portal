@@ -22,8 +22,16 @@ export function useAuth() {
     try {
       const cloudUsers = await apiFetchUsers();
       if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+        const deletedIds = storage.getDeletedUserIds();
+        const cleanCloudUsers = cloudUsers.filter(
+          (u) =>
+            u &&
+            u.id &&
+            !deletedIds.has(u.id.trim().toLowerCase()) &&
+            !deletedIds.has((u.email || '').trim().toLowerCase())
+        );
         // Merge cloud users into local storage
-        cloudUsers.forEach((u) => {
+        cleanCloudUsers.forEach((u) => {
           storage.saveUser(u);
         });
         allUsers = storage.getUsers();
@@ -302,14 +310,22 @@ export function useAuth() {
 
   const deleteUser = async (userId: string) => {
     if (!userId || userId === 'user-super-admin') return;
+    const targetUser = users.find((u) => u.id === userId);
     storage.deleteUser(userId);
-    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    if (targetUser?.email) {
+      storage.deleteUser(targetUser.email);
+    }
+    setUsers((prev) => prev.filter((u) => u.id !== userId && u.email?.toLowerCase() !== targetUser?.email?.toLowerCase()));
     try {
       await apiDeleteUser(userId);
     } catch (e) {
       console.error('Cloud delete user error:', e);
     }
-    refreshAuth();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('snap_user_switched'));
+      window.dispatchEvent(new Event('storage'));
+    }
+    await refreshAuth();
   };
 
   const changeUserPassword = async (payload: {

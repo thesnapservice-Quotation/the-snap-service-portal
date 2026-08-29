@@ -14,6 +14,9 @@ export function formatCurrency(amount: number | string | undefined | null): stri
   if (amount === undefined || amount === null || amount === '') return 'Rs. 0';
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(num)) return 'Rs. 0';
+  if (num < 0) {
+    return `-Rs. ${Math.abs(num).toLocaleString('en-PK')}`;
+  }
   return `Rs. ${num.toLocaleString('en-PK')}`;
 }
 
@@ -315,4 +318,76 @@ export function generateWhatsAppShareUrl(quotation: Quotation, originUrl?: strin
   const message = `THE SNAP SERVICE\n\nAssalam-o-Alaikum ${quotation.client?.name || 'Valued Client'},\nHere is your official wedding quotation (#${quotation.quotationNumber || 'SS-2026'}).\n\nEvents Covered: ${eventNames || 'Wedding Package'}\nEvent Dates: ${quotation.client?.eventDates || 'As Discussed'}\nGrand Total: ${formatCurrency(quotation.payment?.grandTotal)}\nAdvance Paid: ${formatCurrency(quotation.payment?.advanceReceived)}\nBalance Payable: ${formatCurrency(quotation.payment?.balancePayable)}\n\nView Interactive Quotation & Lock Your Dates Online:\n${portalUrl}\n\nThank you for choosing The Snap Service.`;
 
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+}
+
+export interface PaymentMilestones {
+  stage1Amount: number; // 50% Advance to confirm booking
+  stage2Amount: number; // 25% After event completion
+  stage3Amount: number; // 25% Before final delivery
+  grandTotal: number;
+  advancePaid: number;
+  balancePayable: number;
+}
+
+/**
+ * Calculates 3-Stage Milestone Payment Schedule with dynamic redistribution:
+ * - Baseline: 50% Advance, 25% After Event, 25% Before Final Delivery
+ * - If client pays less than planned advance, unpaid advance is moved to Stage 2 (After Event Completion)
+ * - Stage 3 (Before Final Delivery) remains exactly 25%
+ * - Sum of Stage 1 + Stage 2 + Stage 3 always strictly equals Grand Total
+ */
+export function calculatePaymentMilestones(
+  grandTotal: number,
+  advanceReceived: number = 0,
+  advancePercentage: number = 50
+): PaymentMilestones {
+  const total = Math.max(0, Number(grandTotal) || 0);
+  const paid = Math.max(0, Number(advanceReceived) || 0);
+
+  const pct = advancePercentage > 0 && advancePercentage < 100 ? advancePercentage : 50;
+  const plannedStage1 = Math.round((total * pct) / 100);
+  const plannedStage3 = Math.round(total * 0.25);
+  const plannedStage2 = Math.max(0, total - plannedStage1 - plannedStage3);
+
+  if (paid === 0) {
+    return {
+      stage1Amount: plannedStage1,
+      stage2Amount: plannedStage2,
+      stage3Amount: plannedStage3,
+      grandTotal: total,
+      advancePaid: 0,
+      balancePayable: total,
+    };
+  }
+
+  if (paid <= plannedStage1) {
+    const unpaidAdvance = plannedStage1 - paid;
+    const stage1Amount = paid;
+    const stage2Amount = plannedStage2 + unpaidAdvance;
+    const stage3Amount = plannedStage3;
+
+    return {
+      stage1Amount,
+      stage2Amount,
+      stage3Amount,
+      grandTotal: total,
+      advancePaid: paid,
+      balancePayable: Math.max(0, total - paid),
+    };
+  }
+
+  // If paid > plannedStage1
+  const excess = paid - plannedStage1;
+  const stage1Amount = paid;
+  const stage2Amount = Math.max(0, plannedStage2 - excess);
+  const stage3Amount = Math.max(0, total - stage1Amount - stage2Amount);
+
+  return {
+    stage1Amount,
+    stage2Amount,
+    stage3Amount,
+    grandTotal: total,
+    advancePaid: paid,
+    balancePayable: Math.max(0, total - paid),
+  };
 }
