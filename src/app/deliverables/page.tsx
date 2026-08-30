@@ -185,15 +185,15 @@ export default function DeliverablesPage() {
                   </div>
 
                   {/* 15-Day Delivery Deadline Badge (Calculated from Last Event Date) */}
-                  <div className="flex items-center gap-2">
-                    <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 ${
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                       isQuotationCompleted
                         ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                         : deadline.isOverdue
                         ? 'bg-red-50 text-red-800 border-red-300 animate-pulse'
                         : 'bg-amber-50 text-amber-900 border-amber-300'
                     }`}>
-                      <Clock className="w-3.5 h-3.5" />
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
                       <span>
                         Deadline: {deadline.deadlineFormatted}
                         {!isQuotationCompleted && (
@@ -204,7 +204,7 @@ export default function DeliverablesPage() {
                       </span>
                     </div>
 
-                    <span className={`px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider border ${
+                    <span className={`px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider border shrink-0 whitespace-nowrap ${
                       q.status === 'completed'
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                         : q.status === 'confirmed'

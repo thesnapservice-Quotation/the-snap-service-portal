@@ -192,35 +192,35 @@ export function getStatusBadgeConfig(status: TaskStatus, task?: TaskItem) {
     case 'upcoming':
       return {
         label: 'Upcoming',
-        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 font-bold shrink-0 whitespace-nowrap',
         dotColor: 'bg-blue-500',
         icon: 'Clock',
       };
     case 'due_now':
       return {
         label: 'Due / Start Now',
-        badgeClass: 'bg-amber-50 text-amber-800 border-amber-300 font-extrabold animate-pulse',
+        badgeClass: 'bg-amber-50 text-amber-800 border-amber-300 font-extrabold animate-pulse shrink-0 whitespace-nowrap',
         dotColor: 'bg-amber-500',
         icon: 'PlayCircle',
       };
     case 'overdue':
       return {
         label: 'Overdue',
-        badgeClass: 'bg-red-50 text-red-700 border-red-300 font-extrabold',
+        badgeClass: 'bg-red-50 text-red-700 border-red-300 font-extrabold shrink-0 whitespace-nowrap',
         dotColor: 'bg-red-600',
         icon: 'AlertTriangle',
       };
     case 'waiting':
       return {
         label: 'Waiting / Follow-up',
-        badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-300 font-bold',
+        badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-300 font-bold shrink-0 whitespace-nowrap',
         dotColor: 'bg-yellow-500',
         icon: 'Hourglass',
       };
     case 'completed':
       return {
         label: 'Completed',
-        badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold',
+        badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold shrink-0 whitespace-nowrap',
         dotColor: 'bg-emerald-600',
         icon: 'CheckCircle2',
       };
@@ -230,13 +230,13 @@ export function getStatusBadgeConfig(status: TaskStatus, task?: TaskItem) {
 export function getPriorityBadgeConfig(priority: TaskPriority) {
   switch (priority) {
     case 'urgent':
-      return 'bg-red-100 text-red-800 border-red-300 font-extrabold uppercase';
+      return 'bg-red-100 text-red-800 border-red-300 font-extrabold uppercase shrink-0 whitespace-nowrap';
     case 'high':
-      return 'bg-amber-100 text-amber-900 border-amber-300 font-bold';
+      return 'bg-amber-100 text-amber-900 border-amber-300 font-bold shrink-0 whitespace-nowrap';
     case 'medium':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'bg-blue-100 text-blue-800 border-blue-200 shrink-0 whitespace-nowrap';
     case 'low':
-      return 'bg-slate-100 text-slate-700 border-slate-200';
+      return 'bg-slate-100 text-slate-700 border-slate-200 shrink-0 whitespace-nowrap';
   }
 }
 

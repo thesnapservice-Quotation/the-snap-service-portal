@@ -558,7 +558,7 @@ export default function ExpensesPage() {
                           <span className="text-[10px] text-slate-400 font-medium">Team Member</span>
                         </div>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold">
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold shrink-0 whitespace-nowrap">
                         {member.count} {member.count === 1 ? 'Entry' : 'Entries'}
                       </span>
                     </div>
@@ -965,8 +965,8 @@ export default function ExpensesPage() {
                     .map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50">
                         <td className="p-2.5 font-medium text-slate-700">{formatDate(item.date)}</td>
-                        <td className="p-2.5">
-                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200">
+                        <td className="p-2.5 whitespace-nowrap">
+                          <span className="inline-flex items-center whitespace-nowrap px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200">
                             {CATEGORY_CONFIG[item.category]?.label || item.category}
                           </span>
                         </td>

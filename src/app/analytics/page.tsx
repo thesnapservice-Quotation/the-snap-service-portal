@@ -427,7 +427,7 @@ export default function StudioAnalyticsPage() {
           <div>
             <h3 className="font-serif font-bold text-sm text-[#0D4F4F] flex items-center gap-2">
               Studio Expenses & Team Advances Sync
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold shrink-0 whitespace-nowrap">
                 ⚡ Active & Deducted
               </span>
             </h3>
@@ -535,7 +535,7 @@ export default function StudioAnalyticsPage() {
                           {q.client?.eventDates || 'Dates Pending'}
                         </div>
                         <span
-                          className={`inline-block px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider mt-0.5 ${
+                          className={`inline-block px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider mt-0.5 shrink-0 whitespace-nowrap ${
                             q.status === 'confirmed'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : 'bg-blue-50 text-blue-700 border border-blue-200'

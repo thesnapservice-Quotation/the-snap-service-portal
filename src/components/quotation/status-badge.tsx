@@ -13,7 +13,7 @@ export const STATUS_CLASSES: Record<QuotationStatus, string> = {
 export function StatusBadge({ status }: { status: QuotationStatus }) {
   return (
     <span
-      className={`px-2.5 py-1 rounded-full border text-[11px] uppercase tracking-wider ${
+      className={`inline-block whitespace-nowrap shrink-0 px-2.5 py-1 rounded-full border text-[11px] uppercase tracking-wider ${
         STATUS_CLASSES[status] || STATUS_CLASSES.draft
       }`}
     >

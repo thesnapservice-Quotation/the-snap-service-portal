@@ -1267,7 +1267,7 @@ export default function SettingsPage() {
           {(() => {
             const allCategories = getAllWhatsAppCategories(formData);
             return (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
                 {allCategories.map((cat) => {
                   const isSelected = !isCreatingTemplate && selectedTemplateCat === cat.id;
                   return (
@@ -1278,26 +1278,37 @@ export default function SettingsPage() {
                         setIsCreatingTemplate(false);
                         setSelectedTemplateCat(cat.id);
                       }}
-                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between relative group ${
+                      className={`p-3.5 rounded-2xl border text-left transition-all flex flex-col justify-between min-h-[115px] relative group ${
                         isSelected
                           ? 'bg-[#0D4F4F] text-white border-[#D4AF37] shadow-md ring-2 ring-[#D4AF37]/30'
                           : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-1 mb-2">
-                        <span className="font-bold text-xs truncate">{cat.label}</span>
-                        <span
-                          className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
-                            isSelected
-                              ? 'bg-[#D4AF37] text-[#0D4F4F]'
-                              : `${cat.bg} ${cat.color}`
-                          }`}
-                        >
-                          {cat.badgeLabel}
-                        </span>
+                      <div className="space-y-2 mb-2 w-full">
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="font-bold text-xs leading-snug break-words">
+                            {cat.label}
+                          </span>
+                          {cat.isCustom && (
+                            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[8.5px] shrink-0 font-bold">
+                              Custom
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <span
+                            className={`inline-block whitespace-nowrap text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                              isSelected
+                                ? 'bg-[#D4AF37] text-[#0D4F4F]'
+                                : `${cat.bg} ${cat.color}`
+                            }`}
+                          >
+                            {cat.badgeLabel}
+                          </span>
+                        </div>
                       </div>
                       <span
-                        className={`text-[10.5px] line-clamp-2 ${
+                        className={`text-[10.5px] leading-relaxed line-clamp-2 ${
                           isSelected ? 'text-slate-200' : 'text-slate-400'
                         }`}
                       >
@@ -1319,17 +1330,17 @@ export default function SettingsPage() {
                       `Salam {client_name},\n\nWe are pleased to update you regarding your quotation ({quotation_number}).\n\n{quotation_details}\n\nPlease let us know if you need any assistance!\n\nRegards,\n{business_name}`
                     );
                   }}
-                  className={`p-3.5 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-1 min-h-[90px] group cursor-pointer ${
+                  className={`p-3.5 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-1.5 min-h-[115px] group cursor-pointer ${
                     isCreatingTemplate
                       ? 'border-[#0D4F4F] bg-emerald-50 text-[#0D4F4F] shadow-sm ring-2 ring-emerald-500/30'
                       : 'border-slate-300 hover:border-[#0D4F4F] bg-white hover:bg-emerald-50/50 text-slate-500 hover:text-[#0D4F4F]'
                   }`}
                 >
-                  <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 group-hover:border-emerald-400 group-hover:bg-emerald-100 flex items-center justify-center text-slate-500 group-hover:text-emerald-700 transition-colors shadow-2xs">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 group-hover:border-emerald-400 group-hover:bg-emerald-100 flex items-center justify-center text-slate-500 group-hover:text-emerald-700 transition-colors shadow-2xs shrink-0">
                     <Plus className="w-4 h-4" />
                   </div>
-                  <span className="font-bold text-xs group-hover:text-[#0D4F4F]">+ Add Template</span>
-                  <span className="text-[10px] text-slate-400">Create new category</span>
+                  <span className="font-bold text-xs group-hover:text-[#0D4F4F] whitespace-nowrap">+ Add Template</span>
+                  <span className="text-[10px] text-slate-400 text-center">New custom category</span>
                 </button>
               </div>
             );

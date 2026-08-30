@@ -288,39 +288,41 @@ export default function QuotationsListPage() {
                                   className="fixed inset-0 z-30"
                                   onClick={() => setOpenWhatsAppMenuId(null)}
                                 />
-                                <div className="absolute right-0 mt-1 w-56 rounded-2xl bg-white shadow-2xl border border-slate-200 py-1.5 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
-                                  <div className="px-3 py-1.5 border-b border-slate-100 mb-1">
+                                <div className="absolute right-0 mt-1 w-72 sm:w-80 rounded-2xl bg-white shadow-2xl border border-slate-200 p-1.5 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
+                                  <div className="px-3 py-2 border-b border-slate-100 mb-1">
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                                      WhatsApp Category
+                                      WhatsApp Message Category
                                     </span>
                                     <span className="text-xs font-bold text-slate-800 truncate block">
                                       {q.client.name}
                                     </span>
                                   </div>
 
-                                  {getAllWhatsAppCategories(settings).map((cat) => (
-                                    <button
-                                      key={cat.id}
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setOpenWhatsAppMenuId(null);
-                                        setWhatsAppModalCategory(cat.id);
-                                        setWhatsAppModalQuote(q);
-                                      }}
-                                      className="w-full px-3 py-2 text-left hover:bg-emerald-50 transition-colors flex items-center justify-between text-xs group"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-600 group-hover:scale-125 transition-transform" />
-                                        <span className="font-semibold text-slate-800 group-hover:text-emerald-900">
-                                          {cat.label}
+                                  <div className="space-y-0.5 max-h-72 overflow-y-auto">
+                                    {getAllWhatsAppCategories(settings).map((cat) => (
+                                      <button
+                                        key={cat.id}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenWhatsAppMenuId(null);
+                                          setWhatsAppModalCategory(cat.id);
+                                          setWhatsAppModalQuote(q);
+                                        }}
+                                        className="w-full px-3 py-2 text-left hover:bg-emerald-50 rounded-xl transition-colors flex items-center justify-between gap-2.5 text-xs group"
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                          <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0 group-hover:scale-125 transition-transform" />
+                                          <span className="font-semibold text-slate-800 group-hover:text-emerald-900 truncate">
+                                            {cat.label}
+                                          </span>
+                                        </div>
+                                        <span className={`shrink-0 whitespace-nowrap text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${cat.bg} ${cat.color}`}>
+                                          {cat.badgeLabel}
                                         </span>
-                                      </div>
-                                      <span className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-bold uppercase ${cat.bg} ${cat.color}`}>
-                                        {cat.badgeLabel}
-                                      </span>
-                                    </button>
-                                  ))}
+                                      </button>
+                                    ))}
+                                  </div>
 
                                   <div className="border-t border-slate-100 mt-1 pt-1">
                                     <button
@@ -331,11 +333,11 @@ export default function QuotationsListPage() {
                                         setWhatsAppModalCategory('new_client');
                                         setWhatsAppModalQuote(q);
                                       }}
-                                      className="w-full px-3 py-1.5 text-left hover:bg-slate-50 transition-colors flex items-center gap-2 text-[11px] text-slate-600 font-medium"
+                                      className="w-full px-3 py-2 text-left hover:bg-slate-50 rounded-xl transition-colors flex items-center gap-2 text-[11px] text-slate-600 font-medium"
                                     >
-                                      <History className="w-3.5 h-3.5 text-slate-400" />
+                                      <History className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                       <span>
-                                        View History ({q.whatsappHistory?.length || 0})
+                                        View Sending History ({q.whatsappHistory?.length || 0})
                                       </span>
                                     </button>
                                   </div>

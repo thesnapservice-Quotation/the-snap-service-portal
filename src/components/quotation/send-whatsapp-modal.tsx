@@ -234,7 +234,7 @@ export function SendWhatsAppModal({
               <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                 Select Message Category
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                 {allCategories.map((cat) => {
                   const isSelected = activeCategory === cat.id;
                   return (
@@ -242,13 +242,13 @@ export function SendWhatsAppModal({
                       key={cat.id}
                       type="button"
                       onClick={() => setActiveCategory(cat.id)}
-                      className={`p-2 rounded-xl text-center font-bold text-xs border transition-all ${
+                      className={`p-2.5 rounded-xl text-center font-bold text-xs border transition-all flex flex-col items-center justify-center min-h-[44px] ${
                         isSelected
                           ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#0D4F4F] shadow-xs ring-1 ring-[#D4AF37]/50'
                           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="block truncate">{cat.label}</span>
+                      <span className="block truncate w-full text-center">{cat.label}</span>
                     </button>
                   );
                 })}
@@ -328,15 +328,15 @@ export function SendWhatsAppModal({
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
                 {historyList.map((entry) => (
                   <div key={entry.id} className="p-3.5 hover:bg-slate-50 transition-colors space-y-1">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-200">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-200 shrink-0 whitespace-nowrap">
                           {entry.categoryLabel || entry.category}
                         </span>
-                        <span className="font-bold text-slate-800">{entry.sentTo}</span>
-                        <span className="text-slate-400 font-mono text-[10px]">({entry.phone})</span>
+                        <span className="font-bold text-slate-800 truncate">{entry.sentTo}</span>
+                        <span className="text-slate-400 font-mono text-[10px] shrink-0">({entry.phone})</span>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-medium">
+                      <span className="text-[10px] text-slate-400 font-medium shrink-0 whitespace-nowrap">
                         {new Date(entry.sentAt).toLocaleString('en-US', {
                           day: 'numeric',
                           month: 'short',
