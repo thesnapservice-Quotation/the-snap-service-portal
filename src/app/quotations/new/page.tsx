@@ -117,9 +117,14 @@ function NewQuotationContent() {
     }
   }, [editId]);
 
-  // Keep grand total and balance calculated automatically whenever events or payment settings change
+  // Keep grand total and balance calculated automatically whenever events, inclusions, or payment settings change
   useEffect(() => {
-    const total = quotation.events.reduce((sum, e) => sum + (e.price || 0), 0);
+    const eventsSum = quotation.events.reduce((sum, e) => sum + (e.price || 0), 0);
+    const extrasSum = (quotation.inclusions || [])
+      .filter((inc) => inc.included && inc.price !== undefined && inc.price > 0)
+      .reduce((sum, inc) => sum + (inc.price || 0) * (inc.quantity || 1), 0);
+    
+    const total = eventsSum + extrasSum;
     
     let advanceAmt = quotation.payment.advanceReceived;
     if (quotation.payment.advanceType === 'percentage' && quotation.payment.advancePercentage) {
@@ -136,7 +141,7 @@ function NewQuotationContent() {
         balancePayable: balance,
       },
     }));
-  }, [quotation.events, quotation.payment.advanceType, quotation.payment.advancePercentage]);
+  }, [quotation.events, quotation.inclusions, quotation.payment.advanceType, quotation.payment.advancePercentage]);
 
   const handleSave = async (status?: QuotationStatus) => {
     if (isSaving) return;
@@ -299,7 +304,7 @@ function NewQuotationContent() {
           {/* Payment Breakdown */}
           <PaymentSection
             payment={quotation.payment}
-            grandTotal={quotation.events.reduce((sum, e) => sum + (e.price || 0), 0)}
+            grandTotal={quotation.payment.grandTotal}
             onChange={(payment) => setQuotation((prev) => ({ ...prev, payment }))}
           />
         </div>

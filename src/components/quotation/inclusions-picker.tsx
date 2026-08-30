@@ -213,13 +213,13 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
           return (
             <div
               key={item.id}
-              className={`p-3 rounded-xl border flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 transition-all ${
+              className={`p-2.5 sm:p-3 rounded-xl border flex items-center justify-between gap-1.5 transition-all min-w-0 overflow-hidden ${
                 item.included
                   ? 'bg-[#0D4F4F]/5 border-[#0D4F4F]/40 text-[#0D4F4F] font-bold shadow-2xs'
                   : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'
               }`}
             >
-              <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-[130px]">
+              <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0 overflow-hidden">
                 <input
                   type="checkbox"
                   checked={item.included}
@@ -235,14 +235,14 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
                 >
                   {item.included && <Check className="w-3 h-3 stroke-[3]" />}
                 </div>
-                <span className="truncate text-xs">{cleanName}</span>
+                <span className="truncate text-xs" title={cleanName}>{cleanName}</span>
               </label>
 
               {item.included && (
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   {/* Price Box for Extra Deliverables */}
                   {showPriceInput && (
-                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs">
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5 shadow-2xs">
                       <span className="text-[10px] font-bold text-slate-400">Rs.</span>
                       <input
                         type="number"
@@ -254,29 +254,29 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
                           )
                         }
                         placeholder="0"
-                        className="w-16 text-xs font-bold text-[#0D4F4F] focus:outline-none bg-transparent"
+                        className="w-14 text-xs font-bold text-[#0D4F4F] focus:outline-none bg-transparent"
                         title="Deliverable Extra Price (PKR)"
                       />
                     </div>
                   )}
 
                   {/* Quantity Stepper Counter */}
-                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5 shadow-2xs">
+                  <div className="flex items-center bg-white border border-slate-200 rounded-lg px-1 py-0.5 shadow-2xs">
                     <button
                       type="button"
                       onClick={() => handleQuantityChange(item.id, -1)}
-                      className="w-5 h-5 rounded text-slate-500 hover:bg-slate-100 flex items-center justify-center font-bold text-xs transition-colors"
+                      className="w-4 h-4 rounded text-slate-500 hover:bg-slate-100 flex items-center justify-center font-bold text-xs transition-colors"
                       title="Decrease Quantity"
                     >
                       -
                     </button>
-                    <span className="w-4 text-center font-bold text-[#0D4F4F] text-xs">
+                    <span className="w-3.5 text-center font-bold text-[#0D4F4F] text-xs">
                       {item.quantity || 1}
                     </span>
                     <button
                       type="button"
                       onClick={() => handleQuantityChange(item.id, 1)}
-                      className="w-5 h-5 rounded text-slate-500 hover:bg-slate-100 flex items-center justify-center font-bold text-xs transition-colors"
+                      className="w-4 h-4 rounded text-slate-500 hover:bg-slate-100 flex items-center justify-center font-bold text-xs transition-colors"
                       title="Increase Quantity"
                     >
                       +
@@ -288,7 +288,7 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
               <button
                 type="button"
                 onClick={() => handleRemove(item.id)}
-                className="p-1.5 text-slate-300 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors shrink-0"
+                className="p-1 text-slate-300 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors shrink-0"
                 title="Remove deliverable item"
               >
                 <Trash2 className="w-3.5 h-3.5" />

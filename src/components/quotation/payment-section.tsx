@@ -63,7 +63,7 @@ export function PaymentSection({ payment, grandTotal, onChange }: PaymentSection
         {/* Grand Total Display */}
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-            Grand Total (Events Sum):
+            Grand Total (Events + Extras):
           </span>
           <span className="font-serif font-bold text-lg text-[#0D4F4F]">
             {formatCurrency(grandTotal)}
