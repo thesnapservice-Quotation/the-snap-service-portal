@@ -7,7 +7,6 @@ import { useSettings } from '@/hooks/use-settings';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { BookingCalendar } from '@/components/quotation/booking-calendar';
 import { SendCrewWhatsAppModal, CrewMemberDetail } from '@/components/quotation/send-crew-whatsapp-modal';
-import { EventDetailsModal } from '@/components/quotation/event-details-modal';
 import { Quotation, EventItem } from '@/lib/types';
 import { 
   Calendar as CalendarIcon, 
@@ -29,6 +28,8 @@ import {
   ChevronDown,
   Edit,
   ArrowRight,
+  X,
+  MapPin,
   Maximize2
 } from 'lucide-react';
 
@@ -39,16 +40,14 @@ export default function MasterCalendarPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  // Wedding Event Details Popup Modal State
+  const [selectedWeddingModalQuotation, setSelectedWeddingModalQuotation] = useState<Quotation | null>(null);
+
   // Crew WhatsApp Modal State
   const [isCrewModalOpen, setIsCrewModalOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
   const [selectedCrewMember, setSelectedCrewMember] = useState<CrewMemberDetail | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>(undefined);
-
-  // Event Details Modal State
-  const [isEventDetailsOpen, setIsEventDetailsOpen] = useState(false);
-  const [selectedQuotationForDetails, setSelectedQuotationForDetails] = useState<Quotation | null>(null);
-  const [selectedEventForDetails, setSelectedEventForDetails] = useState<EventItem | null>(null);
 
   // Aggregate stats across all quotations
   const totalEventsCount = useMemo(() => {
@@ -145,12 +144,6 @@ export default function MasterCalendarPage() {
     setSelectedCrewMember(crewMember);
     setSelectedEventId(eventId);
     setIsCrewModalOpen(true);
-  };
-
-  const handleOpenEventDetails = (q: Quotation, evt: EventItem) => {
-    setSelectedQuotationForDetails(q);
-    setSelectedEventForDetails(evt);
-    setIsEventDetailsOpen(true);
   };
 
   return (
@@ -296,7 +289,8 @@ export default function MasterCalendarPage() {
               return (
                 <div
                   key={q.id}
-                  className="bg-white rounded-2xl border-2 border-[#E5E0D5] hover:border-[#D4AF37] transition-all shadow-sm hover:shadow-md overflow-hidden flex flex-col justify-between"
+                  onClick={() => setSelectedWeddingModalQuotation(q)}
+                  className="bg-white rounded-2xl border-2 border-[#E5E0D5] hover:border-[#D4AF37] transition-all shadow-sm hover:shadow-md overflow-hidden flex flex-col justify-between cursor-pointer group"
                 >
                   {/* Card Header: Large Bold Date Header + Status */}
                   <div className="bg-gradient-to-r from-[#0D4F4F] to-[#093A3A] text-white p-4 flex items-center justify-between gap-2">
@@ -333,7 +327,7 @@ export default function MasterCalendarPage() {
                   <div className="p-4 sm:p-5 bg-slate-50/70 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-base text-slate-900">{q.client.name}</h3>
+                        <h3 className="font-bold text-base text-slate-900 group-hover:text-[#0D4F4F] transition-colors">{q.client.name}</h3>
                         <span className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 font-mono font-bold text-[11px]">
                           #{q.quotationNumber}
                         </span>
@@ -357,9 +351,13 @@ export default function MasterCalendarPage() {
                   {/* Day-by-Day Event & Assigned Shooting Crew */}
                   <div className="p-4 sm:p-5 space-y-4 flex-1">
                     <div className="text-[11px] font-bold text-[#0D4F4F] uppercase tracking-wider flex items-center justify-between border-b pb-2">
-                      <span>Event Breakdown &amp; Assigned Crew</span>
+                      <span className="flex items-center gap-1.5">
+                        <span>Event Breakdown &amp; Assigned Crew</span>
+                        <span className="text-[10px] text-slate-400 font-normal lowercase">(click to view details)</span>
+                      </span>
                       <Link
                         href={`/quotations/${q.id}/compare`}
+                        onClick={(e) => e.stopPropagation()}
                         className="text-[#D4AF37] hover:underline flex items-center gap-1 font-bold text-[11px]"
                       >
                         <Edit className="w-3.5 h-3.5" /> Edit Team
@@ -368,7 +366,6 @@ export default function MasterCalendarPage() {
 
                     {/* Overall Wedding Shooting Team Across All Days */}
                     {(() => {
-                      // Extract all unique crew members assigned across all events
                       const uniqueCrewMap = new Map<string, { name: string; phone?: string; role: string; eventsCount: number }>();
                       
                       q.events.forEach((evt) => {
@@ -434,7 +431,8 @@ export default function MasterCalendarPage() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() =>
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     handleOpenCrewModal(
                                       q,
                                       {
@@ -442,8 +440,8 @@ export default function MasterCalendarPage() {
                                         phone: crew.phone,
                                         role: crew.role,
                                       }
-                                    )
-                                  }
+                                    );
+                                  }}
                                   className="ml-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 transition-all shadow-xs shrink-0 cursor-pointer"
                                   title={`Send all ${q.events.length} days complete schedule to ${crew.name}`}
                                 >
@@ -457,9 +455,9 @@ export default function MasterCalendarPage() {
                       );
                     })()}
 
+                    {/* Day-by-Day List */}
                     <div className="space-y-3">
                       {q.events.map((evt, idx) => {
-                        // Extract assigned crew per service
                         const photoService = evt.services.find((s) =>
                           s.serviceName.toLowerCase().includes('photo')
                         );
@@ -473,14 +471,12 @@ export default function MasterCalendarPage() {
                         return (
                           <div
                             key={evt.id || idx}
-                            onClick={() => handleOpenEventDetails(q, evt)}
-                            className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-2xs hover:border-[#0D4F4F] hover:shadow-md transition-all cursor-pointer group relative"
-                            title="Click anywhere to view complete event details"
+                            className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-2xs hover:border-[#0D4F4F]/40 transition-all"
                           >
                             {/* Event Day Title & Date */}
                             <div className="flex items-center justify-between text-xs">
                               <div className="flex items-center gap-2">
-                                <span className="font-serif font-bold text-sm text-[#0D4F4F] group-hover:text-[#093A3A] transition-colors">
+                                <span className="font-serif font-bold text-sm text-[#0D4F4F]">
                                   Day {evt.dayNumber || idx + 1}: {evt.name}
                                 </span>
                                 {evt.eventDate && (
@@ -489,19 +485,13 @@ export default function MasterCalendarPage() {
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] text-slate-500 font-medium">
-                                  {evt.guestCount ? `${evt.guestCount} Guests` : 'Event Day'}
-                                </span>
-                                <span className="text-[10px] text-[#0D4F4F] font-bold opacity-0 group-hover:opacity-100 transition-opacity bg-[#0D4F4F]/10 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
-                                  Details ↗
-                                </span>
-                              </div>
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                {evt.guestCount ? `${evt.guestCount} Guests` : 'Event Day'}
+                              </span>
                             </div>
 
-                            {/* Assigned Crew Members Badges (Bigger & Readable) */}
+                            {/* Assigned Crew Members Badges */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                              {/* Photographers */}
                               {photoService && (
                                 <div className="p-2 rounded-lg bg-blue-50/80 border border-blue-200 text-xs space-y-1">
                                   <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1">
@@ -530,7 +520,7 @@ export default function MasterCalendarPage() {
                                               evt.id
                                             );
                                           }}
-                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold"
                                           title="Send WhatsApp Brief to Photographer"
                                         >
                                           <MessageSquare className="w-3 h-3" />
@@ -545,7 +535,6 @@ export default function MasterCalendarPage() {
                                 </div>
                               )}
 
-                              {/* Videographers */}
                               {videoService && (
                                 <div className="p-2 rounded-lg bg-purple-50/80 border border-purple-200 text-xs space-y-1">
                                   <span className="text-[10px] font-bold text-purple-800 uppercase tracking-wider flex items-center gap-1">
@@ -574,7 +563,7 @@ export default function MasterCalendarPage() {
                                               evt.id
                                             );
                                           }}
-                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold"
                                           title="Send WhatsApp Brief to Videographer"
                                         >
                                           <MessageSquare className="w-3 h-3" />
@@ -589,7 +578,6 @@ export default function MasterCalendarPage() {
                                 </div>
                               )}
 
-                              {/* Drone Operator */}
                               {droneService && (
                                 <div className="p-2 rounded-lg bg-amber-50/80 border border-amber-200 text-xs space-y-1 sm:col-span-2">
                                   <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
@@ -618,7 +606,7 @@ export default function MasterCalendarPage() {
                                               evt.id
                                             );
                                           }}
-                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold"
                                           title="Send WhatsApp Brief to Drone Pilot"
                                         >
                                           <MessageSquare className="w-3 h-3" />
@@ -643,31 +631,27 @@ export default function MasterCalendarPage() {
                   <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <button
                       type="button"
-                      onClick={() =>
-                        handleOpenCrewModal(
-                          q,
-                          {
-                            name: 'Lead Crew Member',
-                            phone: '',
-                            role: 'Shooting Crew',
-                          }
-                        )
-                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedWeddingModalQuotation(q);
+                      }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-bold hover:bg-[#093A3A] transition-all shadow-xs cursor-pointer text-[11px]"
                     >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Send Complete Wedding Brief</span>
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      <span>View Full Wedding Details</span>
                     </button>
 
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/quotations/${q.id}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 font-bold hover:bg-slate-100 transition-colors text-[11px]"
                       >
                         View Quote
                       </Link>
                       <Link
                         href={`/quotations/${q.id}/compare`}
+                        onClick={(e) => e.stopPropagation()}
                         className="px-3 py-1.5 rounded-lg bg-[#D4AF37] text-[#0D4F4F] font-bold hover:brightness-110 transition-all text-[11px] shadow-xs"
                       >
                         Assign Team
@@ -681,6 +665,427 @@ export default function MasterCalendarPage() {
         )}
       </div>
 
+      {/* ---------------------------------------------------- */}
+      {/* WEDDING EVENT DETAILS & CREW OPERATIONS POPUP MODAL  */}
+      {/* ---------------------------------------------------- */}
+      {selectedWeddingModalQuotation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-[#0D4F4F] text-white p-5 flex items-center justify-between border-b border-[#156060]">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] font-bold shadow-xs">
+                  <CalendarIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif font-bold text-lg text-white">
+                      {selectedWeddingModalQuotation.client.name}&apos;s Wedding Event Details
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#D4AF37] text-[#0D4F4F] font-bold text-xs uppercase tracking-wider">
+                      #{selectedWeddingModalQuotation.quotationNumber}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#C3DFDF] mt-0.5">
+                    {getWeddingDateRange(selectedWeddingModalQuotation.events)} • {selectedWeddingModalQuotation.events.length} Event Days
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedWeddingModalQuotation(null)}
+                className="p-2 rounded-xl text-[#C3DFDF] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 text-xs flex-1">
+              {/* Client & Booking Summary Card */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Client Contact</span>
+                  <div className="font-bold text-sm text-slate-900">{selectedWeddingModalQuotation.client.name}</div>
+                  <div className="flex items-center gap-2 text-slate-600 font-mono text-xs">
+                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{selectedWeddingModalQuotation.client.phone}</span>
+                  </div>
+                </div>
+
+                <div className="text-right space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Package Value</span>
+                  <div className="font-serif font-bold text-lg text-[#0D4F4F]">
+                    {formatCurrency(selectedWeddingModalQuotation.payment?.grandTotal || 0)}
+                  </div>
+                  <span
+                    className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                      selectedWeddingModalQuotation.status === 'confirmed' || selectedWeddingModalQuotation.status === 'completed'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : selectedWeddingModalQuotation.status === 'not_confirmed'
+                        ? 'bg-red-100 text-red-800 border-red-300'
+                        : 'bg-[#D4AF37]/20 text-[#0D4F4F] border-[#D4AF37]/40'
+                    }`}
+                  >
+                    {selectedWeddingModalQuotation.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Overall Assigned Wedding Team */}
+              {(() => {
+                const uniqueCrewMap = new Map<string, { name: string; phone?: string; role: string; eventsCount: number }>();
+                
+                selectedWeddingModalQuotation.events.forEach((evt) => {
+                  evt.services.forEach((srv) => {
+                    const srvRole = srv.serviceName.toLowerCase().includes('drone')
+                      ? 'Drone Pilot'
+                      : srv.serviceName.toLowerCase().includes('video')
+                      ? 'Cinematographer'
+                      : 'Photographer';
+
+                    (srv.crewBreakdown || []).slice(0, srv.quantity || 1).forEach((c) => {
+                      const cleanName = c.name?.trim();
+                      if (
+                        cleanName &&
+                        !cleanName.toLowerCase().startsWith('photographer #') &&
+                        !cleanName.toLowerCase().startsWith('videographer #') &&
+                        !cleanName.toLowerCase().startsWith('drone #')
+                      ) {
+                        const existing = uniqueCrewMap.get(cleanName);
+                        if (existing) {
+                          existing.eventsCount += 1;
+                          if (c.phone && !existing.phone) existing.phone = c.phone;
+                        } else {
+                          uniqueCrewMap.set(cleanName, {
+                            name: cleanName,
+                            phone: c.phone,
+                            role: c.role || srvRole,
+                            eventsCount: 1,
+                          });
+                        }
+                      }
+                    });
+                  });
+                });
+
+                const uniqueCrewList = Array.from(uniqueCrewMap.values());
+
+                if (uniqueCrewList.length === 0) return null;
+
+                return (
+                  <div className="p-4 bg-gradient-to-r from-[#0D4F4F]/10 via-[#0D4F4F]/5 to-[#D4AF37]/10 rounded-2xl border border-[#0D4F4F]/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[#0D4F4F] flex items-center gap-2 text-xs uppercase tracking-wider">
+                        <Users className="w-4 h-4 text-[#D4AF37]" /> Assigned Wedding Shooting Crew ({uniqueCrewList.length} Members)
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-medium">Send Multi-Day Schedule</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {uniqueCrewList.map((crew, cIdx) => (
+                        <div
+                          key={cIdx}
+                          className="flex items-center justify-between gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs text-xs"
+                        >
+                          <div className="flex items-center gap-2.5 overflow-hidden">
+                            <div className="w-8 h-8 rounded-full bg-[#0D4F4F] text-[#D4AF37] flex items-center justify-center font-bold text-xs shrink-0">
+                              {crew.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="overflow-hidden">
+                              <span className="font-bold text-slate-900 block text-xs truncate">{crew.name}</span>
+                              <span className="text-[10px] text-slate-500 block truncate">
+                                {crew.role} • {crew.eventsCount} {crew.eventsCount === 1 ? 'day' : 'days'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleOpenCrewModal(
+                                selectedWeddingModalQuotation,
+                                {
+                                  name: crew.name,
+                                  phone: crew.phone,
+                                  role: crew.role,
+                                }
+                              )
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>All Days Brief</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Day-by-Day Detailed Event Cards */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h4 className="font-serif font-bold text-sm text-[#0D4F4F] uppercase tracking-wider">
+                    Full Day-by-Day Event Breakdown &amp; Crew
+                  </h4>
+                  <Link
+                    href={`/quotations/${selectedWeddingModalQuotation.id}/compare`}
+                    className="text-[#D4AF37] font-bold text-xs hover:underline flex items-center gap-1"
+                  >
+                    <Edit className="w-3.5 h-3.5" /> Edit Team Assignment
+                  </Link>
+                </div>
+
+                <div className="space-y-4">
+                  {selectedWeddingModalQuotation.events.map((evt, idx) => {
+                    const photoService = evt.services.find((s) =>
+                      s.serviceName.toLowerCase().includes('photo')
+                    );
+                    const videoService = evt.services.find((s) =>
+                      s.serviceName.toLowerCase().includes('video')
+                    );
+                    const droneService = evt.services.find((s) =>
+                      s.serviceName.toLowerCase().includes('drone')
+                    );
+
+                    return (
+                      <div
+                        key={evt.id || idx}
+                        className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-sm hover:border-[#0D4F4F]/40 transition-colors"
+                      >
+                        {/* Event Header */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-7 h-7 rounded-lg bg-[#0D4F4F]/10 text-[#0D4F4F] font-bold text-xs flex items-center justify-center">
+                              #{idx + 1}
+                            </span>
+                            <div>
+                              <h5 className="font-serif font-bold text-base text-[#0D4F4F]">{evt.name}</h5>
+                              <span className="text-xs text-slate-500 font-medium">
+                                {evt.eventDate ? formatDate(evt.eventDate) : 'Date TBD'} • {evt.guestCount || 0} Guests
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 uppercase font-semibold block">Selling Price</span>
+                            <span className="font-serif font-bold text-sm text-slate-900">{formatCurrency(evt.price)}</span>
+                          </div>
+                        </div>
+
+                        {/* Venue & Timing if set */}
+                        {(evt.venue || evt.timing || evt.mapLink) && (
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex flex-wrap items-center gap-4 text-xs text-slate-700">
+                            {evt.timing && (
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-[#0D4F4F]" />
+                                <span className="font-semibold">{evt.timing}</span>
+                              </div>
+                            )}
+                            {evt.venue && (
+                              <div className="flex items-center gap-1.5">
+                                <MapPin className="w-3.5 h-3.5 text-[#0D4F4F]" />
+                                <span>{evt.venue}</span>
+                              </div>
+                            )}
+                            {evt.mapLink && (
+                              <a
+                                href={evt.mapLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-blue-600 hover:underline flex items-center gap-1 font-semibold"
+                              >
+                                <ExternalLink className="w-3 h-3" /> Map Location
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Shooting Crew Rows */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                          {/* Photographers */}
+                          {photoService && (
+                            <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200 text-xs space-y-2">
+                              <span className="text-[10px] font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                                <Camera className="w-3.5 h-3.5 text-blue-600" /> Photographers ({photoService.quantity || 1})
+                              </span>
+                              <div className="space-y-1.5">
+                                {(photoService.crewBreakdown || []).slice(0, photoService.quantity || 1).map((crew, cIdx) => (
+                                  <div
+                                    key={cIdx}
+                                    className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-blue-100 shadow-2xs"
+                                  >
+                                    <div>
+                                      <span className="font-bold text-xs text-slate-900 block truncate">
+                                        {crew.name || `Photographer #${cIdx + 1}`}
+                                      </span>
+                                      <span className="text-[10px] text-slate-500 font-mono block">
+                                        {crew.phone || 'No phone'}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleOpenCrewModal(
+                                          selectedWeddingModalQuotation,
+                                          {
+                                            name: crew.name,
+                                            phone: crew.phone,
+                                            role: 'Lead Photographer',
+                                          },
+                                          evt.id
+                                        )
+                                      }
+                                      className="px-2.5 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                                      title="Send WhatsApp Brief"
+                                    >
+                                      <MessageSquare className="w-3 h-3" />
+                                      <span>Brief</span>
+                                    </button>
+                                  </div>
+                                ))}
+                                {(!photoService.crewBreakdown || photoService.crewBreakdown.length === 0) && (
+                                  <span className="text-xs text-slate-400 italic">Unassigned</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Videographers */}
+                          {videoService && (
+                            <div className="p-3 rounded-xl bg-purple-50/80 border border-purple-200 text-xs space-y-2">
+                              <span className="text-[10px] font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+                                <Video className="w-3.5 h-3.5 text-purple-600" /> Videographers ({videoService.quantity || 1})
+                              </span>
+                              <div className="space-y-1.5">
+                                {(videoService.crewBreakdown || []).slice(0, videoService.quantity || 1).map((crew, cIdx) => (
+                                  <div
+                                    key={cIdx}
+                                    className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-purple-100 shadow-2xs"
+                                  >
+                                    <div>
+                                      <span className="font-bold text-xs text-slate-900 block truncate">
+                                        {crew.name || `Videographer #${cIdx + 1}`}
+                                      </span>
+                                      <span className="text-[10px] text-slate-500 font-mono block">
+                                        {crew.phone || 'No phone'}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleOpenCrewModal(
+                                          selectedWeddingModalQuotation,
+                                          {
+                                            name: crew.name,
+                                            phone: crew.phone,
+                                            role: 'Cinematographer',
+                                          },
+                                          evt.id
+                                        )
+                                      }
+                                      className="px-2.5 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                                      title="Send WhatsApp Brief"
+                                    >
+                                      <MessageSquare className="w-3 h-3" />
+                                      <span>Brief</span>
+                                    </button>
+                                  </div>
+                                ))}
+                                {(!videoService.crewBreakdown || videoService.crewBreakdown.length === 0) && (
+                                  <span className="text-xs text-slate-400 italic">Unassigned</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Drone Pilots */}
+                          {droneService && (
+                            <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-xs space-y-2 sm:col-span-2">
+                              <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                                <Plane className="w-3.5 h-3.5 text-amber-600" /> Drone Operators ({droneService.quantity || 1})
+                              </span>
+                              <div className="space-y-1.5">
+                                {(droneService.crewBreakdown || []).slice(0, droneService.quantity || 1).map((crew, cIdx) => (
+                                  <div
+                                    key={cIdx}
+                                    className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-amber-100 shadow-2xs"
+                                  >
+                                    <div>
+                                      <span className="font-bold text-xs text-slate-900 block truncate">
+                                        {crew.name || `Drone Pilot #${cIdx + 1}`}
+                                      </span>
+                                      <span className="text-[10px] text-slate-500 font-mono block">
+                                        {crew.phone || 'No phone'}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleOpenCrewModal(
+                                          selectedWeddingModalQuotation,
+                                          {
+                                            name: crew.name,
+                                            phone: crew.phone,
+                                            role: 'Drone Pilot',
+                                          },
+                                          evt.id
+                                        )
+                                      }
+                                      className="px-2.5 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                                      title="Send WhatsApp Brief"
+                                    >
+                                      <MessageSquare className="w-3 h-3" />
+                                      <span>Brief</span>
+                                    </button>
+                                  </div>
+                                ))}
+                                {(!droneService.crewBreakdown || droneService.crewBreakdown.length === 0) && (
+                                  <span className="text-xs text-slate-400 italic">Unassigned</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedWeddingModalQuotation(null)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Close Window
+              </button>
+
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/quotations/${selectedWeddingModalQuotation.id}`}
+                  className="px-4 py-2 rounded-xl border border-[#0D4F4F] text-[#0D4F4F] font-bold text-xs hover:bg-[#0D4F4F]/10 transition-colors"
+                >
+                  View Quotation
+                </Link>
+                <Link
+                  href={`/quotations/${selectedWeddingModalQuotation.id}/compare`}
+                  className="px-4 py-2 rounded-xl bg-[#D4AF37] text-[#0D4F4F] font-bold text-xs shadow-md hover:brightness-110 transition-all"
+                >
+                  Edit Team &amp; Profit
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Crew WhatsApp Briefing Modal */}
       <SendCrewWhatsAppModal
         isOpen={isCrewModalOpen}
@@ -688,19 +1093,6 @@ export default function MasterCalendarPage() {
         quotation={selectedQuotation}
         crewMember={selectedCrewMember}
         initialEventId={selectedEventId}
-      />
-
-      {/* Event Details Modal */}
-      <EventDetailsModal
-        isOpen={isEventDetailsOpen}
-        onClose={() => setIsEventDetailsOpen(false)}
-        quotation={selectedQuotationForDetails}
-        event={selectedEventForDetails}
-        onOpenCrewBrief={(crewMember, eventId) => {
-          if (selectedQuotationForDetails) {
-            handleOpenCrewModal(selectedQuotationForDetails, crewMember, eventId);
-          }
-        }}
       />
     </div>
   );
