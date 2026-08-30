@@ -216,7 +216,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                   onClick={() => setExpandedEventId(isExpanded ? null : evt.id)}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="px-2 py-1 min-w-7 h-7 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-serif font-bold text-xs flex items-center justify-center shrink-0 whitespace-nowrap">
+                    <span className="px-2.5 py-1 min-w-[50px] rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-serif font-bold text-xs flex items-center justify-center shrink-0 whitespace-nowrap shadow-2xs">
                       Day {evt.dayNumber || index + 1}
                     </span>
                     <div>
@@ -263,25 +263,25 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                 {/* Event Expanded Form */}
                 {isExpanded && (
                   <div className="p-4 space-y-4 bg-slate-50/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-12 gap-3 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
                       {/* Event Name */}
-                      <div className="lg:col-span-3">
-                        <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" /> Event Name
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1.5 flex items-center gap-1.5 h-4">
+                          <Calendar className="w-3.5 h-3.5 text-[#0D4F4F]" /> Event Name *
                         </label>
                         <input
                           type="text"
                           value={evt.name}
                           onChange={(e) => handleUpdateEvent(evt.id, { name: e.target.value })}
                           placeholder="e.g. Mehndi, Barat, Walima"
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none font-semibold text-slate-800"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none font-semibold text-slate-800 text-xs"
                         />
                       </div>
 
                       {/* Venue / Marquee Name (Optional) */}
-                      <div className="lg:col-span-3">
-                        <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400" /> Venue / Marquee (Optional)
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1.5 flex items-center gap-1.5 h-4">
+                          <MapPin className="w-3.5 h-3.5 text-[#0D4F4F]" /> Venue / Marquee (Optional)
                         </label>
                         <input
                           type="text"
@@ -292,53 +292,17 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                               venue: e.target.value || undefined,
                             })
                           }
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                        />
-                      </div>
-
-                      {/* Event Timing (Optional) */}
-                      <div className="lg:col-span-2">
-                        <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" /> Event Timing (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. 07:00 PM (Night)"
-                          value={evt.timing || ''}
-                          onChange={(e) =>
-                            handleUpdateEvent(evt.id, {
-                              timing: e.target.value || undefined,
-                            })
-                          }
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                        />
-                      </div>
-
-                      {/* Guest Count */}
-                      <div className="lg:col-span-2">
-                        <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
-                          <Users className="w-3.5 h-3.5 text-slate-400" /> Guest Count (Optional)
-                        </label>
-                        <input
-                          type="number"
-                          placeholder="e.g. 150"
-                          value={evt.guestCount || ''}
-                          onChange={(e) =>
-                            handleUpdateEvent(evt.id, {
-                              guestCount: e.target.value ? parseInt(e.target.value) : undefined,
-                            })
-                          }
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none text-xs"
                         />
                       </div>
 
                       {/* Manual Price Field (CRITICAL RULE: User enters price manually) */}
-                      <div className="lg:col-span-2">
-                        <label className="block font-semibold text-[#0D4F4F] mb-1 flex items-center gap-1 whitespace-nowrap">
-                          <DollarSign className="w-3.5 h-3.5 text-[#D4AF37]" /> Manual Price *
+                      <div>
+                        <label className="block font-bold text-[#0D4F4F] mb-1.5 flex items-center gap-1.5 h-4">
+                          <DollarSign className="w-3.5 h-3.5 text-[#D4AF37]" /> Manual Event Price *
                         </label>
                         <div className="relative">
-                          <span className="absolute left-2.5 top-2.5 font-bold text-xs text-slate-400">Rs.</span>
+                          <span className="absolute left-3 top-2 font-bold text-xs text-slate-400">Rs.</span>
                           <input
                             type="number"
                             required
@@ -349,9 +313,45 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                                 price: parseFloat(e.target.value) || 0,
                               })
                             }
-                            className="w-full pl-8 pr-2.5 py-2 border-2 border-[#0D4F4F]/30 rounded-lg bg-white font-bold text-sm text-[#0D4F4F] focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full pl-9 pr-3 py-2 border-2 border-[#0D4F4F]/40 rounded-lg bg-white font-bold text-xs text-[#0D4F4F] focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
                           />
                         </div>
+                      </div>
+
+                      {/* Event Timing (Optional) */}
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1.5 flex items-center gap-1.5 h-4">
+                          <Clock className="w-3.5 h-3.5 text-[#0D4F4F]" /> Event Timing (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 07:00 PM (Night)"
+                          value={evt.timing || ''}
+                          onChange={(e) =>
+                            handleUpdateEvent(evt.id, {
+                              timing: e.target.value || undefined,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none text-xs"
+                        />
+                      </div>
+
+                      {/* Guest Count */}
+                      <div className="sm:col-span-2 lg:col-span-2">
+                        <label className="block font-bold text-slate-700 mb-1.5 flex items-center gap-1.5 h-4">
+                          <Users className="w-3.5 h-3.5 text-[#0D4F4F]" /> Guest Count (Optional)
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 150 Guests"
+                          value={evt.guestCount || ''}
+                          onChange={(e) =>
+                            handleUpdateEvent(evt.id, {
+                              guestCount: e.target.value ? parseInt(e.target.value) : undefined,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none text-xs"
+                        />
                       </div>
                     </div>
 
