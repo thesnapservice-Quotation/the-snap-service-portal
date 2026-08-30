@@ -114,10 +114,10 @@ export function SendCrewWhatsAppModal({
         .map((evt, idx) => {
           const dateStr = evt.eventDate ? formatDate(evt.eventDate) : 'Date TBD';
           const venue = evt.venue || venueName || 'Venue TBD';
-          const time = evt.timing || eventTiming || '07:00 PM (Night Event)';
+          const time = evt.timing || eventTiming || '07:00 PM';
           const mapPin = evt.mapLink || mapLocation || '';
           
-          let line = `• Day ${idx + 1}: *${evt.name}*\n  📅 Date: ${dateStr}\n  ⏰ Time: ${time} (Reporting: ${reportingTime})\n  📍 Venue: ${venue}`;
+          let line = `Day ${idx + 1}: ${evt.name}\n  📅 Date: ${dateStr}\n  ⏰ Time: ${time}\n  📍 Venue: ${venue}`;
           if (mapPin) {
             line += `\n  🗺️ Map: ${mapPin}`;
           }
@@ -125,64 +125,27 @@ export function SendCrewWhatsAppModal({
         })
         .join('\n\n');
 
-      return `Salam ${crewMember.name},
+      return `Aslamoalikum ${crewMember.name},
 
-📋 *COMPLETE WEDDING CREW SCHEDULE & LOCATIONS — ${studioName.toUpperCase()}*
-
-You are assigned for the upcoming wedding shoot of *${clientName}* (${qNum}).
-
-*Complete Multi-Day Events Schedule:*
-${scheduleLines}
-
-*Assigned Role:* ${assignedRole}
-*Client Contact:* ${clientName} (${clientPhone})
-*Dress Code:* ${dressCode}
-
-⚠️ *Guidelines:*
-• Please reach venue 15-20 minutes before reporting time each day.
-• Ensure batteries are 100% charged and high-speed SD cards formatted.
-
-Please review the complete schedule and reply with *"CONFIRMED"* to block your dates.
-
-Regards,
-*Studio Operations*
-${studioName}`;
+${scheduleLines}`;
     }
 
     // Single event / Today / Tomorrow
     const targetEvent = activeEvent || quotation.events[0];
-    const eventName = targetEvent ? targetEvent.name : 'Wedding Event';
-    const eventDateStr = targetEvent?.eventDate ? formatDate(targetEvent.eventDate) : 'Today';
-    
-    let headerTitle = "TODAY'S EVENT CREW BRIEFING";
-    if (briefMode === 'tomorrow') headerTitle = "TOMORROW'S EVENT CREW BRIEFING";
-    else if (briefMode === 'single_event') headerTitle = `EVENT BRIEFING: ${eventName.toUpperCase()}`;
+    const eventName = targetEvent ? targetEvent.name : 'Event';
+    const eventDateStr = targetEvent?.eventDate ? formatDate(targetEvent.eventDate) : 'Date TBD';
+    const venue = targetEvent?.venue || venueName || 'Venue TBD';
+    const time = targetEvent?.timing || eventTiming || '07:00 PM';
+    const mapPin = targetEvent?.mapLink || mapLocation || '';
 
-    return `Salam ${crewMember.name},
+    let singleLine = `${eventName}\n  📅 Date: ${eventDateStr}\n  ⏰ Time: ${time}\n  📍 Venue: ${venue}`;
+    if (mapPin) {
+      singleLine += `\n  🗺️ Map: ${mapPin}`;
+    }
 
-📋 *${headerTitle} — ${studioName.toUpperCase()}*
+    return `Aslamoalikum ${crewMember.name},
 
-💍 *Event:* ${eventName} (${clientName})
-📅 *Date:* ${eventDateStr}
-⏰ *Event Time:* ${eventTiming}
-⏰ *Reporting Time:* ${reportingTime}
-
-📍 *Venue / Marquee:* ${venueName || 'Venue TBD'}
-🗺️ *Map Location:* ${mapLocation || 'Map location to be shared'}
-
-👤 *Client Contact:* ${clientName} (${clientPhone})
-👔 *Dress Code:* ${dressCode}
-🎒 *Assigned Role:* ${assignedRole}
-
-⚠️ *Guidelines:*
-• Please reach venue 15 minutes before reporting time.
-• Ensure batteries are 100% charged and SD cards are formatted.
-
-Please reply with *"CONFIRMED"* on receipt.
-
-Regards,
-*Studio Operations*
-${studioName}`;
+${singleLine}`;
   };
 
   // Recompute message when mode or parameters change
