@@ -136,6 +136,71 @@ export const DEFAULT_TERMS: string[] = [
   'Couple shoot duration approximately one hour.',
 ];
 
+export const DEFAULT_WHATSAPP_TEMPLATES = {
+  new_client: `Salam {client_name},
+
+Thank you for contacting {business_name}.
+
+Please find your official photography & videography quotation details below:
+
+{quotation_details}
+
+We would be delighted to capture and preserve your special moments with timeless elegance.
+
+Please let us know if you have any questions or would like to customize your coverage.
+
+Regards,
+{business_name}`,
+
+  second_reminder: `Salam {client_name},
+
+Hope you are having a wonderful day!
+
+Following up on your wedding photography quotation ({quotation_number}). We wanted to check if you had a chance to review the package details:
+
+{quotation_details}
+
+Our dates fill up fast on a first-come, first-served basis. Please let us know if you would like to secure your event dates.
+
+Regards,
+{business_name}`,
+
+  final_reminder: `Salam {client_name},
+
+This is a gentle final reminder regarding your event quotation ({quotation_number}).
+
+{quotation_details}
+
+We are currently receiving multiple inquiries for these dates ({event_dates}). To avoid disappointment, please confirm your booking so we can keep our team reserved for you.
+
+Regards,
+{business_name}`,
+
+  offer_reminder: `Salam {client_name},
+
+Special update regarding your wedding photography quotation ({quotation_number}):
+
+{quotation_details}
+
+We have a limited-time complimentary upgrade available for your wedding dates. Let us know if you would like to lock your booking and avail this special package offer!
+
+Regards,
+{business_name}`,
+
+  event_confirmation: `Salam {client_name},
+
+Congratulations! Your booking with {business_name} is officially confirmed and locked! 🎉
+
+Here is your confirmed booking summary:
+
+{quotation_details}
+
+Our senior cinematography & photography crew is officially reserved for your wedding celebrations. We look forward to creating unforgettable memories with you!
+
+Regards,
+{business_name}`,
+};
+
 export const SUPER_ADMIN_DEFAULT_SETTINGS: AppSettings = {
   business: {
     name: 'The Snap Service',
@@ -164,6 +229,7 @@ export const SUPER_ADMIN_DEFAULT_SETTINGS: AppSettings = {
     autoSyncGoogleDrive: true,
     googleDriveFolderName: 'Snap Service Quotations Archive',
   },
+  whatsappTemplates: DEFAULT_WHATSAPP_TEMPLATES,
 };
 
 export const STANDARD_USER_DEFAULT_SETTINGS: AppSettings = {
@@ -194,6 +260,7 @@ export const STANDARD_USER_DEFAULT_SETTINGS: AppSettings = {
     autoSyncGoogleDrive: false,
     googleDriveFolderName: '',
   },
+  whatsappTemplates: DEFAULT_WHATSAPP_TEMPLATES,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = SUPER_ADMIN_DEFAULT_SETTINGS;

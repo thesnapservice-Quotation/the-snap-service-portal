@@ -19,11 +19,16 @@ import {
   ExternalLink,
   Lock,
   Unlock,
-  Receipt
+  Receipt,
+  ChevronDown,
+  History,
+  Send
 } from 'lucide-react';
 
 import { StatusBadge, STATUS_CLASSES } from '@/components/quotation/status-badge';
 import { PaymentLedgerModal } from '@/components/quotation/payment-ledger-modal';
+import { SendWhatsAppModal } from '@/components/quotation/send-whatsapp-modal';
+import { WhatsAppCategory, WHATSAPP_CATEGORIES } from '@/lib/whatsapp';
 import { Quotation } from '@/lib/types';
 
 export default function QuotationsListPage() {
@@ -32,6 +37,11 @@ export default function QuotationsListPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedLedgerQuote, setSelectedLedgerQuote] = useState<Quotation | null>(null);
+
+  // WhatsApp Modal & Dropdown state
+  const [whatsAppModalQuote, setWhatsAppModalQuote] = useState<Quotation | null>(null);
+  const [whatsAppModalCategory, setWhatsAppModalCategory] = useState<WhatsAppCategory>('new_client');
+  const [openWhatsAppMenuId, setOpenWhatsAppMenuId] = useState<string | null>(null);
 
   const filtered = quotations.filter((q) => {
     const matchesSearch =
@@ -163,7 +173,21 @@ export default function QuotationsListPage() {
                         <span className="font-bold text-slate-800 text-sm block">
                           {q.client.name || 'Unnamed Client'}
                         </span>
-                        <span className="text-slate-400 text-[11px]">{q.client.phone}</span>
+                        <span className="text-slate-400 text-[11px] block">{q.client.phone}</span>
+                        {q.whatsappHistory && q.whatsappHistory.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setWhatsAppModalCategory(q.whatsappHistory![0].category);
+                              setWhatsAppModalQuote(q);
+                            }}
+                            className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[9.5px] font-semibold border border-emerald-200 transition-colors"
+                            title="Click to view WhatsApp sending history"
+                          >
+                            <MessageSquare className="w-2.5 h-2.5 text-emerald-600" />
+                            <span>{q.whatsappHistory[0].categoryLabel} ({formatDate(q.whatsappHistory[0].sentAt)})</span>
+                          </button>
+                        )}
                       </td>
 
                       {/* Events Summary */}
@@ -240,15 +264,83 @@ export default function QuotationsListPage() {
                       {/* Actions */}
                       <td className="px-5 py-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
-                          <a
-                            href={generateWhatsAppShareUrl(q)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200"
-                            title="Share Quotation on WhatsApp"
-                          >
-                            <MessageSquare className="w-4 h-4" />
-                          </a>
+                          {/* WhatsApp Dropdown Button */}
+                          <div className="relative inline-block text-left">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenWhatsAppMenuId(openWhatsAppMenuId === q.id ? null : q.id);
+                              }}
+                              className="p-1.5 px-2 rounded-lg text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 transition-colors shadow-2xs flex items-center gap-1 text-[11px] font-bold"
+                              title="Send WhatsApp Message"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>WhatsApp</span>
+                              <ChevronDown className="w-3 h-3 text-emerald-600" />
+                            </button>
+
+                            {openWhatsAppMenuId === q.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-30"
+                                  onClick={() => setOpenWhatsAppMenuId(null)}
+                                />
+                                <div className="absolute right-0 mt-1 w-56 rounded-2xl bg-white shadow-2xl border border-slate-200 py-1.5 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
+                                  <div className="px-3 py-1.5 border-b border-slate-100 mb-1">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                      WhatsApp Category
+                                    </span>
+                                    <span className="text-xs font-bold text-slate-800 truncate block">
+                                      {q.client.name}
+                                    </span>
+                                  </div>
+
+                                  {WHATSAPP_CATEGORIES.map((cat) => (
+                                    <button
+                                      key={cat.id}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenWhatsAppMenuId(null);
+                                        setWhatsAppModalCategory(cat.id);
+                                        setWhatsAppModalQuote(q);
+                                      }}
+                                      className="w-full px-3 py-2 text-left hover:bg-emerald-50 transition-colors flex items-center justify-between text-xs group"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-600 group-hover:scale-125 transition-transform" />
+                                        <span className="font-semibold text-slate-800 group-hover:text-emerald-900">
+                                          {cat.label}
+                                        </span>
+                                      </div>
+                                      <span className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-bold uppercase ${cat.bg} ${cat.color}`}>
+                                        {cat.badgeLabel}
+                                      </span>
+                                    </button>
+                                  ))}
+
+                                  <div className="border-t border-slate-100 mt-1 pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenWhatsAppMenuId(null);
+                                        setWhatsAppModalCategory('new_client');
+                                        setWhatsAppModalQuote(q);
+                                      }}
+                                      className="w-full px-3 py-1.5 text-left hover:bg-slate-50 transition-colors flex items-center gap-2 text-[11px] text-slate-600 font-medium"
+                                    >
+                                      <History className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>
+                                        View History ({q.whatsappHistory?.length || 0})
+                                      </span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
 
                           <a
                             href={generatePortalUrl(q)}
@@ -330,6 +422,20 @@ export default function QuotationsListPage() {
           onQuotationUpdate={(updated) => {
             saveQuotation(updated);
             setSelectedLedgerQuote(updated);
+          }}
+        />
+      )}
+
+      {/* WhatsApp Message Preview & Sending Modal */}
+      {whatsAppModalQuote && (
+        <SendWhatsAppModal
+          isOpen={!!whatsAppModalQuote}
+          quotation={whatsAppModalQuote}
+          initialCategory={whatsAppModalCategory}
+          onClose={() => setWhatsAppModalQuote(null)}
+          onSaveQuotation={(updated) => {
+            saveQuotation(updated);
+            setWhatsAppModalQuote(updated);
           }}
         />
       )}

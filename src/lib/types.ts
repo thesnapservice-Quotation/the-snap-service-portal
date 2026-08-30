@@ -170,6 +170,37 @@ export interface Quotation {
   additionalExpenses?: AdditionalExpense[]; // Internal non-service costs (Transport, Food, etc.)
   internalAnalysis?: InternalAnalysis;
   deliverableStatus?: DeliverableStatus;
+  whatsappHistory?: WhatsAppHistoryEntry[];
+}
+
+export type WhatsAppCategory = 
+  | 'new_client'
+  | 'second_reminder'
+  | 'final_reminder'
+  | 'offer_reminder'
+  | 'event_confirmation'
+  | string;
+
+export interface WhatsAppTemplatesConfig {
+  new_client: string;
+  second_reminder: string;
+  final_reminder: string;
+  offer_reminder: string;
+  event_confirmation: string;
+  [key: string]: string;
+}
+
+export interface WhatsAppHistoryEntry {
+  id: string;
+  sentAt: string; // ISO timestamp
+  category: WhatsAppCategory;
+  categoryLabel: string;
+  sentTo: string; // Client name
+  phone: string;
+  messageSnippet?: string;
+  sentByUserId?: string;
+  sentByUserName?: string;
+  status: 'sent';
 }
 
 export interface BusinessSettings {
@@ -209,6 +240,7 @@ export interface AppSettings {
   bank: BankDetails;
   quotation: QuotationSettings;
   integrations?: IntegrationsSettings;
+  whatsappTemplates?: WhatsAppTemplatesConfig;
 }
 
 // ----------------------------------------------------

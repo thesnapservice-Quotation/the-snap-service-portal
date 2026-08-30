@@ -61,9 +61,14 @@ import {
   ListTodo,
   Pencil,
   Mail,
-  Phone
+  Phone,
+  MessageSquare,
+  Send,
+  Info
 } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { WHATSAPP_CATEGORIES, DYNAMIC_VARIABLES_REFERENCE, compileWhatsAppMessage, WhatsAppCategory } from '@/lib/whatsapp';
+import { DEFAULT_WHATSAPP_TEMPLATES } from '@/lib/defaults';
 
 const ICON_OPTIONS = [
   'Camera',
@@ -111,7 +116,8 @@ export default function SettingsPage() {
     refreshAuth
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'business' | 'bank' | 'services' | 'terms' | 'quotation' | 'users' | 'notifications' | 'backup'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'bank' | 'services' | 'terms' | 'quotation' | 'whatsapp' | 'users' | 'notifications' | 'backup'>('business');
+  const [selectedTemplateCat, setSelectedTemplateCat] = useState<WhatsAppCategory>('new_client');
 
   // If task_manager, automatically default to notifications tab
   useEffect(() => {
@@ -469,11 +475,42 @@ export default function SettingsPage() {
 
   // Sync state when settings load
   React.useEffect(() => {
-    setFormData(settings);
+    setFormData({
+      ...settings,
+      whatsappTemplates: {
+        ...DEFAULT_WHATSAPP_TEMPLATES,
+        ...(settings.whatsappTemplates || {}),
+      },
+    });
     if (settings.integrations?.googleDriveWebhookUrl) {
       setGoogleWebhookUrl(settings.integrations.googleDriveWebhookUrl);
     }
   }, [settings]);
+
+  const handleUpdateTemplate = (category: string, text: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      whatsappTemplates: {
+        ...DEFAULT_WHATSAPP_TEMPLATES,
+        ...(prev.whatsappTemplates || {}),
+        [category]: text,
+      },
+    }));
+  };
+
+  const handleResetTemplate = (category: string) => {
+    const defaultText = (DEFAULT_WHATSAPP_TEMPLATES as any)[category] || '';
+    handleUpdateTemplate(category, defaultText);
+  };
+
+  const handleResetAllTemplates = () => {
+    if (confirm('Reset all WhatsApp message templates to original factory defaults?')) {
+      setFormData((prev) => ({
+        ...prev,
+        whatsappTemplates: { ...DEFAULT_WHATSAPP_TEMPLATES },
+      }));
+    }
+  };
 
   const handleSaveSettings = async () => {
     await updateSettings(formData);
@@ -615,6 +652,16 @@ export default function SettingsPage() {
               }`}
             >
               <Sparkles className="w-4 h-4" /> Quotation Defaults
+            </button>
+            <button
+              onClick={() => setActiveTab('whatsapp')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'whatsapp'
+                  ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4 text-emerald-600" /> WhatsApp Templates
             </button>
 
             {isSuperAdmin && (
@@ -1094,6 +1141,229 @@ export default function SettingsPage() {
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Tab: WhatsApp Message Templates & Automation */}
+      {activeTab === 'whatsapp' && (
+        <div className="space-y-6 text-xs">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-[#0D4F4F] to-[#156060] text-white p-5 rounded-2xl shadow-md border border-[#D4AF37]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <h3 className="font-serif font-bold text-base text-white">
+                  WhatsApp Message Templates &amp; Automation
+                </h3>
+              </div>
+              <p className="text-slate-300 text-xs max-w-2xl leading-relaxed">
+                Customize the default wording for each WhatsApp category. Quotation specifics (Event dates, package, pricing, balance, and portal link) are automatically generated and synchronized with live quotation data.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleResetAllTemplates}
+                className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition-all"
+                title="Reset all message templates to original factory defaults"
+              >
+                Reset All Defaults
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSettings}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs shadow-md hover:brightness-105 transition-all flex items-center gap-1.5"
+              >
+                <Save className="w-4 h-4" /> Save Templates
+              </button>
+            </div>
+          </div>
+
+          {/* Category Selector Tabs */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+            {WHATSAPP_CATEGORIES.map((cat) => {
+              const isSelected = selectedTemplateCat === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedTemplateCat(cat.id)}
+                  className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                    isSelected
+                      ? 'bg-[#0D4F4F] text-white border-[#D4AF37] shadow-md ring-2 ring-[#D4AF37]/30'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 mb-2">
+                    <span className="font-bold text-xs truncate">{cat.label}</span>
+                    <span
+                      className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                        isSelected
+                          ? 'bg-[#D4AF37] text-[#0D4F4F]'
+                          : `${cat.bg} ${cat.color}`
+                      }`}
+                    >
+                      {cat.badgeLabel}
+                    </span>
+                  </div>
+                  <span
+                    className={`text-[10.5px] line-clamp-2 ${
+                      isSelected ? 'text-slate-200' : 'text-slate-400'
+                    }`}
+                  >
+                    {cat.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Template Editor Box */}
+          {(() => {
+            const currentCatMeta =
+              WHATSAPP_CATEGORIES.find((c) => c.id === selectedTemplateCat) ||
+              WHATSAPP_CATEGORIES[0];
+            const currentTemplateText =
+              formData.whatsappTemplates?.[selectedTemplateCat] !== undefined
+                ? formData.whatsappTemplates[selectedTemplateCat]
+                : (DEFAULT_WHATSAPP_TEMPLATES as any)[selectedTemplateCat] || '';
+
+            return (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-5">
+                {/* Editor Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-serif font-bold text-base text-[#0D4F4F]">
+                        {currentCatMeta.label} Template
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${currentCatMeta.bg} ${currentCatMeta.color} ${currentCatMeta.border}`}>
+                        {currentCatMeta.badgeLabel}
+                      </span>
+                    </div>
+                    <p className="text-slate-400 text-xs mt-0.5">
+                      {currentCatMeta.description}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleResetTemplate(selectedTemplateCat)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs transition-colors"
+                      title="Reset this template to factory default"
+                    >
+                      Reset to Default
+                    </button>
+                  </div>
+                </div>
+
+                {/* Variable Insert Pills Toolbar */}
+                <div className="space-y-1.5 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" /> Click Variable Pill to Insert:
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Standard quotation block is automatically inserted at <code className="font-mono bg-white px-1 py-0.5 rounded text-[#0D4F4F] border border-slate-200">&#123;quotation_details&#125;</code>
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {DYNAMIC_VARIABLES_REFERENCE.map((v) => (
+                      <button
+                        key={v.tag}
+                        type="button"
+                        onClick={() => {
+                          const updated = `${currentTemplateText} ${v.tag}`;
+                          handleUpdateTemplate(selectedTemplateCat, updated);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200 text-slate-700 hover:text-emerald-800 text-[11px] font-mono font-semibold transition-all shadow-2xs group flex items-center gap-1"
+                        title={v.description}
+                      >
+                        <span>{v.tag}</span>
+                        <Plus className="w-3 h-3 text-slate-400 group-hover:text-emerald-600" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Textarea Editor */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Message Body (Supports dynamic placeholders)
+                  </label>
+                  <textarea
+                    rows={12}
+                    value={currentTemplateText}
+                    onChange={(e) => handleUpdateTemplate(selectedTemplateCat, e.target.value)}
+                    placeholder="Enter your customized WhatsApp message template here..."
+                    className="w-full p-4 border border-slate-300 rounded-2xl text-xs font-sans text-slate-800 focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none leading-relaxed bg-white"
+                  />
+                </div>
+
+                {/* Sample Live Output Preview Box */}
+                <div className="space-y-2 bg-[#F0FDF4]/70 p-4 rounded-2xl border border-emerald-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                      <MessageSquare className="w-4 h-4 text-emerald-700" /> Sample Live WhatsApp Preview
+                    </span>
+                    <span className="text-[10px] text-emerald-700 font-medium">
+                      Simulated with sample quotation (#SS-2026-104 • Mr. Waleed)
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-xl border border-emerald-100 font-sans text-xs text-slate-800 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto shadow-2xs">
+                    {compileWhatsAppMessage(
+                      currentTemplateText,
+                      {
+                        id: 'demo',
+                        quotationNumber: 'SS-2026-104',
+                        status: 'sent',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        packageType: 'multi_event',
+                        client: {
+                          name: 'Mr. Waleed',
+                          phone: '0321-7654321',
+                          quotationDate: '2026-08-21',
+                          eventDates: 'Mehndi (15 Sep), Barat (17 Sep), Walima (18 Sep)',
+                        },
+                        events: [
+                          { id: '1', name: 'Mehndi', eventDate: '2026-09-15', services: [], price: 35000 },
+                          { id: '2', name: 'Barat', eventDate: '2026-09-17', services: [], price: 45000 },
+                          { id: '3', name: 'Walima', eventDate: '2026-09-18', services: [], price: 25000 },
+                        ],
+                        inclusions: [],
+                        payment: {
+                          grandTotal: 105000,
+                          advanceReceived: 10000,
+                          advanceType: 'fixed',
+                          balancePayable: 95000,
+                        },
+                        termsAndConditions: [],
+                      },
+                      formData
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Save Bar */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={handleSaveSettings}
+                    className="px-5 py-2.5 rounded-xl bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs shadow-md hover:bg-[#093A3A] transition-all flex items-center gap-1.5"
+                  >
+                    <Save className="w-4 h-4" /> Save All Template Changes
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
