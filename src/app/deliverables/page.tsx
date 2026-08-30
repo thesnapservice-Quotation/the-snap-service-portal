@@ -120,10 +120,10 @@ export default function DeliverablesPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-white/10 p-1.5 rounded-xl border border-white/20">
+          <div className="overflow-x-auto no-scrollbar max-w-full flex items-center gap-2 bg-white/10 p-1.5 rounded-xl border border-white/20">
             <button
               onClick={() => setFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap transition-all ${
                 filter === 'all' ? 'bg-[#D4AF37] text-[#0D4F4F]' : 'text-white hover:bg-white/10'
               }`}
             >
@@ -131,7 +131,7 @@ export default function DeliverablesPage() {
             </button>
             <button
               onClick={() => setFilter('pending')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap transition-all ${
                 filter === 'pending' ? 'bg-[#D4AF37] text-[#0D4F4F]' : 'text-white hover:bg-white/10'
               }`}
             >
@@ -139,7 +139,7 @@ export default function DeliverablesPage() {
             </button>
             <button
               onClick={() => setFilter('completed')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap transition-all ${
                 filter === 'completed' ? 'bg-[#D4AF37] text-[#0D4F4F]' : 'text-white hover:bg-white/10'
               }`}
             >

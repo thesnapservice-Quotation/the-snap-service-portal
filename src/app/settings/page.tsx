@@ -681,12 +681,12 @@ export default function SettingsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
+      <div className="overflow-x-auto no-scrollbar flex items-center md:flex-wrap gap-2 border-b border-slate-200 pb-2">
         {!isTaskManager && (
           <>
             <button
               onClick={() => setActiveTab('business')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shrink-0 whitespace-nowrap transition-all ${
                 activeTab === 'business'
                   ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
@@ -696,7 +696,7 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => setActiveTab('bank')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shrink-0 whitespace-nowrap transition-all ${
                 activeTab === 'bank'
                   ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
@@ -706,7 +706,7 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => setActiveTab('services')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shrink-0 whitespace-nowrap transition-all ${
                 activeTab === 'services'
                   ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
@@ -716,7 +716,7 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => setActiveTab('terms')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shrink-0 whitespace-nowrap transition-all ${
                 activeTab === 'terms'
                   ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
@@ -726,7 +726,7 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => setActiveTab('quotation')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shrink-0 whitespace-nowrap transition-all ${
                 activeTab === 'quotation'
                   ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
@@ -736,7 +736,7 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => setActiveTab('whatsapp')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shrink-0 whitespace-nowrap transition-all ${
                 activeTab === 'whatsapp'
                   ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
@@ -748,7 +748,7 @@ export default function SettingsPage() {
             {isSuperAdmin && (
               <button
                 onClick={() => setActiveTab('users')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap transition-all border ${
                   activeTab === 'users'
                     ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#D4AF37] shadow-md'
                     : 'bg-[#D4AF37]/10 text-[#0D4F4F] border-[#D4AF37]/40 hover:bg-[#D4AF37]/20'
@@ -762,7 +762,7 @@ export default function SettingsPage() {
 
         <button
           onClick={() => setActiveTab('notifications')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap transition-all border ${
             activeTab === 'notifications'
               ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#D4AF37] shadow-md'
               : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -774,7 +774,7 @@ export default function SettingsPage() {
         {!isTaskManager && (
           <button
             onClick={() => setActiveTab('backup')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold shrink-0 whitespace-nowrap transition-all border ${
               activeTab === 'backup'
                 ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#D4AF37] shadow-md'
                 : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'

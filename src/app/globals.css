@@ -52,6 +52,15 @@
   border-radius: 3px;
 }
 
+/* Utility to hide scrollbars while preserving touch scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Print & A4 PDF CSS Setup */
 @page {
   size: A4 portrait;

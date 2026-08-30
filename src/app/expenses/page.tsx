@@ -428,11 +428,11 @@ export default function ExpensesPage() {
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Navigation Pill Tabs */}
-          <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold">
+          <div className="overflow-x-auto no-scrollbar inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold max-w-full">
             <button
               type="button"
               onClick={() => setActiveTab('team_ledger')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg shrink-0 whitespace-nowrap transition-all ${
                 activeTab === 'team_ledger'
                   ? 'bg-white text-[#0D4F4F] font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -447,7 +447,7 @@ export default function ExpensesPage() {
             <button
               type="button"
               onClick={() => setActiveTab('all')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg shrink-0 whitespace-nowrap transition-all ${
                 activeTab === 'all'
                   ? 'bg-white text-[#0D4F4F] font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -499,11 +499,11 @@ export default function ExpensesPage() {
 
         {/* Category Filter Pills (Visible when in All Entries Tab) */}
         {activeTab === 'all' && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-xs">
             <button
               type="button"
               onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1 rounded-full whitespace-nowrap transition-all ${
+              className={`px-3 py-1 rounded-full shrink-0 whitespace-nowrap transition-all ${
                 selectedCategory === 'all'
                   ? 'bg-[#0D4F4F] text-[#D4AF37] font-bold shadow-2xs'
                   : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
@@ -519,7 +519,7 @@ export default function ExpensesPage() {
                   key={catKey}
                   type="button"
                   onClick={() => setSelectedCategory(catKey)}
-                  className={`px-3 py-1 rounded-full whitespace-nowrap flex items-center gap-1.5 transition-all ${
+                  className={`px-3 py-1 rounded-full shrink-0 whitespace-nowrap flex items-center gap-1.5 transition-all ${
                     isSelected
                       ? 'bg-[#0D4F4F] text-[#D4AF37] font-bold shadow-2xs'
                       : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'

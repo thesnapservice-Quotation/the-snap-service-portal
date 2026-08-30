@@ -674,7 +674,7 @@ export default function TasksPage() {
       {/* MINIMAL FILTER TABS & SEARCH BAR */}
       <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200 shadow-2xs space-y-3">
         {/* Category Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs scrollbar-none">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 text-xs">
           <button
             type="button"
             onClick={() => setCategoryFilter('all')}
