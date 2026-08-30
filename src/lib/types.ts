@@ -234,6 +234,14 @@ export interface IntegrationsSettings {
   googleDriveFolderName?: string;
 }
 
+export interface CustomWhatsAppCategory {
+  id: string;
+  label: string;
+  badgeLabel?: string;
+  description?: string;
+  isCustom?: boolean;
+}
+
 export interface AppSettings {
   workspaceId?: string;
   business: BusinessSettings;
@@ -241,6 +249,7 @@ export interface AppSettings {
   quotation: QuotationSettings;
   integrations?: IntegrationsSettings;
   whatsappTemplates?: WhatsAppTemplatesConfig;
+  customWhatsAppCategories?: CustomWhatsAppCategory[];
 }
 
 // ----------------------------------------------------

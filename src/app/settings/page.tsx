@@ -67,7 +67,14 @@ import {
   Info
 } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
-import { WHATSAPP_CATEGORIES, DYNAMIC_VARIABLES_REFERENCE, compileWhatsAppMessage, WhatsAppCategory } from '@/lib/whatsapp';
+import { 
+  WHATSAPP_CATEGORIES, 
+  DYNAMIC_VARIABLES_REFERENCE, 
+  compileWhatsAppMessage, 
+  getAllWhatsAppCategories,
+  WhatsAppCategory,
+  CustomWhatsAppCategory 
+} from '@/lib/whatsapp';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '@/lib/defaults';
 
 const ICON_OPTIONS = [
@@ -118,6 +125,11 @@ export default function SettingsPage() {
 
   const [activeTab, setActiveTab] = useState<'business' | 'bank' | 'services' | 'terms' | 'quotation' | 'whatsapp' | 'users' | 'notifications' | 'backup'>('business');
   const [selectedTemplateCat, setSelectedTemplateCat] = useState<WhatsAppCategory>('new_client');
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
+  const [newTplName, setNewTplName] = useState('');
+  const [newTplBadge, setNewTplBadge] = useState('');
+  const [newTplDesc, setNewTplDesc] = useState('');
+  const [newTplBody, setNewTplBody] = useState('');
 
   // If task_manager, automatically default to notifications tab
   useEffect(() => {
@@ -510,6 +522,75 @@ export default function SettingsPage() {
         whatsappTemplates: { ...DEFAULT_WHATSAPP_TEMPLATES },
       }));
     }
+  };
+
+  const handleCreateTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTplName.trim()) return;
+
+    const customId = `custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const newCategory: CustomWhatsAppCategory = {
+      id: customId,
+      label: newTplName.trim(),
+      badgeLabel: (newTplBadge.trim() || newTplName.trim().toUpperCase()).slice(0, 16),
+      description: newTplDesc.trim() || 'Custom message template',
+      isCustom: true,
+    };
+
+    const updatedCustomCategories = [...(formData.customWhatsAppCategories || []), newCategory];
+    const updatedTemplates = {
+      ...DEFAULT_WHATSAPP_TEMPLATES,
+      ...(formData.whatsappTemplates || {}),
+      [customId]:
+        newTplBody.trim() ||
+        `Salam {client_name},\n\nWe are pleased to update you regarding your quotation ({quotation_number}).\n\n{quotation_details}\n\nPlease let us know if you have any questions!\n\nRegards,\n{business_name}`,
+    };
+
+    const updatedSettings: AppSettings = {
+      ...formData,
+      customWhatsAppCategories: updatedCustomCategories,
+      whatsappTemplates: updatedTemplates,
+    };
+
+    setFormData(updatedSettings);
+    setSelectedTemplateCat(customId);
+    setIsCreatingTemplate(false);
+    setNewTplName('');
+    setNewTplBadge('');
+    setNewTplDesc('');
+    setNewTplBody('');
+
+    await updateSettings(updatedSettings);
+    setSaveSuccessMsg(`Custom template "${newCategory.label}" created successfully!`);
+    setTimeout(() => setSaveSuccessMsg(''), 3000);
+  };
+
+  const handleDeleteCustomTemplate = async (categoryId: string) => {
+    const catToDelete = (formData.customWhatsAppCategories || []).find((c) => c.id === categoryId);
+    const catName = catToDelete?.label || 'this template';
+    if (!confirm(`Are you sure you want to delete the "${catName}" template? This action cannot be undone.`)) {
+      return;
+    }
+
+    const updatedCustomCategories = (formData.customWhatsAppCategories || []).filter((c) => c.id !== categoryId);
+    const updatedTemplates = {
+      ...DEFAULT_WHATSAPP_TEMPLATES,
+      ...(formData.whatsappTemplates || {}),
+    };
+    delete (updatedTemplates as Record<string, string>)[categoryId];
+
+    const updatedSettings: AppSettings = {
+      ...formData,
+      customWhatsAppCategories: updatedCustomCategories,
+      whatsappTemplates: updatedTemplates,
+    };
+
+    setFormData(updatedSettings);
+    setSelectedTemplateCat('new_client');
+
+    await updateSettings(updatedSettings);
+    setSaveSuccessMsg(`Template "${catName}" deleted successfully.`);
+    setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
 
   const handleSaveSettings = async () => {
@@ -1183,49 +1264,206 @@ export default function SettingsPage() {
           </div>
 
           {/* Category Selector Tabs */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {WHATSAPP_CATEGORIES.map((cat) => {
-              const isSelected = selectedTemplateCat === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedTemplateCat(cat.id)}
-                  className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
-                    isSelected
-                      ? 'bg-[#0D4F4F] text-white border-[#D4AF37] shadow-md ring-2 ring-[#D4AF37]/30'
-                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-1 mb-2">
-                    <span className="font-bold text-xs truncate">{cat.label}</span>
-                    <span
-                      className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
+          {(() => {
+            const allCategories = getAllWhatsAppCategories(formData);
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                {allCategories.map((cat) => {
+                  const isSelected = !isCreatingTemplate && selectedTemplateCat === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setIsCreatingTemplate(false);
+                        setSelectedTemplateCat(cat.id);
+                      }}
+                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between relative group ${
                         isSelected
-                          ? 'bg-[#D4AF37] text-[#0D4F4F]'
-                          : `${cat.bg} ${cat.color}`
+                          ? 'bg-[#0D4F4F] text-white border-[#D4AF37] shadow-md ring-2 ring-[#D4AF37]/30'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
-                      {cat.badgeLabel}
-                    </span>
+                      <div className="flex items-center justify-between gap-1 mb-2">
+                        <span className="font-bold text-xs truncate">{cat.label}</span>
+                        <span
+                          className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                            isSelected
+                              ? 'bg-[#D4AF37] text-[#0D4F4F]'
+                              : `${cat.bg} ${cat.color}`
+                          }`}
+                        >
+                          {cat.badgeLabel}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-[10.5px] line-clamp-2 ${
+                          isSelected ? 'text-slate-200' : 'text-slate-400'
+                        }`}
+                      >
+                        {cat.description}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {/* + Add New Template Box */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreatingTemplate(true);
+                    setNewTplName('');
+                    setNewTplBadge('');
+                    setNewTplDesc('');
+                    setNewTplBody(
+                      `Salam {client_name},\n\nWe are pleased to update you regarding your quotation ({quotation_number}).\n\n{quotation_details}\n\nPlease let us know if you need any assistance!\n\nRegards,\n{business_name}`
+                    );
+                  }}
+                  className={`p-3.5 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-1 min-h-[90px] group cursor-pointer ${
+                    isCreatingTemplate
+                      ? 'border-[#0D4F4F] bg-emerald-50 text-[#0D4F4F] shadow-sm ring-2 ring-emerald-500/30'
+                      : 'border-slate-300 hover:border-[#0D4F4F] bg-white hover:bg-emerald-50/50 text-slate-500 hover:text-[#0D4F4F]'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 group-hover:border-emerald-400 group-hover:bg-emerald-100 flex items-center justify-center text-slate-500 group-hover:text-emerald-700 transition-colors shadow-2xs">
+                    <Plus className="w-4 h-4" />
                   </div>
-                  <span
-                    className={`text-[10.5px] line-clamp-2 ${
-                      isSelected ? 'text-slate-200' : 'text-slate-400'
-                    }`}
-                  >
-                    {cat.description}
-                  </span>
+                  <span className="font-bold text-xs group-hover:text-[#0D4F4F]">+ Add Template</span>
+                  <span className="text-[10px] text-slate-400">Create new category</span>
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })()}
+
+          {/* Form: Create New WhatsApp Template */}
+          {isCreatingTemplate && (
+            <form
+              onSubmit={handleCreateTemplate}
+              className="bg-white rounded-2xl border-2 border-[#0D4F4F]/30 shadow-lg p-5 space-y-5 animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-serif font-bold text-sm text-[#0D4F4F]">
+                      Create New WhatsApp Message Template
+                    </h4>
+                    <p className="text-slate-400 text-xs">
+                      This template will automatically appear in your Quotation Registry WhatsApp menu.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingTemplate(false)}
+                  className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Template / Category Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Payment Received, Album Ready"
+                    value={newTplName}
+                    onChange={(e) => setNewTplName(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Badge Short Label
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. PAYMENT, UPDATE"
+                    value={newTplBadge}
+                    onChange={(e) => setNewTplBadge(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs uppercase font-bold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Short Description
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Acknowledge advance or milestone payment"
+                    value={newTplDesc}
+                    onChange={(e) => setNewTplDesc(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic Variable Toolbar for New Template */}
+              <div className="space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" /> Click Variable to Insert into Body:
+                </span>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {DYNAMIC_VARIABLES_REFERENCE.map((v) => (
+                    <button
+                      key={v.tag}
+                      type="button"
+                      onClick={() => setNewTplBody((prev) => `${prev} ${v.tag}`)}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200 text-slate-700 hover:text-emerald-800 text-[11px] font-mono font-semibold transition-all shadow-2xs flex items-center gap-1"
+                    >
+                      <span>{v.tag}</span>
+                      <Plus className="w-3 h-3 text-slate-400" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Message Body (with placeholders)
+                </label>
+                <textarea
+                  rows={8}
+                  required
+                  value={newTplBody}
+                  onChange={(e) => setNewTplBody(e.target.value)}
+                  className="w-full p-3.5 border border-slate-300 rounded-2xl text-xs font-sans text-slate-800 focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none leading-relaxed bg-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingTemplate(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs shadow-md hover:bg-[#093A3A] transition-all flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" /> Save &amp; Add Template
+                </button>
+              </div>
+            </form>
+          )}
 
           {/* Active Template Editor Box */}
-          {(() => {
+          {!isCreatingTemplate && (() => {
+            const allCategories = getAllWhatsAppCategories(formData);
             const currentCatMeta =
-              WHATSAPP_CATEGORIES.find((c) => c.id === selectedTemplateCat) ||
-              WHATSAPP_CATEGORIES[0];
+              allCategories.find((c) => c.id === selectedTemplateCat) ||
+              allCategories[0];
             const currentTemplateText =
               formData.whatsappTemplates?.[selectedTemplateCat] !== undefined
                 ? formData.whatsappTemplates[selectedTemplateCat]
@@ -1243,6 +1481,11 @@ export default function SettingsPage() {
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${currentCatMeta.bg} ${currentCatMeta.color} ${currentCatMeta.border}`}>
                         {currentCatMeta.badgeLabel}
                       </span>
+                      {currentCatMeta.isCustom && (
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono text-[9.5px] font-bold">
+                          Custom
+                        </span>
+                      )}
                     </div>
                     <p className="text-slate-400 text-xs mt-0.5">
                       {currentCatMeta.description}
@@ -1250,14 +1493,26 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleResetTemplate(selectedTemplateCat)}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs transition-colors"
-                      title="Reset this template to factory default"
-                    >
-                      Reset to Default
-                    </button>
+                    {currentCatMeta.isCustom ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomTemplate(currentCatMeta.id)}
+                        className="px-3.5 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition-colors flex items-center gap-1.5"
+                        title="Delete this custom template permanently"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Delete Template</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleResetTemplate(selectedTemplateCat)}
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs transition-colors"
+                        title="Reset this template to factory default"
+                      >
+                        Reset to Default
+                      </button>
+                    )}
                   </div>
                 </div>
 

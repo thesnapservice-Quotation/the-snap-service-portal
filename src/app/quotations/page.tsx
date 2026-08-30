@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
+import { useSettings } from '@/hooks/use-settings';
 import { useProfitPrivacy } from '@/context/profit-privacy-context';
 import { formatCurrency, formatDate, generateWhatsAppShareUrl, generatePortalUrl } from '@/lib/utils';
 import { QuotationStatus } from '@/lib/types';
@@ -28,11 +29,12 @@ import {
 import { StatusBadge, STATUS_CLASSES } from '@/components/quotation/status-badge';
 import { PaymentLedgerModal } from '@/components/quotation/payment-ledger-modal';
 import { SendWhatsAppModal } from '@/components/quotation/send-whatsapp-modal';
-import { WhatsAppCategory, WHATSAPP_CATEGORIES } from '@/lib/whatsapp';
+import { WhatsAppCategory, getAllWhatsAppCategories } from '@/lib/whatsapp';
 import { Quotation } from '@/lib/types';
 
 export default function QuotationsListPage() {
   const { quotations, loading, saveQuotation, deleteQuotation, duplicateQuotation } = useQuotations();
+  const { settings } = useSettings();
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -296,7 +298,7 @@ export default function QuotationsListPage() {
                                     </span>
                                   </div>
 
-                                  {WHATSAPP_CATEGORIES.map((cat) => (
+                                  {getAllWhatsAppCategories(settings).map((cat) => (
                                     <button
                                       key={cat.id}
                                       type="button"

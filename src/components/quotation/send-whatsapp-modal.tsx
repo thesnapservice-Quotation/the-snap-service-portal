@@ -9,7 +9,8 @@ import {
   DYNAMIC_VARIABLES_REFERENCE, 
   compileWhatsAppMessage, 
   normalizeWhatsAppPhone, 
-  generateWhatsAppIntentUrl 
+  generateWhatsAppIntentUrl,
+  getAllWhatsAppCategories
 } from '@/lib/whatsapp';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '@/lib/defaults';
 import { formatDate } from '@/lib/utils';
@@ -46,6 +47,8 @@ export function SendWhatsAppModal({
 }: SendWhatsAppModalProps) {
   const { settings } = useSettings();
   const { currentUser } = useAuth();
+
+  const allCategories = useMemo(() => getAllWhatsAppCategories(settings), [settings]);
 
   const [activeCategory, setActiveCategory] = useState<WhatsAppCategory>(initialCategory);
   const [activeTab, setActiveTab] = useState<'compose' | 'history'>('compose');
@@ -84,7 +87,7 @@ export function SendWhatsAppModal({
   const hasValidPhone = normalizedPhone.length >= 10;
 
   const currentCategoryMeta =
-    WHATSAPP_CATEGORIES.find((c) => c.id === activeCategory) || WHATSAPP_CATEGORIES[0];
+    allCategories.find((c) => c.id === activeCategory) || allCategories[0];
 
   const handleResetToTemplate = () => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -231,8 +234,8 @@ export function SendWhatsAppModal({
               <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                 Select Message Category
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-                {WHATSAPP_CATEGORIES.map((cat) => {
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+                {allCategories.map((cat) => {
                   const isSelected = activeCategory === cat.id;
                   return (
                     <button
@@ -241,7 +244,7 @@ export function SendWhatsAppModal({
                       onClick={() => setActiveCategory(cat.id)}
                       className={`p-2 rounded-xl text-center font-bold text-xs border transition-all ${
                         isSelected
-                          ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#0D4F4F] shadow-xs'
+                          ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#0D4F4F] shadow-xs ring-1 ring-[#D4AF37]/50'
                           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >

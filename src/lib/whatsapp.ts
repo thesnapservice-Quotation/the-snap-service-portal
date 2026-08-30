@@ -1,8 +1,8 @@
-import { Quotation, AppSettings, WhatsAppCategory, EventItem } from './types';
+import { Quotation, AppSettings, WhatsAppCategory, EventItem, CustomWhatsAppCategory } from './types';
 import { formatCurrency, formatDate, generatePortalUrl, sortEventsInSequence } from './utils';
 import { DEFAULT_WHATSAPP_TEMPLATES } from './defaults';
 
-export { type WhatsAppCategory } from './types';
+export { type WhatsAppCategory, type CustomWhatsAppCategory } from './types';
 
 export interface WhatsAppCategoryMeta {
   id: WhatsAppCategory;
@@ -12,6 +12,7 @@ export interface WhatsAppCategoryMeta {
   color: string;
   bg: string;
   border: string;
+  isCustom?: boolean;
 }
 
 export const WHATSAPP_CATEGORIES: WhatsAppCategoryMeta[] = [
@@ -23,6 +24,7 @@ export const WHATSAPP_CATEGORIES: WhatsAppCategoryMeta[] = [
     color: 'text-emerald-700',
     bg: 'bg-emerald-50',
     border: 'border-emerald-200',
+    isCustom: false,
   },
   {
     id: 'second_reminder',
@@ -32,6 +34,7 @@ export const WHATSAPP_CATEGORIES: WhatsAppCategoryMeta[] = [
     color: 'text-blue-700',
     bg: 'bg-blue-50',
     border: 'border-blue-200',
+    isCustom: false,
   },
   {
     id: 'final_reminder',
@@ -41,6 +44,7 @@ export const WHATSAPP_CATEGORIES: WhatsAppCategoryMeta[] = [
     color: 'text-rose-700',
     bg: 'bg-rose-50',
     border: 'border-rose-200',
+    isCustom: false,
   },
   {
     id: 'offer_reminder',
@@ -50,6 +54,7 @@ export const WHATSAPP_CATEGORIES: WhatsAppCategoryMeta[] = [
     color: 'text-amber-700',
     bg: 'bg-amber-50',
     border: 'border-amber-200',
+    isCustom: false,
   },
   {
     id: 'event_confirmation',
@@ -59,8 +64,44 @@ export const WHATSAPP_CATEGORIES: WhatsAppCategoryMeta[] = [
     color: 'text-purple-700',
     bg: 'bg-purple-50',
     border: 'border-purple-200',
+    isCustom: false,
   },
 ];
+
+const CUSTOM_COLOR_PALETTES = [
+  { color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200' },
+  { color: 'text-pink-700', bg: 'bg-pink-50', border: 'border-pink-200' },
+  { color: 'text-cyan-700', bg: 'bg-cyan-50', border: 'border-cyan-200' },
+  { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' },
+  { color: 'text-teal-700', bg: 'bg-teal-50', border: 'border-teal-200' },
+  { color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200' },
+];
+
+/**
+ * Returns all default plus custom-created WhatsApp categories seamlessly merged
+ */
+export function getAllWhatsAppCategories(settings?: AppSettings): WhatsAppCategoryMeta[] {
+  const customList = settings?.customWhatsAppCategories || [];
+  if (customList.length === 0) {
+    return WHATSAPP_CATEGORIES;
+  }
+
+  const mappedCustom: WhatsAppCategoryMeta[] = customList.map((c, index) => {
+    const palette = CUSTOM_COLOR_PALETTES[index % CUSTOM_COLOR_PALETTES.length];
+    return {
+      id: c.id,
+      label: c.label,
+      badgeLabel: c.badgeLabel || 'CUSTOM',
+      description: c.description || 'Custom template message',
+      color: palette.color,
+      bg: palette.bg,
+      border: palette.border,
+      isCustom: true,
+    };
+  });
+
+  return [...WHATSAPP_CATEGORIES, ...mappedCustom];
+}
 
 export const DYNAMIC_VARIABLES_REFERENCE = [
   { tag: '{client_name}', description: "Client's full name (e.g. Hamza Javed)" },
