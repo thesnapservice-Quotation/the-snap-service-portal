@@ -7,6 +7,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { BookingCalendar } from '@/components/quotation/booking-calendar';
 import { SendCrewWhatsAppModal, CrewMemberDetail } from '@/components/quotation/send-crew-whatsapp-modal';
+import { EventDetailsModal } from '@/components/quotation/event-details-modal';
 import { Quotation, EventItem } from '@/lib/types';
 import { 
   Calendar as CalendarIcon, 
@@ -27,7 +28,8 @@ import {
   CheckCircle2,
   ChevronDown,
   Edit,
-  ArrowRight
+  ArrowRight,
+  Maximize2
 } from 'lucide-react';
 
 export default function MasterCalendarPage() {
@@ -42,6 +44,11 @@ export default function MasterCalendarPage() {
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
   const [selectedCrewMember, setSelectedCrewMember] = useState<CrewMemberDetail | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>(undefined);
+
+  // Event Details Modal State
+  const [isEventDetailsOpen, setIsEventDetailsOpen] = useState(false);
+  const [selectedQuotationForDetails, setSelectedQuotationForDetails] = useState<Quotation | null>(null);
+  const [selectedEventForDetails, setSelectedEventForDetails] = useState<EventItem | null>(null);
 
   // Aggregate stats across all quotations
   const totalEventsCount = useMemo(() => {
@@ -138,6 +145,12 @@ export default function MasterCalendarPage() {
     setSelectedCrewMember(crewMember);
     setSelectedEventId(eventId);
     setIsCrewModalOpen(true);
+  };
+
+  const handleOpenEventDetails = (q: Quotation, evt: EventItem) => {
+    setSelectedQuotationForDetails(q);
+    setSelectedEventForDetails(evt);
+    setIsEventDetailsOpen(true);
   };
 
   return (
@@ -460,12 +473,14 @@ export default function MasterCalendarPage() {
                         return (
                           <div
                             key={evt.id || idx}
-                            className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-2xs hover:border-slate-300 transition-colors"
+                            onClick={() => handleOpenEventDetails(q, evt)}
+                            className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-2xs hover:border-[#0D4F4F] hover:shadow-md transition-all cursor-pointer group relative"
+                            title="Click anywhere to view complete event details"
                           >
                             {/* Event Day Title & Date */}
                             <div className="flex items-center justify-between text-xs">
                               <div className="flex items-center gap-2">
-                                <span className="font-serif font-bold text-sm text-[#0D4F4F]">
+                                <span className="font-serif font-bold text-sm text-[#0D4F4F] group-hover:text-[#093A3A] transition-colors">
                                   Day {evt.dayNumber || idx + 1}: {evt.name}
                                 </span>
                                 {evt.eventDate && (
@@ -474,9 +489,14 @@ export default function MasterCalendarPage() {
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[11px] text-slate-500 font-medium">
-                                {evt.guestCount ? `${evt.guestCount} Guests` : 'Event Day'}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] text-slate-500 font-medium">
+                                  {evt.guestCount ? `${evt.guestCount} Guests` : 'Event Day'}
+                                </span>
+                                <span className="text-[10px] text-[#0D4F4F] font-bold opacity-0 group-hover:opacity-100 transition-opacity bg-[#0D4F4F]/10 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                                  Details ↗
+                                </span>
+                              </div>
                             </div>
 
                             {/* Assigned Crew Members Badges (Bigger & Readable) */}
@@ -498,7 +518,8 @@ export default function MasterCalendarPage() {
                                         </span>
                                         <button
                                           type="button"
-                                          onClick={() =>
+                                          onClick={(e) => {
+                                            e.stopPropagation();
                                             handleOpenCrewModal(
                                               q,
                                               {
@@ -507,9 +528,9 @@ export default function MasterCalendarPage() {
                                                 role: 'Lead Photographer',
                                               },
                                               evt.id
-                                            )
-                                          }
-                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold"
+                                            );
+                                          }}
+                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold cursor-pointer"
                                           title="Send WhatsApp Brief to Photographer"
                                         >
                                           <MessageSquare className="w-3 h-3" />
@@ -541,7 +562,8 @@ export default function MasterCalendarPage() {
                                         </span>
                                         <button
                                           type="button"
-                                          onClick={() =>
+                                          onClick={(e) => {
+                                            e.stopPropagation();
                                             handleOpenCrewModal(
                                               q,
                                               {
@@ -550,9 +572,9 @@ export default function MasterCalendarPage() {
                                                 role: 'Cinematographer',
                                               },
                                               evt.id
-                                            )
-                                          }
-                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold"
+                                            );
+                                          }}
+                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold cursor-pointer"
                                           title="Send WhatsApp Brief to Videographer"
                                         >
                                           <MessageSquare className="w-3 h-3" />
@@ -584,7 +606,8 @@ export default function MasterCalendarPage() {
                                         </span>
                                         <button
                                           type="button"
-                                          onClick={() =>
+                                          onClick={(e) => {
+                                            e.stopPropagation();
                                             handleOpenCrewModal(
                                               q,
                                               {
@@ -593,9 +616,9 @@ export default function MasterCalendarPage() {
                                                 role: 'Drone Pilot',
                                               },
                                               evt.id
-                                            )
-                                          }
-                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold"
+                                            );
+                                          }}
+                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold cursor-pointer"
                                           title="Send WhatsApp Brief to Drone Pilot"
                                         >
                                           <MessageSquare className="w-3 h-3" />
@@ -665,6 +688,19 @@ export default function MasterCalendarPage() {
         quotation={selectedQuotation}
         crewMember={selectedCrewMember}
         initialEventId={selectedEventId}
+      />
+
+      {/* Event Details Modal */}
+      <EventDetailsModal
+        isOpen={isEventDetailsOpen}
+        onClose={() => setIsEventDetailsOpen(false)}
+        quotation={selectedQuotationForDetails}
+        event={selectedEventForDetails}
+        onOpenCrewBrief={(crewMember, eventId) => {
+          if (selectedQuotationForDetails) {
+            handleOpenCrewModal(selectedQuotationForDetails, crewMember, eventId);
+          }
+        }}
       />
     </div>
   );
