@@ -348,33 +348,40 @@ export default function MasterCalendarPage() {
                     </div>
                   </div>
 
-                  {/* Day-by-Day Event & Assigned Shooting Crew */}
-                  <div className="p-4 sm:p-5 space-y-4 flex-1">
-                    <div className="text-[11px] font-bold text-[#0D4F4F] uppercase tracking-wider flex items-center justify-between border-b pb-2">
-                      <span className="flex items-center gap-1.5">
-                        <span>Event Breakdown &amp; Assigned Crew</span>
-                        <span className="text-[10px] text-slate-400 font-normal lowercase">(click to view details)</span>
+                  {/* Card Compact Content */}
+                  <div className="p-4 sm:p-5 space-y-3.5 flex-1">
+                    {/* Event Days Badges (Compact) */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Scheduled Event Days ({q.events.length})
                       </span>
-                      <Link
-                        href={`/quotations/${q.id}/compare`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-[#D4AF37] hover:underline flex items-center gap-1 font-bold text-[11px]"
-                      >
-                        <Edit className="w-3.5 h-3.5" /> Edit Team
-                      </Link>
+                      <div className="flex flex-wrap gap-1.5">
+                        {q.events.map((evt, idx) => (
+                          <span
+                            key={evt.id || idx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#0D4F4F]"></span>
+                            <span className="font-bold text-[#0D4F4F]">{evt.name}</span>
+                            {evt.eventDate && (
+                              <span className="text-slate-500 text-[11px]">({formatDate(evt.eventDate)})</span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
                     </div>
 
-                    {/* Overall Wedding Shooting Team Across All Days */}
+                    {/* Assigned Shooting Team (Compact) */}
                     {(() => {
-                      const uniqueCrewMap = new Map<string, { name: string; phone?: string; role: string; eventsCount: number }>();
+                      const uniqueCrewMap = new Map<string, { name: string; role: string }>();
                       
                       q.events.forEach((evt) => {
                         evt.services.forEach((srv) => {
                           const srvRole = srv.serviceName.toLowerCase().includes('drone')
-                            ? 'Drone Pilot'
+                            ? 'Drone'
                             : srv.serviceName.toLowerCase().includes('video')
-                            ? 'Cinematographer'
-                            : 'Photographer';
+                            ? 'Video'
+                            : 'Photo';
 
                           (srv.crewBreakdown || []).slice(0, srv.quantity || 1).forEach((c) => {
                             const cleanName = c.name?.trim();
@@ -384,16 +391,10 @@ export default function MasterCalendarPage() {
                               !cleanName.toLowerCase().startsWith('videographer #') &&
                               !cleanName.toLowerCase().startsWith('drone #')
                             ) {
-                              const existing = uniqueCrewMap.get(cleanName);
-                              if (existing) {
-                                existing.eventsCount += 1;
-                                if (c.phone && !existing.phone) existing.phone = c.phone;
-                              } else {
+                              if (!uniqueCrewMap.has(cleanName)) {
                                 uniqueCrewMap.set(cleanName, {
                                   name: cleanName,
-                                  phone: c.phone,
                                   role: c.role || srvRole,
-                                  eventsCount: 1,
                                 });
                               }
                             }
@@ -403,258 +404,50 @@ export default function MasterCalendarPage() {
 
                       const uniqueCrewList = Array.from(uniqueCrewMap.values());
 
-                      if (uniqueCrewList.length === 0) return null;
-
                       return (
-                        <div className="p-3 bg-gradient-to-r from-[#0D4F4F]/10 via-[#0D4F4F]/5 to-[#D4AF37]/10 rounded-xl border border-[#0D4F4F]/20 space-y-2">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-bold text-[#0D4F4F] flex items-center gap-1.5 uppercase tracking-wider">
-                              <Users className="w-3.5 h-3.5 text-[#D4AF37]" /> Assigned Wedding Team ({uniqueCrewList.length} Members)
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-medium">1-Click Multi-Day Schedule</span>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            {uniqueCrewList.map((crew, cIdx) => (
-                              <div
-                                key={cIdx}
-                                className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs text-xs"
-                              >
-                                <div className="w-6 h-6 rounded-full bg-[#0D4F4F] text-[#D4AF37] flex items-center justify-center font-bold text-[10px] shrink-0">
-                                  {crew.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  <span className="font-bold text-slate-900 block text-xs leading-tight">{crew.name}</span>
-                                  <span className="text-[9.5px] text-slate-500 block leading-tight font-medium">
-                                    {crew.role} • {crew.eventsCount} {crew.eventsCount === 1 ? 'day' : 'days'}
-                                  </span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenCrewModal(
-                                      q,
-                                      {
-                                        name: crew.name,
-                                        phone: crew.phone,
-                                        role: crew.role,
-                                      }
-                                    );
-                                  }}
-                                  className="ml-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 transition-all shadow-xs shrink-0 cursor-pointer"
-                                  title={`Send all ${q.events.length} days complete schedule to ${crew.name}`}
+                        <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                            Assigned Shooting Crew
+                          </span>
+                          {uniqueCrewList.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {uniqueCrewList.map((crew, cIdx) => (
+                                <span
+                                  key={cIdx}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0D4F4F]/10 border border-[#0D4F4F]/20 text-[#0D4F4F] text-xs font-bold"
                                 >
-                                  <MessageSquare className="w-3 h-3" />
-                                  <span>All Days Brief</span>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
+                                  <div className="w-4 h-4 rounded-full bg-[#0D4F4F] text-[#D4AF37] flex items-center justify-center font-bold text-[9px]">
+                                    {crew.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span>{crew.name}</span>
+                                  <span className="text-[10px] text-slate-500 font-medium font-mono">({crew.role})</span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md inline-block font-medium">
+                              ⚠️ Team not assigned yet
+                            </span>
+                          )}
                         </div>
                       );
                     })()}
-
-                    {/* Day-by-Day List */}
-                    <div className="space-y-3">
-                      {q.events.map((evt, idx) => {
-                        const photoService = evt.services.find((s) =>
-                          s.serviceName.toLowerCase().includes('photo')
-                        );
-                        const videoService = evt.services.find((s) =>
-                          s.serviceName.toLowerCase().includes('video')
-                        );
-                        const droneService = evt.services.find((s) =>
-                          s.serviceName.toLowerCase().includes('drone')
-                        );
-
-                        return (
-                          <div
-                            key={evt.id || idx}
-                            className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-2xs hover:border-[#0D4F4F]/40 transition-all"
-                          >
-                            {/* Event Day Title & Date */}
-                            <div className="flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-2">
-                                <span className="font-serif font-bold text-sm text-[#0D4F4F]">
-                                  Day {evt.dayNumber || idx + 1}: {evt.name}
-                                </span>
-                                {evt.eventDate && (
-                                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-semibold text-[11px]">
-                                    {formatDate(evt.eventDate)}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-[11px] text-slate-500 font-medium">
-                                {evt.guestCount ? `${evt.guestCount} Guests` : 'Event Day'}
-                              </span>
-                            </div>
-
-                            {/* Assigned Crew Members Badges */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                              {photoService && (
-                                <div className="p-2 rounded-lg bg-blue-50/80 border border-blue-200 text-xs space-y-1">
-                                  <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1">
-                                    <Camera className="w-3 h-3 text-blue-600" /> Photographer(s) ({photoService.quantity || 1})
-                                  </span>
-                                  <div className="space-y-1">
-                                    {(photoService.crewBreakdown || []).slice(0, photoService.quantity || 1).map((crew, cIdx) => (
-                                      <div
-                                        key={cIdx}
-                                        className="flex items-center justify-between gap-1.5 bg-white px-2 py-1 rounded-md border border-blue-100 shadow-2xs"
-                                      >
-                                        <span className="font-bold text-xs text-slate-900 truncate">
-                                          {crew.name || `Photographer #${cIdx + 1}`}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenCrewModal(
-                                              q,
-                                              {
-                                                name: crew.name,
-                                                phone: crew.phone,
-                                                role: 'Lead Photographer',
-                                              },
-                                              evt.id
-                                            );
-                                          }}
-                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold"
-                                          title="Send WhatsApp Brief to Photographer"
-                                        >
-                                          <MessageSquare className="w-3 h-3" />
-                                          <span>Brief</span>
-                                        </button>
-                                      </div>
-                                    ))}
-                                    {(!photoService.crewBreakdown || photoService.crewBreakdown.length === 0) && (
-                                      <span className="text-[11px] text-slate-400 italic">Unassigned</span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-
-                              {videoService && (
-                                <div className="p-2 rounded-lg bg-purple-50/80 border border-purple-200 text-xs space-y-1">
-                                  <span className="text-[10px] font-bold text-purple-800 uppercase tracking-wider flex items-center gap-1">
-                                    <Video className="w-3 h-3 text-purple-600" /> Videographer(s) ({videoService.quantity || 1})
-                                  </span>
-                                  <div className="space-y-1">
-                                    {(videoService.crewBreakdown || []).slice(0, videoService.quantity || 1).map((crew, cIdx) => (
-                                      <div
-                                        key={cIdx}
-                                        className="flex items-center justify-between gap-1.5 bg-white px-2 py-1 rounded-md border border-purple-100 shadow-2xs"
-                                      >
-                                        <span className="font-bold text-xs text-slate-900 truncate">
-                                          {crew.name || `Videographer #${cIdx + 1}`}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenCrewModal(
-                                              q,
-                                              {
-                                                name: crew.name,
-                                                phone: crew.phone,
-                                                role: 'Cinematographer',
-                                              },
-                                              evt.id
-                                            );
-                                          }}
-                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold"
-                                          title="Send WhatsApp Brief to Videographer"
-                                        >
-                                          <MessageSquare className="w-3 h-3" />
-                                          <span>Brief</span>
-                                        </button>
-                                      </div>
-                                    ))}
-                                    {(!videoService.crewBreakdown || videoService.crewBreakdown.length === 0) && (
-                                      <span className="text-[11px] text-slate-400 italic">Unassigned</span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-
-                              {droneService && (
-                                <div className="p-2 rounded-lg bg-amber-50/80 border border-amber-200 text-xs space-y-1 sm:col-span-2">
-                                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
-                                    <Plane className="w-3 h-3 text-amber-600" /> Drone Operator ({droneService.quantity || 1})
-                                  </span>
-                                  <div className="space-y-1">
-                                    {(droneService.crewBreakdown || []).slice(0, droneService.quantity || 1).map((crew, cIdx) => (
-                                      <div
-                                        key={cIdx}
-                                        className="flex items-center justify-between gap-1.5 bg-white px-2 py-1 rounded-md border border-amber-100 shadow-2xs"
-                                      >
-                                        <span className="font-bold text-xs text-slate-900 truncate">
-                                          {crew.name || `Drone Pilot #${cIdx + 1}`}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenCrewModal(
-                                              q,
-                                              {
-                                                name: crew.name,
-                                                phone: crew.phone,
-                                                role: 'Drone Pilot',
-                                              },
-                                              evt.id
-                                            );
-                                          }}
-                                          className="p-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-bold"
-                                          title="Send WhatsApp Brief to Drone Pilot"
-                                        >
-                                          <MessageSquare className="w-3 h-3" />
-                                          <span>Brief</span>
-                                        </button>
-                                      </div>
-                                    ))}
-                                    {(!droneService.crewBreakdown || droneService.crewBreakdown.length === 0) && (
-                                      <span className="text-[11px] text-slate-400 italic">Unassigned</span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
                   </div>
 
-                  {/* Card Bottom Actions */}
-                  <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedWeddingModalQuotation(q);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-bold hover:bg-[#093A3A] transition-all shadow-xs cursor-pointer text-[11px]"
-                    >
-                      <Maximize2 className="w-3.5 h-3.5" />
-                      <span>View Full Wedding Details</span>
-                    </button>
+                  {/* Card Bottom: Simple Click Hint & Quick Actions */}
+                  <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 text-xs">
+                    <span className="text-[11px] font-bold text-[#0D4F4F] group-hover:text-[#D4AF37] transition-colors flex items-center gap-1">
+                      <span>Click box for full details &amp; WhatsApp brief</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </span>
 
                     <div className="flex items-center gap-2">
                       <Link
-                        href={`/quotations/${q.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 font-bold hover:bg-slate-100 transition-colors text-[11px]"
-                      >
-                        View Quote
-                      </Link>
-                      <Link
                         href={`/quotations/${q.id}/compare`}
                         onClick={(e) => e.stopPropagation()}
-                        className="px-3 py-1.5 rounded-lg bg-[#D4AF37] text-[#0D4F4F] font-bold hover:brightness-110 transition-all text-[11px] shadow-xs"
+                        className="px-2.5 py-1 rounded-lg bg-[#D4AF37] text-[#0D4F4F] font-bold hover:brightness-110 transition-all text-[11px] shadow-2xs"
                       >
-                        Assign Team
+                        Edit Team
                       </Link>
                     </div>
                   </div>
