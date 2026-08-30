@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Quotation, AdditionalExpense, Service, SelectedService, CrewMemberCost, VideoEditingEventCost, AlbumItemCost } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotationById, apiSaveQuotation } from '@/lib/api-client';
 import { sortEventsInSequence } from '@/components/quotation/quotation-preview';
@@ -31,7 +31,9 @@ import {
   Users,
   Sparkles,
   CheckCircle2,
-  Layers
+  Layers,
+  MapPin,
+  Clock
 } from 'lucide-react';
 
 // Pricing formula as specified by user:
@@ -530,7 +532,7 @@ export default function QuotationComparePage() {
       {/* EVENT-BY-EVENT INTERNAL COST COMPARISON */}
       <div className="space-y-5">
         <h2 className="font-serif font-bold text-base text-[#0D4F4F] uppercase tracking-wider border-b pb-2">
-          Event-by-Event Individual Crew Cost Breakdown
+          Event-by-Event Individual Team Cost Breakdown
         </h2>
 
         {sortedEvents.map((evt) => {
@@ -548,11 +550,24 @@ export default function QuotationComparePage() {
               {/* Event Header Bar */}
               <div className="bg-slate-50 p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h3 className="font-serif font-bold text-base text-[#0D4F4F] uppercase tracking-wide">
-                    {evt.name}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Client Package Price: <span className="font-bold text-slate-900">{formatCurrency(evtPrice)}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-serif font-bold text-base text-[#0D4F4F] uppercase tracking-wide">
+                      {evt.name}
+                    </h3>
+                    {evt.venue && (
+                      <span className="px-2 py-0.5 rounded-md bg-[#0D4F4F]/10 text-[#0D4F4F] font-bold text-xs flex items-center gap-1 border border-[#0D4F4F]/20">
+                        <MapPin className="w-3 h-3 text-[#D4AF37]" /> {evt.venue}
+                      </span>
+                    )}
+                    {evt.timing && (
+                      <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold text-xs flex items-center gap-1 border border-amber-200">
+                        <Clock className="w-3 h-3 text-amber-600" /> {evt.timing}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {evt.eventDate ? `${formatDate(evt.eventDate)} • ` : ''}Client Package Price: <span className="font-bold text-slate-900">{formatCurrency(evtPrice)}</span>
+                    {evt.guestCount ? ` • ${evt.guestCount} Guests` : ''}
                   </p>
                 </div>
 
@@ -570,7 +585,7 @@ export default function QuotationComparePage() {
                 </div>
               </div>
 
-              {/* Services & Individual Crew Cost Breakdown Table */}
+              {/* Services & Individual Team Cost Breakdown Table */}
               <div className="p-4 space-y-4">
                 {evt.services.map((srv) => {
                   const qty = Math.max(1, srv.quantity || 1);
@@ -607,10 +622,10 @@ export default function QuotationComparePage() {
                         </div>
                       </div>
 
-                      {/* Individual Crew Members Name & Cost Input Table */}
+                      {/* Individual Team Members Name & Cost Input Table */}
                       <div className="space-y-2">
                         <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                          Individual Crew Names & Cost Breakdown:
+                          Individual Team Member Names &amp; Cost Breakdown:
                         </span>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -640,7 +655,7 @@ export default function QuotationComparePage() {
                                           e.target.value
                                         )
                                       }
-                                      placeholder={`Crew Name (e.g. Ali Khan)`}
+                                      placeholder={`Team Member Name (e.g. Ali Khan)`}
                                       className="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none bg-white"
                                     />
                                     <datalist id={datalistId}>

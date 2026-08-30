@@ -186,9 +186,9 @@ export function EventDetailsModal({
           {/* Assigned Shooting Crew Breakdown (Large, Clear, Actionable) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
-              <h4 className="font-bold text-xs text-[#0D4F4F] uppercase tracking-wider flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-[#D4AF37]" /> Assigned Shooting Crew for {event.name}
-              </h4>
+              <span className="font-serif font-bold text-xs uppercase text-[#0D4F4F] tracking-wider flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-[#D4AF37]" /> Assigned Shooting Team for {event.name}
+              </span>
               <Link
                 href={`/quotations/${quotation.id}/compare`}
                 className="text-[#D4AF37] hover:underline font-bold text-[11px] flex items-center gap-1"

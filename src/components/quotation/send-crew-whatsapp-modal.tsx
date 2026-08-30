@@ -54,7 +54,6 @@ export function SendCrewWhatsAppModal({
   
   // Brief Details Inputs
   const [eventTiming, setEventTiming] = useState<string>('07:00 PM (Night Event)');
-  const [reportingTime, setReportingTime] = useState<string>('06:30 PM Sharp');
   const [venueName, setVenueName] = useState<string>('');
   const [mapLocation, setMapLocation] = useState<string>('');
   const [dressCode, setDressCode] = useState<string>('Black Studio Shirt / Smart Formal');
@@ -71,20 +70,40 @@ export function SendCrewWhatsAppModal({
     }
   }, [crewMember, isOpen]);
 
+  // Find only events that this team member is actually assigned to
+  const assignedEvents = useMemo(() => {
+    if (!quotation?.events || !crewMember?.name) return [];
+    const memberName = crewMember.name.trim().toLowerCase();
+    
+    return quotation.events.filter((evt) => {
+      return (evt.services || []).some((srv) => {
+        return (srv.crewBreakdown || []).slice(0, srv.quantity || 1).some((c) => {
+          const cleanName = (c.name || '').trim().toLowerCase();
+          return cleanName === memberName || cleanName.includes(memberName) || memberName.includes(cleanName);
+        });
+      });
+    });
+  }, [quotation, crewMember]);
+
+  // If specific assigned events found, use them; otherwise fallback to all events
+  const targetEventPool = useMemo(() => {
+    return assignedEvents.length > 0 ? assignedEvents : (quotation?.events || []);
+  }, [assignedEvents, quotation]);
+
   // Sync selected event if passed
   useEffect(() => {
     if (initialEventId) {
       setSelectedEventId(initialEventId);
       setBriefMode('single_event');
-    } else if (quotation?.events && quotation.events.length > 0) {
-      setSelectedEventId(quotation.events[0].id);
+    } else if (targetEventPool.length > 0) {
+      setSelectedEventId(targetEventPool[0].id);
     }
-  }, [initialEventId, quotation, isOpen]);
+  }, [initialEventId, targetEventPool, isOpen]);
 
   const activeEvent = useMemo(() => {
-    if (!quotation?.events || quotation.events.length === 0) return null;
-    return quotation.events.find((e) => e.id === selectedEventId) || quotation.events[0];
-  }, [quotation, selectedEventId]);
+    if (!targetEventPool || targetEventPool.length === 0) return null;
+    return targetEventPool.find((e) => e.id === selectedEventId) || targetEventPool[0];
+  }, [targetEventPool, selectedEventId]);
 
   // Set default venue if available on event
   useEffect(() => {
@@ -104,22 +123,18 @@ export function SendCrewWhatsAppModal({
   const generateDefaultBrief = (): string => {
     if (!quotation || !crewMember) return '';
 
-    const studioName = settings?.business?.name || 'The Snap Service';
-    const clientName = quotation.client.name;
-    const clientPhone = quotation.client.phone;
-    const qNum = quotation.quotationNumber;
-
     if (briefMode === 'all_days') {
-      const scheduleLines = quotation.events
+      const scheduleLines = targetEventPool
         .map((evt, idx) => {
+          const dayNum = evt.dayNumber || (quotation.events.findIndex((e) => e.id === evt.id) + 1) || (idx + 1);
           const dateStr = evt.eventDate ? formatDate(evt.eventDate) : 'Date TBD';
           const venue = evt.venue || venueName || 'Venue TBD';
           const time = evt.timing || eventTiming || '07:00 PM';
           const mapPin = evt.mapLink || mapLocation || '';
           
-          let line = `Day ${idx + 1}: ${evt.name}\n  📅 Date: ${dateStr}\n  ⏰ Time: ${time}\n  📍 Venue: ${venue}`;
+          let line = `Day ${dayNum}: ${evt.name}\n  Date: ${dateStr}\n  Time: ${time}\n  Venue: ${venue}`;
           if (mapPin) {
-            line += `\n  🗺️ Map: ${mapPin}`;
+            line += `\n  Map: ${mapPin}`;
           }
           return line;
         })
@@ -131,16 +146,16 @@ ${scheduleLines}`;
     }
 
     // Single event / Today / Tomorrow
-    const targetEvent = activeEvent || quotation.events[0];
+    const targetEvent = activeEvent || targetEventPool[0];
     const eventName = targetEvent ? targetEvent.name : 'Event';
     const eventDateStr = targetEvent?.eventDate ? formatDate(targetEvent.eventDate) : 'Date TBD';
     const venue = targetEvent?.venue || venueName || 'Venue TBD';
     const time = targetEvent?.timing || eventTiming || '07:00 PM';
     const mapPin = targetEvent?.mapLink || mapLocation || '';
 
-    let singleLine = `${eventName}\n  📅 Date: ${eventDateStr}\n  ⏰ Time: ${time}\n  📍 Venue: ${venue}`;
+    let singleLine = `${eventName}\n  Date: ${eventDateStr}\n  Time: ${time}\n  Venue: ${venue}`;
     if (mapPin) {
-      singleLine += `\n  🗺️ Map: ${mapPin}`;
+      singleLine += `\n  Map: ${mapPin}`;
     }
 
     return `Aslamoalikum ${crewMember.name},
@@ -153,7 +168,7 @@ ${singleLine}`;
     if (isOpen && quotation && crewMember) {
       setEditedMessage(generateDefaultBrief());
     }
-  }, [isOpen, briefMode, selectedEventId, eventTiming, reportingTime, venueName, mapLocation, dressCode, assignedRole, crewMember, quotation]);
+  }, [isOpen, briefMode, selectedEventId, eventTiming, venueName, mapLocation, dressCode, assignedRole, crewMember, quotation, targetEventPool]);
 
   if (!isOpen || !quotation || !crewMember) return null;
 
@@ -173,7 +188,7 @@ ${singleLine}`;
 
   const handleSend = () => {
     if (!isValidPhone) {
-      alert('Please enter a valid WhatsApp phone number for this crew member.');
+      alert('Please enter a valid WhatsApp phone number for this team member.');
       return;
     }
     window.open(directWaUrl, '_blank');
@@ -191,13 +206,13 @@ ${singleLine}`;
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-serif font-bold text-base text-white">Send WhatsApp Crew Brief</h3>
+                <h3 className="font-serif font-bold text-base text-white">Send WhatsApp Team Brief</h3>
                 <span className="px-2 py-0.5 rounded-full bg-[#D4AF37] text-[#0D4F4F] font-bold text-[10px] uppercase tracking-wider">
                   {quotation.quotationNumber}
                 </span>
               </div>
               <p className="text-xs text-[#C3DFDF] flex items-center gap-2 mt-0.5">
-                <span>Crew: <strong className="text-white">{crewMember.name}</strong> ({assignedRole})</span>
+                <span>Team Member: <strong className="text-white">{crewMember.name}</strong> ({assignedRole})</span>
                 <span>•</span>
                 <span>Client: {quotation.client.name}</span>
               </p>
@@ -214,7 +229,7 @@ ${singleLine}`;
 
         {/* Scrollable Content */}
         <div className="p-5 space-y-4 overflow-y-auto text-xs flex-1">
-          {/* Crew Phone Number Input */}
+          {/* Team Phone Number Input */}
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-1">
               <Phone className="w-4 h-4 text-[#0D4F4F] shrink-0" />
@@ -294,15 +309,15 @@ ${singleLine}`;
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                📋 All {quotation.events.length} Days
+                📋 All {targetEventPool.length} {targetEventPool.length === 1 ? 'Day' : 'Days'}
               </button>
             </div>
           </div>
 
           {/* Event Specific Parameter Controls */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Event Selector (Includes All Days) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Event Selector (Includes All Assigned Days) */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-600 mb-1">Target Event Day</label>
                 <select
@@ -319,76 +334,67 @@ ${singleLine}`;
                   }}
                   className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-semibold text-xs focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
                 >
-                  <option value="all_days">✨ All Event Days ({quotation.events.length} Days Complete Schedule)</option>
-                  {quotation.events.map((evt, idx) => (
-                    <option key={evt.id} value={evt.id}>
-                      Day {idx + 1}: {evt.name} ({evt.eventDate ? formatDate(evt.eventDate) : 'No Date'})
-                    </option>
-                  ))}
+                  <option value="all_days">✨ All Assigned Days ({targetEventPool.length} {targetEventPool.length === 1 ? 'Day' : 'Days'} Complete Schedule)</option>
+                  {targetEventPool.map((evt, idx) => {
+                    const dayNum = evt.dayNumber || (quotation.events.findIndex((e) => e.id === evt.id) + 1) || (idx + 1);
+                    return (
+                      <option key={evt.id} value={evt.id}>
+                        Day {dayNum}: {evt.name} ({evt.eventDate ? formatDate(evt.eventDate) : 'No Date'})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
-                {/* Event Time */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Event Time</label>
-                  <input
-                    type="text"
-                    value={eventTiming}
-                    onChange={(e) => setEventTiming(e.target.value)}
-                    placeholder="e.g. 07:00 PM (Night Event) or 01:00 PM (Day Event)"
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                  />
-                </div>
+              {/* Event Time */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Event Time</label>
+                <input
+                  type="text"
+                  value={eventTiming}
+                  onChange={(e) => setEventTiming(e.target.value)}
+                  placeholder="e.g. 07:00 PM (Night Event) or 01:00 PM (Day Event)"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                />
+              </div>
 
-                {/* Reporting Time */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Reporting Time</label>
-                  <input
-                    type="text"
-                    value={reportingTime}
-                    onChange={(e) => setReportingTime(e.target.value)}
-                    placeholder="e.g. 06:30 PM Sharp"
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                  />
-                </div>
+              {/* Assigned Role */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Assigned Role</label>
+                <input
+                  type="text"
+                  value={assignedRole}
+                  onChange={(e) => setAssignedRole(e.target.value)}
+                  placeholder="e.g. Lead Photographer"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                />
+              </div>
 
-                {/* Assigned Role */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Assigned Role</label>
-                  <input
-                    type="text"
-                    value={assignedRole}
-                    onChange={(e) => setAssignedRole(e.target.value)}
-                    placeholder="e.g. Lead Photographer"
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                  />
-                </div>
+              {/* Venue Name */}
+              <div className="sm:col-span-3">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Venue / Marquee Name</label>
+                <input
+                  type="text"
+                  value={venueName}
+                  onChange={(e) => setVenueName(e.target.value)}
+                  placeholder="e.g. Royal Palm Golf & Country Club, Canal Road, Lahore"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                />
+              </div>
 
-                {/* Venue Name */}
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Venue / Marquee Name</label>
-                  <input
-                    type="text"
-                    value={venueName}
-                    onChange={(e) => setVenueName(e.target.value)}
-                    placeholder="e.g. Royal Palm Golf & Country Club, Canal Road, Lahore"
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                  />
-                </div>
-
-                {/* Google Map Pin Link */}
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Google Maps Pin Link</label>
-                  <input
-                    type="text"
-                    value={mapLocation}
-                    onChange={(e) => setMapLocation(e.target.value)}
-                    placeholder="e.g. https://maps.google.com/?q=Royal+Palm+Lahore"
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                  />
-                </div>
+              {/* Google Map Pin Link */}
+              <div className="sm:col-span-3">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Google Maps Pin Link</label>
+                <input
+                  type="text"
+                  value={mapLocation}
+                  onChange={(e) => setMapLocation(e.target.value)}
+                  placeholder="e.g. https://maps.google.com/?q=Royal+Palm+Lahore"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                />
               </div>
             </div>
+          </div>
 
           {/* Editable Live Message Box */}
           <div className="space-y-1.5">

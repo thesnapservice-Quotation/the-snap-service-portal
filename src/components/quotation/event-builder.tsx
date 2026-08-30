@@ -15,7 +15,8 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowUpDown,
-  MapPin
+  MapPin,
+  Clock
 } from 'lucide-react';
 
 interface EventBuilderProps {
@@ -225,6 +226,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                       <p className="text-[11px] text-slate-500">
                         {evt.services.length} {evt.services.length === 1 ? 'service' : 'services'}
                         {evt.venue ? ` • ${evt.venue}` : ''}
+                        {evt.timing ? ` • ${evt.timing}` : ''}
                         {evt.guestCount ? ` • ${evt.guestCount} Guests` : ''}
                       </p>
                     </div>
@@ -261,7 +263,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                 {/* Event Expanded Form */}
                 {isExpanded && (
                   <div className="p-4 space-y-4 bg-slate-50/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
                       {/* Event Name */}
                       <div>
                         <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
@@ -294,6 +296,24 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                         />
                       </div>
 
+                      {/* Event Timing (Optional) */}
+                      <div>
+                        <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" /> Event Timing (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 07:00 PM (Night)"
+                          value={evt.timing || ''}
+                          onChange={(e) =>
+                            handleUpdateEvent(evt.id, {
+                              timing: e.target.value || undefined,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                        />
+                      </div>
+
                       {/* Guest Count */}
                       <div>
                         <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
@@ -315,7 +335,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                       {/* Manual Price Field (CRITICAL RULE: User enters price manually) */}
                       <div>
                         <label className="block font-semibold text-[#0D4F4F] mb-1 flex items-center gap-1">
-                          <DollarSign className="w-3.5 h-3.5 text-[#D4AF37]" /> Manual Event Price (PKR) *
+                          <DollarSign className="w-3.5 h-3.5 text-[#D4AF37]" /> Manual Price *
                         </label>
                         <div className="relative">
                           <span className="absolute left-3 top-2.5 font-bold text-xs text-slate-400">Rs.</span>

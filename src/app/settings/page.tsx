@@ -772,7 +772,7 @@ export default function SettingsPage() {
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              <Camera className="w-4 h-4 text-[#D4AF37]" /> Shooting Crew &amp; Team ({formData.permanentTeamMembers?.length || 0})
+              <Camera className="w-4 h-4 text-[#D4AF37]" /> Shooting Team &amp; Freelancers ({formData.permanentTeamMembers?.length || 0})
             </button>
             <button
               onClick={() => setActiveTab('terms')}
@@ -1172,13 +1172,13 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Tab: Shooting Crew & Freelancers Directory */}
+      {/* Tab: Shooting Team & Freelancers Directory */}
       {activeTab === 'crew' && (
         <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-6 text-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-4">
             <div>
               <h2 className="font-serif font-bold text-base text-[#0D4F4F]">
-                Studio Shooting Crew &amp; Freelancers Directory
+                Studio Shooting Team &amp; Freelancers Directory
               </h2>
               <p className="text-slate-500 text-xs mt-0.5">
                 Save your regular photographers, cinematographers, and drone operators with their WhatsApp contact and daily rates.
@@ -1189,13 +1189,13 @@ export default function SettingsPage() {
             </span>
           </div>
 
-          {/* Add New Crew Member Form */}
+          {/* Add New Team Member Form */}
           <form
             onSubmit={handleAddCrewMember}
             className="p-5 rounded-2xl bg-[#0D4F4F]/5 border border-[#0D4F4F]/15 space-y-4"
           >
             <h3 className="font-bold text-xs text-[#0D4F4F] uppercase tracking-wider flex items-center gap-1.5">
-              <Camera className="w-4 h-4 text-[#D4AF37]" /> Add Regular Crew Member
+              <Camera className="w-4 h-4 text-[#D4AF37]" /> Add Regular Team Member
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1223,7 +1223,7 @@ export default function SettingsPage() {
                   <option value="Cinematographer">Cinematographer / Video</option>
                   <option value="Drone Pilot">Drone Pilot</option>
                   <option value="Assistant / Lighting">Assistant / Lighting</option>
-                  <option value="General Crew">General Crew</option>
+                  <option value="General Team">General Team Member</option>
                 </select>
               </div>
 
@@ -1257,15 +1257,15 @@ export default function SettingsPage() {
                 type="submit"
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs hover:bg-[#093A3A] transition-all shadow-xs cursor-pointer"
               >
-                <Plus className="w-4 h-4" /> Save Crew Member
+                <Plus className="w-4 h-4" /> Save Team Member
               </button>
             </div>
           </form>
 
-          {/* Crew Members List Grid */}
+          {/* Team Members List Grid */}
           <div className="space-y-3">
             <h3 className="font-bold text-xs text-slate-700 uppercase tracking-wider">
-              Saved Studio Crew &amp; Freelancers ({formData.permanentTeamMembers?.length || 0})
+              Saved Studio Team &amp; Freelancers ({formData.permanentTeamMembers?.length || 0})
             </h3>
 
             {(!formData.permanentTeamMembers || formData.permanentTeamMembers.length === 0) ? (

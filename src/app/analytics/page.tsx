@@ -170,25 +170,26 @@ export default function StudioAnalyticsPage() {
     .filter((e) => e.category === 'team_advance')
     .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-  // Top Aggregate KPI Calculations:
+  // Top Aggregate KPI Calculations (Synchronized with Studio Expenses & Team Ledger):
   // 1. Event Total Amount
   const aggregateEventTotal = targetQuotations.reduce((sum, q) => sum + getEventTotal(q), 0);
 
-  // 2. Event Direct Quoted Expenses
+  // 2. Event Direct Internal Quoted Costs
   const aggregateEventExpenses = targetQuotations.reduce((sum, q) => sum + getEventExpenses(q), 0);
 
-  // 3. Combined Total Studio Outflow (Event Quoted Costs + Actual Team Advances & Studio Expenses)
-  const totalCombinedExpenses = aggregateEventExpenses + aggregateLedgerExpenses;
+  // 3. Total Studio Expenses & Team Advances (From Expenses Ledger)
+  const totalOutflowExpenses = aggregateLedgerExpenses;
 
-  // 4. Net Profit = Event Total - Combined Total Outflow
-  const aggregateProfit = aggregateEventTotal - totalCombinedExpenses;
-  const aggregateProfitMargin = aggregateEventTotal > 0 ? (aggregateProfit / aggregateEventTotal) * 100 : 0;
-
-  // 5. Received Amount = Synced from Live Payment Ledger
+  // 4. Client Inflow Received = Synced from Live Payment Ledger
   const aggregateReceived = targetQuotations.reduce((sum, q) => sum + getReceivedAmount(q), 0);
 
-  // 6. Net Realized In-Hand Profit = Received - Total Combined Outflow
-  const aggregateProfitReceived = aggregateReceived - totalCombinedExpenses;
+  // 5. Net Studio Profit (Inflow - Studio Expenses & Advances) -> EXACT SYNC WITH EXPENSES & TEAM LEDGER
+  const netStudioProfit = aggregateReceived - totalOutflowExpenses;
+  const netStudioProfitMargin = aggregateReceived > 0 ? (netStudioProfit / aggregateReceived) * 100 : 0;
+
+  // 6. Projected Net Profit (Total Quoted - Direct Event Costs)
+  const projectedProfit = aggregateEventTotal - (aggregateEventExpenses || totalOutflowExpenses);
+  const projectedProfitMargin = aggregateEventTotal > 0 ? (projectedProfit / aggregateEventTotal) * 100 : 0;
 
   // 7. Pending Amount = Event Total - Total Received
   const aggregatePending = Math.max(0, aggregateEventTotal - aggregateReceived);
@@ -217,13 +218,13 @@ export default function StudioAnalyticsPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#D4AF37] text-xs font-semibold uppercase tracking-wider mb-2">
-              <Sparkles className="w-3.5 h-3.5 fill-[#D4AF37]" /> Financial Analytics & Gear ROI
+              <Sparkles className="w-3.5 h-3.5 fill-[#D4AF37]" /> Financial Analytics &amp; Gear ROI
             </div>
             <h1 className="font-serif font-bold text-2xl md:text-3xl text-white tracking-wide">
               Studio Financial Intelligence
             </h1>
             <p className="text-xs md:text-sm text-[#C3DFDF] mt-1 max-w-2xl leading-relaxed">
-              Real-time Single Source of Truth for confirmed studio bookings — synchronized with Live Payment Ledgers, Event Expenses, Profit Forecasts, and Equipment Deployments.
+              Real-time Single Source of Truth for confirmed studio bookings — synchronized with Live Payment Ledgers, Studio Expenses, and Net Profit.
             </p>
           </div>
 
@@ -234,7 +235,7 @@ export default function StudioAnalyticsPage() {
               className="flex items-center gap-2 bg-[#FAF9F6]/10 hover:bg-[#FAF9F6]/20 backdrop-blur-md px-3.5 py-2 rounded-xl border border-[#D4AF37]/40 text-xs font-bold text-[#D4AF37] shadow-md transition-all"
             >
               <Receipt className="w-4 h-4" />
-              <span>Expenses & Team Ledger</span>
+              <span>Studio Expenses &amp; Team Ledger</span>
             </Link>
 
             <div className="flex items-center gap-2 bg-emerald-950/60 backdrop-blur-md px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-bold text-emerald-300 shadow-md">
@@ -245,7 +246,7 @@ export default function StudioAnalyticsPage() {
         </div>
       </div>
 
-      {/* 6-Step Financial Workflow Pipeline Cards (In Exact Flow Sequence) */}
+      {/* 6-Step Financial Workflow Pipeline Cards */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
@@ -253,7 +254,7 @@ export default function StudioAnalyticsPage() {
               Financial Workflow Pipeline
             </span>
             <span className="text-[11px] text-slate-400 font-medium hidden md:inline">
-              (Event ➔ Expenses ➔ Profit ➔ Received ➔ Profit Received ➔ Pending)
+              (Total ➔ Expenses ➔ Projected ➔ Inflow ➔ Net Studio Profit ➔ Pending)
             </span>
           </div>
 
@@ -268,15 +269,15 @@ export default function StudioAnalyticsPage() {
             {/* Lock / Unlock Cost & Profit */}
             <button
               onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
-              className="text-xs font-bold px-3 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs transition-colors shrink-0"
+              className="text-xs font-bold px-3 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 shadow-2xs transition-colors shrink-0 cursor-pointer"
             >
               {isProfitUnlocked ? (
                 <>
-                  <Unlock className="w-3.5 h-3.5 text-emerald-600" /> Lock Cost & Profit
+                  <Unlock className="w-3.5 h-3.5 text-emerald-600" /> Lock Cost &amp; Profit
                 </>
               ) : (
                 <>
-                  <Lock className="w-3.5 h-3.5 text-amber-600" /> Unlock Cost & Profit
+                  <Lock className="w-3.5 h-3.5 text-amber-600" /> Unlock Cost &amp; Profit
                 </>
               )}
             </button>
@@ -312,7 +313,7 @@ export default function StudioAnalyticsPage() {
           >
             <div className="flex items-center justify-between">
               <span className="text-red-700 font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
-                2. Outflow / Costs {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-red-500" /> : <Lock className="w-2.5 h-2.5 text-red-500" />}
+                2. Studio Outflow {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-red-500" /> : <Lock className="w-2.5 h-2.5 text-red-500" />}
               </span>
               <div className="p-1 rounded-lg bg-red-50 text-red-600">
                 <Receipt className="w-3.5 h-3.5" />
@@ -320,43 +321,43 @@ export default function StudioAnalyticsPage() {
             </div>
             <div className="mt-2.5">
               <span className="font-serif font-bold text-lg text-red-700 block tracking-wider">
-                {isProfitUnlocked ? formatCurrency(totalCombinedExpenses) : '••••••••'}
+                {isProfitUnlocked ? formatCurrency(totalOutflowExpenses) : '••••••••'}
               </span>
-              <span className="text-[9.5px] text-slate-400 block mt-0.5 font-medium truncate" title={`Events: ${formatCurrency(aggregateEventExpenses)} + Ledger: ${formatCurrency(aggregateLedgerExpenses)}`}>
-                {isProfitUnlocked ? `Events + Studio Ledger` : '🔒 Protected'}
+              <span className="text-[9.5px] text-slate-400 block mt-0.5 font-medium truncate" title="Total Studio Expenses & Team Advances">
+                {isProfitUnlocked ? `Expenses + Advances` : '🔒 Protected'}
               </span>
             </div>
           </div>
 
-          {/* STEP 3: NET PROFIT AMOUNT */}
+          {/* STEP 3: PROJECTED PROFIT AMOUNT */}
           <div 
             onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
-            className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-3.5 rounded-2xl border-2 border-[#D4AF37] shadow-md flex flex-col justify-between cursor-pointer group hover:brightness-105 transition-all relative overflow-hidden"
+            className="bg-white p-3.5 rounded-2xl border-2 border-slate-200 shadow-xs flex flex-col justify-between cursor-pointer group hover:border-slate-300 transition-all relative overflow-hidden"
             title={isProfitUnlocked ? "Click to lock profit figures" : "Click to unlock profit figures"}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[#D4AF37] font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
-                3. Net Profit {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-emerald-300" /> : <Lock className="w-2.5 h-2.5 text-[#D4AF37]" />}
+              <span className="text-slate-700 font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
+                3. Projected Profit {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-emerald-600" /> : <Lock className="w-2.5 h-2.5 text-slate-500" />}
               </span>
-              <div className="p-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37]">
-                <Sparkles className="w-3.5 h-3.5 fill-[#D4AF37]" />
+              <div className="p-1 rounded-lg bg-slate-100 text-slate-600">
+                <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
               </div>
             </div>
             <div className="mt-2.5">
-              <span className="font-serif font-extrabold text-lg text-emerald-300 block tracking-wider">
-                {isProfitUnlocked ? formatCurrency(aggregateProfit) : '••••••••'}
+              <span className="font-serif font-bold text-lg text-slate-900 block tracking-wider">
+                {isProfitUnlocked ? formatCurrency(projectedProfit) : '••••••••'}
               </span>
-              <span className="text-[9.5px] text-[#C3DFDF] block mt-0.5 font-medium">
-                {isProfitUnlocked ? `Net Margin: ${aggregateProfitMargin.toFixed(0)}%` : '🔒 Expected'}
+              <span className="text-[9.5px] text-slate-500 block mt-0.5 font-medium">
+                {isProfitUnlocked ? `Margin: ${projectedProfitMargin.toFixed(0)}%` : '🔒 Expected'}
               </span>
             </div>
           </div>
 
-          {/* STEP 4: RECEIVED AMOUNT (LIVE PAYMENT LEDGER SYNCED) */}
+          {/* STEP 4: RECEIVED INFLOW (LIVE PAYMENT LEDGER SYNCED) */}
           <div className="bg-white p-3.5 rounded-2xl border-2 border-emerald-200 shadow-xs flex flex-col justify-between relative overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-emerald-800 font-bold uppercase tracking-wider text-[9.5px]">
-                4. Received Total
+                4. Client Inflow
               </span>
               <div className="p-1 rounded-lg bg-emerald-50 text-emerald-700">
                 <Wallet className="w-3.5 h-3.5" />
@@ -372,26 +373,26 @@ export default function StudioAnalyticsPage() {
             </div>
           </div>
 
-          {/* STEP 5: NET PROFIT RECEIVED (REALIZED IN-HAND PROFIT) */}
+          {/* STEP 5: NET STUDIO PROFIT (REALIZED IN-HAND PROFIT) -> EXACT MATCH WITH EXPENSES */}
           <div 
             onClick={isProfitUnlocked ? lockProfit : openUnlockModal}
-            className="bg-emerald-950 text-white p-3.5 rounded-2xl border-2 border-emerald-400 shadow-md flex flex-col justify-between cursor-pointer group hover:brightness-110 transition-all relative overflow-hidden"
+            className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-3.5 rounded-2xl border-2 border-[#D4AF37] shadow-md flex flex-col justify-between cursor-pointer group hover:brightness-105 transition-all relative overflow-hidden"
             title={isProfitUnlocked ? "Click to lock profit figures" : "Click to unlock profit figures"}
           >
             <div className="flex items-center justify-between">
-              <span className="text-emerald-300 font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
-                5. Net Realized {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-emerald-300" /> : <Lock className="w-2.5 h-2.5 text-emerald-300" />}
+              <span className="text-[#D4AF37] font-bold uppercase tracking-wider text-[9.5px] flex items-center gap-1">
+                5. Net Studio Profit {isProfitUnlocked ? <Unlock className="w-2.5 h-2.5 text-emerald-300" /> : <Lock className="w-2.5 h-2.5 text-[#D4AF37]" />}
               </span>
-              <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-300">
+              <div className="p-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37]">
                 <DollarSign className="w-3.5 h-3.5" />
               </div>
             </div>
             <div className="mt-2.5">
-              <span className="font-serif font-extrabold text-lg text-[#D4AF37] block tracking-wider">
-                {isProfitUnlocked ? formatCurrency(aggregateProfitReceived) : '••••••••'}
+              <span className="font-serif font-extrabold text-lg text-emerald-300 block tracking-wider">
+                {isProfitUnlocked ? formatCurrency(netStudioProfit) : '••••••••'}
               </span>
-              <span className="text-[9.5px] text-emerald-300/80 block mt-0.5 font-medium">
-                {isProfitUnlocked ? 'In-Hand Realized Net' : '🔒 Protected'}
+              <span className="text-[9.5px] text-[#C3DFDF] block mt-0.5 font-medium truncate" title="Synced with Studio Expenses & Team Ledger">
+                {isProfitUnlocked ? `Net Margin: ${netStudioProfitMargin.toFixed(0)}% • Synced` : '🔒 Protected'}
               </span>
             </div>
           </div>

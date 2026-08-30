@@ -144,19 +144,17 @@ export default function ExpensesPage() {
   // Selected Team Member Drawer/Modal State
   const [selectedPersonForDetail, setSelectedPersonForDetail] = useState<string | null>(null);
 
-  // Total Client Revenue Received (Inflow)
+  // Total Client Revenue Received (Inflow) - Synced Single Source of Truth
   const totalClientInflow = useMemo(() => {
     return quotations.reduce((sum, q) => {
-      const adv = Number(q.payment?.advanceReceived) || 0;
-      const txSum = (q.payment?.transactions || []).reduce(
-        (tSum, tx) => tSum + (Number(tx.amount) || 0),
-        0
-      );
-      return sum + Math.max(adv, txSum);
+      if (q.payment?.transactions && q.payment.transactions.length > 0) {
+        return sum + q.payment.transactions.reduce((tSum, tx) => tSum + (Number(tx.amount) || 0), 0);
+      }
+      return sum + (Number(q.payment?.advanceReceived) || 0);
     }, 0);
   }, [quotations]);
 
-  // Net Studio Profit (Inflow - Expenses)
+  // Net Studio Profit (Inflow - Total Expenses & Advances) -> EXACT SYNC WITH FINANCIAL INTELLIGENCE
   const netStudioProfit = totalClientInflow - totalExpenses;
   const profitMargin = totalClientInflow > 0 ? Math.round((netStudioProfit / totalClientInflow) * 100) : 0;
 
