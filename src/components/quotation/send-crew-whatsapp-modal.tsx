@@ -321,7 +321,10 @@ ${studioName}`;
 
               <button
                 type="button"
-                onClick={() => setBriefMode('all_days')}
+                onClick={() => {
+                  setBriefMode('all_days');
+                  setSelectedEventId('all_days');
+                }}
                 className={`py-2 px-3 rounded-xl font-bold text-xs transition-all border ${
                   briefMode === 'all_days'
                     ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#D4AF37] shadow-xs'
@@ -333,25 +336,34 @@ ${studioName}`;
             </div>
           </div>
 
-          {/* Event Specific Parameter Controls (When not All Days) */}
-          {briefMode !== 'all_days' && (
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Event Selector */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Target Event Day</label>
-                  <select
-                    value={selectedEventId}
-                    onChange={(e) => setSelectedEventId(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-semibold text-xs focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                  >
-                    {quotation.events.map((evt, idx) => (
-                      <option key={evt.id} value={evt.id}>
-                        Day {idx + 1}: {evt.name} ({evt.eventDate ? formatDate(evt.eventDate) : 'No Date'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+          {/* Event Specific Parameter Controls */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Event Selector (Includes All Days) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Target Event Day</label>
+                <select
+                  value={briefMode === 'all_days' ? 'all_days' : selectedEventId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'all_days') {
+                      setBriefMode('all_days');
+                      setSelectedEventId('all_days');
+                    } else {
+                      setBriefMode('single_event');
+                      setSelectedEventId(val);
+                    }
+                  }}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-semibold text-xs focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                >
+                  <option value="all_days">✨ All Event Days ({quotation.events.length} Days Complete Schedule)</option>
+                  {quotation.events.map((evt, idx) => (
+                    <option key={evt.id} value={evt.id}>
+                      Day {idx + 1}: {evt.name} ({evt.eventDate ? formatDate(evt.eventDate) : 'No Date'})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
                 {/* Event Time */}
                 <div>
@@ -414,7 +426,6 @@ ${studioName}`;
                 </div>
               </div>
             </div>
-          )}
 
           {/* Editable Live Message Box */}
           <div className="space-y-1.5">
