@@ -216,7 +216,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                   onClick={() => setExpandedEventId(isExpanded ? null : evt.id)}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="w-7 h-7 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-serif font-bold text-xs flex items-center justify-center shrink-0">
+                    <span className="px-2 py-1 min-w-7 h-7 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-serif font-bold text-xs flex items-center justify-center shrink-0 whitespace-nowrap">
                       Day {evt.dayNumber || index + 1}
                     </span>
                     <div>
@@ -263,9 +263,9 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                 {/* Event Expanded Form */}
                 {isExpanded && (
                   <div className="p-4 space-y-4 bg-slate-50/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-12 gap-3 text-xs">
                       {/* Event Name */}
-                      <div>
+                      <div className="lg:col-span-3">
                         <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" /> Event Name
                         </label>
@@ -279,7 +279,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                       </div>
 
                       {/* Venue / Marquee Name (Optional) */}
-                      <div>
+                      <div className="lg:col-span-3">
                         <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
                           <MapPin className="w-3.5 h-3.5 text-slate-400" /> Venue / Marquee (Optional)
                         </label>
@@ -297,7 +297,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                       </div>
 
                       {/* Event Timing (Optional) */}
-                      <div>
+                      <div className="lg:col-span-2">
                         <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5 text-slate-400" /> Event Timing (Optional)
                         </label>
@@ -315,7 +315,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                       </div>
 
                       {/* Guest Count */}
-                      <div>
+                      <div className="lg:col-span-2">
                         <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
                           <Users className="w-3.5 h-3.5 text-slate-400" /> Guest Count (Optional)
                         </label>
@@ -328,17 +328,17 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                               guestCount: e.target.value ? parseInt(e.target.value) : undefined,
                             })
                           }
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
 
                       {/* Manual Price Field (CRITICAL RULE: User enters price manually) */}
-                      <div>
-                        <label className="block font-semibold text-[#0D4F4F] mb-1 flex items-center gap-1">
+                      <div className="lg:col-span-2">
+                        <label className="block font-semibold text-[#0D4F4F] mb-1 flex items-center gap-1 whitespace-nowrap">
                           <DollarSign className="w-3.5 h-3.5 text-[#D4AF37]" /> Manual Price *
                         </label>
                         <div className="relative">
-                          <span className="absolute left-3 top-2.5 font-bold text-xs text-slate-400">Rs.</span>
+                          <span className="absolute left-2.5 top-2.5 font-bold text-xs text-slate-400">Rs.</span>
                           <input
                             type="number"
                             required
@@ -349,7 +349,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                                 price: parseFloat(e.target.value) || 0,
                               })
                             }
-                            className="w-full pl-10 pr-3 py-2 border-2 border-[#0D4F4F]/30 rounded-lg bg-white font-bold text-sm text-[#0D4F4F] focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                            className="w-full pl-8 pr-2.5 py-2 border-2 border-[#0D4F4F]/30 rounded-lg bg-white font-bold text-sm text-[#0D4F4F] focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                       </div>
