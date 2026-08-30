@@ -113,24 +113,36 @@ export function SendCrewWhatsAppModal({
       const scheduleLines = quotation.events
         .map((evt, idx) => {
           const dateStr = evt.eventDate ? formatDate(evt.eventDate) : 'Date TBD';
-          return `• Day ${idx + 1}: *${evt.name}* — ${dateStr}`;
+          const venue = evt.venue || venueName || 'Venue TBD';
+          const time = evt.timing || eventTiming || '07:00 PM (Night Event)';
+          const mapPin = evt.mapLink || mapLocation || '';
+          
+          let line = `• Day ${idx + 1}: *${evt.name}*\n  📅 Date: ${dateStr}\n  ⏰ Time: ${time} (Reporting: ${reportingTime})\n  📍 Venue: ${venue}`;
+          if (mapPin) {
+            line += `\n  🗺️ Map: ${mapPin}`;
+          }
+          return line;
         })
-        .join('\n');
+        .join('\n\n');
 
       return `Salam ${crewMember.name},
 
-📋 *WEDDING EVENT CREW SCHEDULE — ${studioName.toUpperCase()}*
+📋 *COMPLETE WEDDING CREW SCHEDULE & LOCATIONS — ${studioName.toUpperCase()}*
 
 You are assigned for the upcoming wedding shoot of *${clientName}* (${qNum}).
 
-*Events Schedule:*
+*Complete Multi-Day Events Schedule:*
 ${scheduleLines}
 
 *Assigned Role:* ${assignedRole}
 *Client Contact:* ${clientName} (${clientPhone})
 *Dress Code:* ${dressCode}
 
-Please review the dates and reply with *"CONFIRMED"* to block your schedule.
+⚠️ *Guidelines:*
+• Please reach venue 15-20 minutes before reporting time each day.
+• Ensure batteries are 100% charged and high-speed SD cards formatted.
+
+Please review the complete schedule and reply with *"CONFIRMED"* to block your dates.
 
 Regards,
 *Studio Operations*

@@ -353,6 +353,97 @@ export default function MasterCalendarPage() {
                       </Link>
                     </div>
 
+                    {/* Overall Wedding Shooting Team Across All Days */}
+                    {(() => {
+                      // Extract all unique crew members assigned across all events
+                      const uniqueCrewMap = new Map<string, { name: string; phone?: string; role: string; eventsCount: number }>();
+                      
+                      q.events.forEach((evt) => {
+                        evt.services.forEach((srv) => {
+                          const srvRole = srv.serviceName.toLowerCase().includes('drone')
+                            ? 'Drone Pilot'
+                            : srv.serviceName.toLowerCase().includes('video')
+                            ? 'Cinematographer'
+                            : 'Photographer';
+
+                          (srv.crewBreakdown || []).slice(0, srv.quantity || 1).forEach((c) => {
+                            const cleanName = c.name?.trim();
+                            if (
+                              cleanName &&
+                              !cleanName.toLowerCase().startsWith('photographer #') &&
+                              !cleanName.toLowerCase().startsWith('videographer #') &&
+                              !cleanName.toLowerCase().startsWith('drone #')
+                            ) {
+                              const existing = uniqueCrewMap.get(cleanName);
+                              if (existing) {
+                                existing.eventsCount += 1;
+                                if (c.phone && !existing.phone) existing.phone = c.phone;
+                              } else {
+                                uniqueCrewMap.set(cleanName, {
+                                  name: cleanName,
+                                  phone: c.phone,
+                                  role: c.role || srvRole,
+                                  eventsCount: 1,
+                                });
+                              }
+                            }
+                          });
+                        });
+                      });
+
+                      const uniqueCrewList = Array.from(uniqueCrewMap.values());
+
+                      if (uniqueCrewList.length === 0) return null;
+
+                      return (
+                        <div className="p-3 bg-gradient-to-r from-[#0D4F4F]/10 via-[#0D4F4F]/5 to-[#D4AF37]/10 rounded-xl border border-[#0D4F4F]/20 space-y-2">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-bold text-[#0D4F4F] flex items-center gap-1.5 uppercase tracking-wider">
+                              <Users className="w-3.5 h-3.5 text-[#D4AF37]" /> Assigned Wedding Team ({uniqueCrewList.length} Members)
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-medium">1-Click Multi-Day Schedule</span>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            {uniqueCrewList.map((crew, cIdx) => (
+                              <div
+                                key={cIdx}
+                                className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs text-xs"
+                              >
+                                <div className="w-6 h-6 rounded-full bg-[#0D4F4F] text-[#D4AF37] flex items-center justify-center font-bold text-[10px] shrink-0">
+                                  {crew.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <span className="font-bold text-slate-900 block text-xs leading-tight">{crew.name}</span>
+                                  <span className="text-[9.5px] text-slate-500 block leading-tight font-medium">
+                                    {crew.role} • {crew.eventsCount} {crew.eventsCount === 1 ? 'day' : 'days'}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleOpenCrewModal(
+                                      q,
+                                      {
+                                        name: crew.name,
+                                        phone: crew.phone,
+                                        role: crew.role,
+                                      }
+                                    )
+                                  }
+                                  className="ml-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 transition-all shadow-xs shrink-0 cursor-pointer"
+                                  title={`Send all ${q.events.length} days complete schedule to ${crew.name}`}
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  <span>All Days Brief</span>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="space-y-3">
                       {q.events.map((evt, idx) => {
                         // Extract assigned crew per service
