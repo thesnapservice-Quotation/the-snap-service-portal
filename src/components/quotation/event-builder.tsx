@@ -14,7 +14,8 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
-  ArrowUpDown
+  ArrowUpDown,
+  MapPin
 } from 'lucide-react';
 
 interface EventBuilderProps {
@@ -223,6 +224,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                       </h4>
                       <p className="text-[11px] text-slate-500">
                         {evt.services.length} {evt.services.length === 1 ? 'service' : 'services'}
+                        {evt.venue ? ` • ${evt.venue}` : ''}
                         {evt.guestCount ? ` • ${evt.guestCount} Guests` : ''}
                       </p>
                     </div>
@@ -259,9 +261,9 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                 {/* Event Expanded Form */}
                 {isExpanded && (
                   <div className="p-4 space-y-4 bg-slate-50/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                       {/* Event Name */}
-                      <div className="sm:col-span-1">
+                      <div>
                         <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" /> Event Name
                         </label>
@@ -269,19 +271,37 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                           type="text"
                           value={evt.name}
                           onChange={(e) => handleUpdateEvent(evt.id, { name: e.target.value })}
-                          placeholder="e.g. Barat, Walima, Nikkah"
+                          placeholder="e.g. Mehndi, Barat, Walima"
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none font-semibold text-slate-800"
                         />
                       </div>
 
+                      {/* Venue / Marquee Name (Optional) */}
+                      <div>
+                        <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400" /> Venue / Marquee (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Royal Palm Marquee"
+                          value={evt.venue || ''}
+                          onChange={(e) =>
+                            handleUpdateEvent(evt.id, {
+                              venue: e.target.value || undefined,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                        />
+                      </div>
+
                       {/* Guest Count */}
-                      <div className="sm:col-span-1">
+                      <div>
                         <label className="block font-medium text-slate-700 mb-1 flex items-center gap-1">
                           <Users className="w-3.5 h-3.5 text-slate-400" /> Guest Count (Optional)
                         </label>
                         <input
                           type="number"
-                          placeholder="e.g. 200"
+                          placeholder="e.g. 150"
                           value={evt.guestCount || ''}
                           onChange={(e) =>
                             handleUpdateEvent(evt.id, {
@@ -293,7 +313,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                       </div>
 
                       {/* Manual Price Field (CRITICAL RULE: User enters price manually) */}
-                      <div className="sm:col-span-1">
+                      <div>
                         <label className="block font-semibold text-[#0D4F4F] mb-1 flex items-center gap-1">
                           <DollarSign className="w-3.5 h-3.5 text-[#D4AF37]" /> Manual Event Price (PKR) *
                         </label>
@@ -302,7 +322,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                           <input
                             type="number"
                             required
-                            placeholder="40000"
+                            placeholder="25000"
                             value={evt.price || ''}
                             onChange={(e) =>
                               handleUpdateEvent(evt.id, {

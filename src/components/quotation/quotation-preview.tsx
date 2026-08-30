@@ -378,6 +378,12 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
                       {evt.name || `Day ${idx + 1}`}
                     </h4>
 
+                    {evt.venue && (
+                      <span className="text-[10px] sm:text-[10.5px] text-[#FAF9F6] font-semibold block mt-0.5 tracking-wider uppercase px-1">
+                        {evt.venue}
+                      </span>
+                    )}
+
                     {evt.guestCount !== undefined && evt.guestCount > 0 && (
                       <span className="text-[9.5px] sm:text-[10px] text-slate-300 font-medium block mt-0.5">
                         ({evt.guestCount} GUESTS)

@@ -149,6 +149,7 @@ export function compactQuotationData(q: Quotation): string {
         evt.guestCount || 0,
         evt.price || 0,
         (evt.services || []).map((srv) => [srv.serviceId, srv.serviceName, srv.quantity]),
+        evt.venue || '',
       ]),
       m: [
         q.payment?.grandTotal || 0,
@@ -180,7 +181,7 @@ export function decompactQuotationData(str: string): Quotation | null {
     const o = JSON.parse(jsonStr);
     if (!o) return null;
 
-    type RawEventTuple = [string, string, string, number, number, [string, string, number][]];
+    type RawEventTuple = [string, string, string, number, number, [string, string, number][], string?];
     type RawInclusionTuple = [string, string, number];
 
     return {
@@ -204,6 +205,7 @@ export function decompactQuotationData(str: string): Quotation | null {
         eventDate: eArr[2] || '',
         guestCount: eArr[3] || 0,
         price: eArr[4] || 0,
+        venue: eArr[6] || undefined,
         services: (eArr[5] || []).map((sArr, sIdx) => ({
           id: `srv-${idx}-${sIdx}`,
           serviceId: sArr[0] || 'srv-1',
