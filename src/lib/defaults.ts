@@ -201,35 +201,42 @@ Regards,
 {business_name}`,
 };
 
+export const DEFAULT_PERMANENT_TEAM = [
+  { id: 'team-1', name: 'Ali Raza', role: 'Lead Photographer', phone: '03001234567', defaultCost: 8000 },
+  { id: 'team-2', name: 'Usman Malik', role: 'Cinematographer', phone: '03219876543', defaultCost: 10000 },
+  { id: 'team-3', name: 'Hamza Drone', role: 'Drone Pilot', phone: '03335554433', defaultCost: 5000 },
+];
+
 export const SUPER_ADMIN_DEFAULT_SETTINGS: AppSettings = {
   business: {
     name: 'The Snap Service',
     logoUrl: '/snap-service-logo.png',
-    phone: '+92 323 9244924',
-    address: 'Office# 42, Dragon Mall, Faisalabad',
-    instagram: '@snapservice.pk',
-    website: 'www.snapservice.pk',
+    phone: '+92 300 1234567',
+    address: 'Studio Suite #4, Luxury Wedding Arcade, Gulberg III, Lahore',
+    instagram: '@thesnapservice',
+    website: 'thesnapservice.com',
   },
   bank: {
-    accountTitle: 'Zunair Ahmad',
-    bank: 'Meezan Bank',
-    branch: 'PMC Branch',
-    accountNumber: '04240104676435',
-    iban: 'PK84MEZN0004240104676435',
+    accountTitle: 'THE SNAP SERVICE STUDIOS',
+    bank: 'Meezan Bank Limited',
+    branch: 'Gulberg Branch, Lahore',
+    accountNumber: '02010108928374',
+    iban: 'PK45MEZN0002010108928374',
   },
   quotation: {
-    startingNumber: 2000,
+    startingNumber: 101,
     prefix: 'SS-2026',
     defaultTerms: DEFAULT_TERMS,
     defaultInclusions: DEFAULT_INCLUSIONS.map((i) => i.name),
-    defaultFooter: 'Thank you for choosing The Snap Service for your special moments!',
+    defaultFooter: 'The Snap Service — Preserving Royal Wedding Memories Since 2018.',
   },
   integrations: {
     googleDriveWebhookUrl: '',
-    autoSyncGoogleDrive: true,
+    autoSyncGoogleDrive: false,
     googleDriveFolderName: 'Snap Service Quotations Archive',
   },
   whatsappTemplates: DEFAULT_WHATSAPP_TEMPLATES,
+  permanentTeamMembers: DEFAULT_PERMANENT_TEAM,
 };
 
 export const STANDARD_USER_DEFAULT_SETTINGS: AppSettings = {
@@ -261,6 +268,7 @@ export const STANDARD_USER_DEFAULT_SETTINGS: AppSettings = {
     googleDriveFolderName: '',
   },
   whatsappTemplates: DEFAULT_WHATSAPP_TEMPLATES,
+  permanentTeamMembers: DEFAULT_PERMANENT_TEAM,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = SUPER_ADMIN_DEFAULT_SETTINGS;

@@ -9,6 +9,7 @@ import { formatCurrency } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotationById, apiSaveQuotation } from '@/lib/api-client';
 import { sortEventsInSequence } from '@/components/quotation/quotation-preview';
+import { useSettings } from '@/hooks/use-settings';
 import { 
   ArrowLeft, 
   Lock, 
@@ -60,6 +61,7 @@ const getDefaultAlbumUnitCost = (name: string, srvs: Service[]): number => {
 export default function QuotationComparePage() {
   const params = useParams();
   const id = params.id as string;
+  const { settings } = useSettings();
 
   const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
@@ -263,7 +265,7 @@ export default function QuotationComparePage() {
     eventId: string,
     serviceId: string,
     crewIndex: number,
-    field: 'name' | 'cost',
+    field: 'name' | 'cost' | 'phone' | 'role',
     value: string | number
   ) => {
     const updatedEvents = quotation.events.map((evt) => {
@@ -284,10 +286,27 @@ export default function QuotationComparePage() {
                 });
               }
 
-              crew[crewIndex] = {
+              let updatedMember = {
                 ...crew[crewIndex],
                 [field]: value,
               };
+
+              // Auto-fill phone, role, and cost if selecting a known permanent team member
+              if (field === 'name' && typeof value === 'string') {
+                const matchedPermanent = settings?.permanentTeamMembers?.find(
+                  (m) => m.name.toLowerCase() === value.trim().toLowerCase()
+                );
+                if (matchedPermanent) {
+                  updatedMember = {
+                    ...updatedMember,
+                    phone: matchedPermanent.phone || updatedMember.phone,
+                    role: matchedPermanent.role || updatedMember.role,
+                    cost: matchedPermanent.defaultCost !== undefined ? matchedPermanent.defaultCost : updatedMember.cost,
+                  };
+                }
+              }
+
+              crew[crewIndex] = updatedMember;
 
               return {
                 ...s,
@@ -595,51 +614,86 @@ export default function QuotationComparePage() {
                         </span>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {crewList.slice(0, qty).map((crewMember, idx) => (
-                            <div
-                              key={crewMember.id || idx}
-                              className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 text-xs shadow-2xs"
-                            >
-                              <div className="w-6 h-6 rounded-full bg-[#0D4F4F]/10 text-[#0D4F4F] font-bold text-[10px] flex items-center justify-center shrink-0">
-                                #{idx + 1}
-                              </div>
+                          {crewList.slice(0, qty).map((crewMember, idx) => {
+                            const datalistId = `crew-dl-${evt.id}-${srv.id || srv.serviceId}-${idx}`;
+                            return (
+                              <div
+                                key={crewMember.id || idx}
+                                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white p-2.5 rounded-lg border border-slate-200 text-xs shadow-2xs"
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <div className="w-6 h-6 rounded-full bg-[#0D4F4F]/10 text-[#0D4F4F] font-bold text-[10px] flex items-center justify-center shrink-0">
+                                    #{idx + 1}
+                                  </div>
 
-                              <input
-                                type="text"
-                                value={crewMember.name}
-                                onChange={(e) =>
-                                  handleUpdateCrewMember(
-                                    evt.id,
-                                    srv.serviceId || srv.id,
-                                    idx,
-                                    'name',
-                                    e.target.value
-                                  )
-                                }
-                                placeholder={`Crew Member Name (e.g. Ali Khan)`}
-                                className="flex-1 px-2.5 py-1.5 border border-slate-300 rounded-md text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                              />
+                                  <div className="relative flex-1 min-w-0">
+                                    <input
+                                      type="text"
+                                      list={datalistId}
+                                      value={crewMember.name}
+                                      onChange={(e) =>
+                                        handleUpdateCrewMember(
+                                          evt.id,
+                                          srv.serviceId || srv.id,
+                                          idx,
+                                          'name',
+                                          e.target.value
+                                        )
+                                      }
+                                      placeholder={`Crew Name (e.g. Ali Khan)`}
+                                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none bg-white"
+                                    />
+                                    <datalist id={datalistId}>
+                                      {(settings?.permanentTeamMembers || []).map((m) => (
+                                        <option key={m.id} value={m.name}>
+                                          {m.role ? `${m.role} • Rs. ${m.defaultCost}` : ''}
+                                        </option>
+                                      ))}
+                                    </datalist>
+                                  </div>
+                                </div>
 
-                              <div className="relative w-32 shrink-0">
-                                <span className="absolute left-2 top-1.5 font-bold text-[10px] text-slate-400">Rs.</span>
-                                <input
-                                  type="number"
-                                  value={crewMember.cost || ''}
-                                  onChange={(e) =>
-                                    handleUpdateCrewMember(
-                                      evt.id,
-                                      srv.serviceId || srv.id,
-                                      idx,
-                                      'cost',
-                                      parseFloat(e.target.value) || 0
-                                    )
-                                  }
-                                  placeholder="Cost"
-                                  className="w-full pl-7 pr-2 py-1.5 border border-slate-300 rounded-md text-xs font-bold text-slate-900 focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                                />
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {/* Phone input if custom/temporary */}
+                                  <input
+                                    type="text"
+                                    value={crewMember.phone || ''}
+                                    onChange={(e) =>
+                                      handleUpdateCrewMember(
+                                        evt.id,
+                                        srv.serviceId || srv.id,
+                                        idx,
+                                        'phone',
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Phone #"
+                                    className="w-28 px-2 py-1.5 border border-slate-200 rounded-md text-[11px] font-medium text-slate-700 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                                    title="WhatsApp phone number"
+                                  />
+
+                                  <div className="relative w-28 shrink-0">
+                                    <span className="absolute left-2 top-1.5 font-bold text-[10px] text-slate-400">Rs.</span>
+                                    <input
+                                      type="number"
+                                      value={crewMember.cost || ''}
+                                      onChange={(e) =>
+                                        handleUpdateCrewMember(
+                                          evt.id,
+                                          srv.serviceId || srv.id,
+                                          idx,
+                                          'cost',
+                                          parseFloat(e.target.value) || 0
+                                        )
+                                      }
+                                      placeholder="Cost"
+                                      className="w-full pl-7 pr-2 py-1.5 border border-slate-300 rounded-md text-xs font-bold text-slate-900 focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     </div>

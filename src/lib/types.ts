@@ -37,7 +37,17 @@ export interface Service {
 export interface CrewMemberCost {
   id: string;
   name: string;
+  phone?: string;
+  role?: string;
   cost: number;
+}
+
+export interface PermanentTeamMember {
+  id: string;
+  name: string;
+  phone?: string;
+  role?: string; // e.g. "Lead Photographer", "Cinematographer", "Drone Pilot"
+  defaultCost?: number;
 }
 
 export interface SelectedService {
@@ -57,6 +67,9 @@ export interface EventItem {
   services: SelectedService[];
   guestCount?: number;
   price: number; // Manually entered client selling price (e.g. 40000)
+  venue?: string; // e.g. "Royal Palm Golf Club, Lahore"
+  timing?: string; // e.g. "07:00 PM (Night)"
+  mapLink?: string; // e.g. "https://maps.google.com/?q=..."
   notes?: string;
 }
 
@@ -250,6 +263,7 @@ export interface AppSettings {
   integrations?: IntegrationsSettings;
   whatsappTemplates?: WhatsAppTemplatesConfig;
   customWhatsAppCategories?: CustomWhatsAppCategory[];
+  permanentTeamMembers?: PermanentTeamMember[];
 }
 
 // ----------------------------------------------------

@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useQuotations } from '@/hooks/use-quotations';
 import { AppSettings, Service, UserRole, Quotation, UserAccount } from '@/lib/types';
 import { storage } from '@/lib/storage';
+import { formatCurrency } from '@/lib/utils';
 import { GOOGLE_APPS_SCRIPT_TEMPLATE, syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
 import {
   getStoredGoogleDriveUser,
@@ -63,6 +64,7 @@ import {
   Mail,
   Phone,
   MessageSquare,
+  Camera,
   Send,
   Info
 } from 'lucide-react';
@@ -123,13 +125,19 @@ export default function SettingsPage() {
     refreshAuth
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'business' | 'bank' | 'services' | 'terms' | 'quotation' | 'whatsapp' | 'users' | 'notifications' | 'backup'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'bank' | 'services' | 'crew' | 'terms' | 'quotation' | 'whatsapp' | 'users' | 'notifications' | 'backup'>('business');
   const [selectedTemplateCat, setSelectedTemplateCat] = useState<WhatsAppCategory>('new_client');
   const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
   const [newTplName, setNewTplName] = useState('');
   const [newTplBadge, setNewTplBadge] = useState('');
   const [newTplDesc, setNewTplDesc] = useState('');
   const [newTplBody, setNewTplBody] = useState('');
+
+  // Permanent crew directory form state
+  const [crewName, setCrewName] = useState('');
+  const [crewRole, setCrewRole] = useState('Lead Photographer');
+  const [crewPhone, setCrewPhone] = useState('');
+  const [crewCost, setCrewCost] = useState<number | ''>(8000);
 
   // If task_manager, automatically default to notifications tab
   useEffect(() => {
@@ -599,6 +607,48 @@ export default function SettingsPage() {
     setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
 
+  const handleAddCrewMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!crewName.trim()) return;
+
+    const newMember = {
+      id: `crew-${Date.now()}`,
+      name: crewName.trim(),
+      role: crewRole.trim(),
+      phone: crewPhone.trim(),
+      defaultCost: typeof crewCost === 'number' ? crewCost : 8000,
+    };
+
+    const updatedMembers = [...(formData.permanentTeamMembers || []), newMember];
+    const updatedSettings: AppSettings = {
+      ...formData,
+      permanentTeamMembers: updatedMembers,
+    };
+
+    setFormData(updatedSettings);
+    await updateSettings(updatedSettings);
+    setCrewName('');
+    setCrewPhone('');
+    setCrewCost(8000);
+    setSaveSuccessMsg(`Crew member "${newMember.name}" saved to studio directory!`);
+    setTimeout(() => setSaveSuccessMsg(''), 3000);
+  };
+
+  const handleDeleteCrewMember = async (id: string, name: string) => {
+    if (!confirm(`Remove ${name} from permanent crew directory?`)) return;
+
+    const updatedMembers = (formData.permanentTeamMembers || []).filter((m) => m.id !== id);
+    const updatedSettings: AppSettings = {
+      ...formData,
+      permanentTeamMembers: updatedMembers,
+    };
+
+    setFormData(updatedSettings);
+    await updateSettings(updatedSettings);
+    setSaveSuccessMsg(`Crew member "${name}" removed.`);
+    setTimeout(() => setSaveSuccessMsg(''), 3000);
+  };
+
   const handleAddService = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newServiceName.trim()) return;
@@ -713,6 +763,16 @@ export default function SettingsPage() {
               }`}
             >
               <Layers className="w-4 h-4" /> Service Library ({services.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('crew')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shrink-0 whitespace-nowrap transition-all ${
+                activeTab === 'crew'
+                  ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Camera className="w-4 h-4 text-[#D4AF37]" /> Shooting Crew &amp; Team ({formData.permanentTeamMembers?.length || 0})
             </button>
             <button
               onClick={() => setActiveTab('terms')}
@@ -1108,6 +1168,156 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Shooting Crew & Freelancers Directory */}
+      {activeTab === 'crew' && (
+        <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-6 text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-4">
+            <div>
+              <h2 className="font-serif font-bold text-base text-[#0D4F4F]">
+                Studio Shooting Crew &amp; Freelancers Directory
+              </h2>
+              <p className="text-slate-500 text-xs mt-0.5">
+                Save your regular photographers, cinematographers, and drone operators with their WhatsApp contact and daily rates.
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-[#0D4F4F]/10 text-[#0D4F4F] font-bold rounded-full text-xs shrink-0">
+              {formData.permanentTeamMembers?.length || 0} Registered Members
+            </span>
+          </div>
+
+          {/* Add New Crew Member Form */}
+          <form
+            onSubmit={handleAddCrewMember}
+            className="p-5 rounded-2xl bg-[#0D4F4F]/5 border border-[#0D4F4F]/15 space-y-4"
+          >
+            <h3 className="font-bold text-xs text-[#0D4F4F] uppercase tracking-wider flex items-center gap-1.5">
+              <Camera className="w-4 h-4 text-[#D4AF37]" /> Add Regular Crew Member
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="block font-medium text-slate-700 mb-1 text-[11px]">Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Ali Raza"
+                  value={crewName}
+                  onChange={(e) => setCrewName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-slate-700 mb-1 text-[11px]">Role / Specialization</label>
+                <select
+                  value={crewRole}
+                  onChange={(e) => setCrewRole(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none font-medium"
+                >
+                  <option value="Lead Photographer">Lead Photographer</option>
+                  <option value="Candid Photographer">Candid Photographer</option>
+                  <option value="Cinematographer">Cinematographer / Video</option>
+                  <option value="Drone Pilot">Drone Pilot</option>
+                  <option value="Assistant / Lighting">Assistant / Lighting</option>
+                  <option value="General Crew">General Crew</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-medium text-slate-700 mb-1 text-[11px]">WhatsApp Phone # *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 03001234567"
+                  value={crewPhone}
+                  onChange={(e) => setCrewPhone(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-slate-700 mb-1 text-[11px]">Default Rate (PKR / Day)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-slate-400 font-bold text-xs">Rs.</span>
+                  <input
+                    type="number"
+                    value={crewCost}
+                    onChange={(e) => setCrewCost(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-bold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs hover:bg-[#093A3A] transition-all shadow-xs cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Save Crew Member
+              </button>
+            </div>
+          </form>
+
+          {/* Crew Members List Grid */}
+          <div className="space-y-3">
+            <h3 className="font-bold text-xs text-slate-700 uppercase tracking-wider">
+              Saved Studio Crew &amp; Freelancers ({formData.permanentTeamMembers?.length || 0})
+            </h3>
+
+            {(!formData.permanentTeamMembers || formData.permanentTeamMembers.length === 0) ? (
+              <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
+                No permanent team members added yet. Use the form above to add your photographers and videographers.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {formData.permanentTeamMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#D4AF37] transition-all shadow-2xs flex flex-col justify-between space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-full bg-[#0D4F4F] text-[#D4AF37] flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                          {member.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-xs text-slate-900">{member.name}</h4>
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-[#D4AF37]/15 text-[#0D4F4F] font-bold text-[10px] border border-[#D4AF37]/30 mt-0.5">
+                            {member.role || 'Crew Member'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCrewMember(member.id, member.name)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title="Delete member"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium">WhatsApp</span>
+                        <span className="font-semibold text-slate-800">{member.phone || 'No phone set'}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 block font-medium">Rate / Day</span>
+                        <span className="font-bold text-[#0D4F4F]">
+                          {formatCurrency(member.defaultCost || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
