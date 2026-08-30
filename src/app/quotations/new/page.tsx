@@ -117,13 +117,9 @@ function NewQuotationContent() {
     }
   }, [editId]);
 
-  // Keep grand total and balance calculated automatically whenever events, inclusions, or payment settings change
+  // Keep grand total and balance calculated automatically whenever events or payment settings change
   useEffect(() => {
-    const eventsTotal = quotation.events.reduce((sum, e) => sum + (e.price || 0), 0);
-    const inclusionsTotal = (quotation.inclusions || [])
-      .filter((i) => i.included && i.price && i.price > 0)
-      .reduce((sum, i) => sum + (i.price || 0) * (i.quantity || 1), 0);
-    const total = eventsTotal + inclusionsTotal;
+    const total = quotation.events.reduce((sum, e) => sum + (e.price || 0), 0);
     
     let advanceAmt = quotation.payment.advanceReceived;
     if (quotation.payment.advanceType === 'percentage' && quotation.payment.advancePercentage) {
@@ -140,7 +136,7 @@ function NewQuotationContent() {
         balancePayable: balance,
       },
     }));
-  }, [quotation.events, quotation.inclusions, quotation.payment.advanceType, quotation.payment.advancePercentage]);
+  }, [quotation.events, quotation.payment.advanceType, quotation.payment.advancePercentage]);
 
   const handleSave = async (status?: QuotationStatus) => {
     if (isSaving) return;

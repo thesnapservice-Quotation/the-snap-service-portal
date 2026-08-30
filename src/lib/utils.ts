@@ -159,13 +159,7 @@ export function compactQuotationData(q: Quotation): string {
         q.payment?.advanceType || 'fixed',
       ],
       t: q.termsAndConditions || [],
-      k: (q.inclusions || []).map((inc) => [
-        inc.id,
-        inc.name,
-        inc.included ? 1 : 0,
-        inc.quantity || 1,
-        inc.price || 0,
-      ]),
+      k: (q.inclusions || []).map((inc) => [inc.id, inc.name, inc.included ? 1 : 0]),
     };
 
     const jsonStr = JSON.stringify(compactObj);
@@ -189,7 +183,7 @@ export function decompactQuotationData(str: string): Quotation | null {
     if (!o) return null;
 
     type RawEventTuple = [string, string, string, number, number, [string, string, number][], string?, string?];
-    type RawInclusionTuple = [string, string, number, number?, number?];
+    type RawInclusionTuple = [string, string, number];
 
     return {
       id: o.i || generateSecureId('quote'),
@@ -232,8 +226,6 @@ export function decompactQuotationData(str: string): Quotation | null {
         id: kArr[0],
         name: kArr[1],
         included: kArr[2] === 1,
-        quantity: kArr[3] || 1,
-        price: kArr[4] && kArr[4] > 0 ? kArr[4] : undefined,
       })),
     };
   } catch (e) {

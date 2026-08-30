@@ -513,27 +513,15 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
                   const isAlbum = inc.name.toLowerCase().includes('album');
                   // Always show quantity for Albums (e.g. "1 KRIZMA ALBUM", "3 FAMILY ALBUMS") or if qty > 1
                   const displayName = (isAlbum || qty > 1) ? `${qty} ${inc.name}` : inc.name;
-                  const hasPrice = inc.price !== undefined && inc.price !== null && inc.price > 0;
-                  const lineTotal = (inc.price || 0) * qty;
 
                   return (
-                    <div key={inc.id} className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex flex-col items-center justify-center relative overflow-hidden">
-                      {hasPrice && (
-                        <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-[#0D4F4F] text-[#D4AF37] font-bold text-[7.5px] sm:text-[8px] font-mono border border-[#D4AF37]/40 shadow-2xs">
-                          {formatCurrency(lineTotal)}
-                        </span>
-                      )}
-                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-[#D4AF37] bg-[#FAF9F6] flex items-center justify-center text-[#0D4F4F] mb-1 shadow-2xs mt-1">
+                    <div key={inc.id} className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex flex-col items-center justify-center">
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-[#D4AF37] bg-[#FAF9F6] flex items-center justify-center text-[#0D4F4F] mb-1 shadow-2xs">
                         {getEquipmentIcon(inc.name, "w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0D4F4F]")}
                       </div>
                       <span className="font-bold text-[8.5px] sm:text-[9px] text-slate-800 uppercase tracking-tight leading-tight">
                         {displayName}
                       </span>
-                      {hasPrice && qty > 1 && (
-                        <span className="text-[7.5px] text-slate-400 font-medium mt-0.5">
-                          ({formatCurrency(inc.price || 0)} each)
-                        </span>
-                      )}
                     </div>
                   );
                 })}

@@ -77,8 +77,7 @@ export interface PackageInclusion {
   id: string;
   name: string;
   included: boolean;
-  quantity?: number; // e.g. 1, 2, 3 albums / sheets
-  price?: number; // Optional item / unit price (e.g. 4000, 5500, 1700, 10000, 800)
+  quantity?: number; // e.g. 1, 2, 3 albums
 }
 
 export interface ClientDetails {
