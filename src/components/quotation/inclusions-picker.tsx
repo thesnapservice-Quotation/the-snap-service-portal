@@ -11,19 +11,28 @@ interface InclusionsPickerProps {
   events?: EventItem[];
 }
 
-const PREDEFINED_EXTRA_ITEMS = [
-  'Extra Album',
-  'Extra Sheets',
-  'Hard Drive',
-  'USB',
-  'Coffee table Album Box',
-  'Instagram Reels & Teasers Package',
-  'Same Day Edit (SDE Teaser)',
+interface PredefinedExtraItem {
+  name: string;
+  defaultPrice?: number;
+  hasPriceBox: boolean;
+}
+
+const PREDEFINED_EXTRA_ITEMS: PredefinedExtraItem[] = [
+  { name: 'Hard Drive 320GB', defaultPrice: 4000, hasPriceBox: true },
+  { name: 'Hard Drive 500GB', defaultPrice: 5500, hasPriceBox: true },
+  { name: 'USB', defaultPrice: 1700, hasPriceBox: true },
+  { name: 'Extra Album', defaultPrice: 10000, hasPriceBox: true },
+  { name: 'Extra Sheets', defaultPrice: 800, hasPriceBox: true },
+  { name: 'Transport / Travel Charges', defaultPrice: 0, hasPriceBox: true },
+  { name: 'Coffee table Album Box', hasPriceBox: false },
+  { name: 'Instagram Reels & Teasers Package', hasPriceBox: false },
+  { name: 'Same Day Edit (SDE Teaser)', hasPriceBox: false },
 ];
 
 export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPickerProps) {
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [newInclusionText, setNewInclusionText] = useState('');
+  const [newInclusionPrice, setNewInclusionPrice] = useState<string>('');
   const [selectedDropdownValue, setSelectedDropdownValue] = useState('');
 
   // Automatic cleanup of legacy default inclusions in drafts
@@ -112,8 +121,21 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
     onChange(updated);
   };
 
+  const handlePriceChange = (id: string, newPrice: number | undefined) => {
+    const updated = inclusions.map((item) => {
+      if (item.id === id) {
+        return { ...item, price: newPrice };
+      }
+      return item;
+    });
+    onChange(updated);
+  };
+
   const handleAddPredefinedExtra = (itemName: string) => {
     if (!itemName) return;
+    const predefinedConfig = PREDEFINED_EXTRA_ITEMS.find(
+      (p) => p.name.toLowerCase() === itemName.toLowerCase()
+    );
 
     // Check if already exists in inclusions
     const existing = inclusions.find(
@@ -124,7 +146,12 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
       // If already exists, simply activate and increment quantity
       const updated = inclusions.map((item) =>
         item.id === existing.id
-          ? { ...item, included: true, quantity: (item.quantity || 1) + 1 }
+          ? {
+              ...item,
+              included: true,
+              quantity: (item.quantity || 1) + 1,
+              price: item.price !== undefined ? item.price : predefinedConfig?.defaultPrice,
+            }
           : item
       );
       onChange(updated);
@@ -134,6 +161,7 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
         name: itemName,
         included: true,
         quantity: 1,
+        price: predefinedConfig?.defaultPrice,
       };
       onChange([...inclusions, newItem]);
     }
@@ -142,14 +170,17 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
 
   const handleAddCustomInclusion = () => {
     if (!newInclusionText.trim()) return;
+    const parsedPrice = newInclusionPrice.trim() !== '' ? parseFloat(newInclusionPrice) || 0 : undefined;
     const newItem: PackageInclusion = {
       id: generateSecureId('inc'),
       name: newInclusionText.trim(),
       included: true,
       quantity: 1,
+      price: parsedPrice,
     };
     onChange([...inclusions, newItem]);
     setNewInclusionText('');
+    setNewInclusionPrice('');
     setShowCustomInput(false);
   };
 
@@ -166,7 +197,7 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
           Included in Package (Deliverables & Inclusions)
         </h3>
         <span className="text-[11px] font-medium text-slate-400">
-          Standard Studio Deliverables
+          Standard Studio Deliverables &amp; Optional Add-ons
         </span>
       </div>
 
@@ -174,17 +205,21 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
         {inclusions.map((item) => {
           const cleanName = item.name.replace(/^(\d+)\s+/, '');
+          const predefined = PREDEFINED_EXTRA_ITEMS.find(
+            (p) => p.name.toLowerCase() === cleanName.toLowerCase()
+          );
+          const showPriceInput = item.price !== undefined || predefined?.hasPriceBox;
 
           return (
             <div
               key={item.id}
-              className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+              className={`p-3 rounded-xl border flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 transition-all ${
                 item.included
                   ? 'bg-[#0D4F4F]/5 border-[#0D4F4F]/40 text-[#0D4F4F] font-bold shadow-2xs'
                   : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'
               }`}
             >
-              <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
+              <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-[130px]">
                 <input
                   type="checkbox"
                   checked={item.included}
@@ -203,35 +238,57 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
                 <span className="truncate text-xs">{cleanName}</span>
               </label>
 
-              {/* Quantity Stepper Counter */}
               {item.included && (
-                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5 ml-2 shadow-2xs">
-                  <button
-                    type="button"
-                    onClick={() => handleQuantityChange(item.id, -1)}
-                    className="w-5 h-5 rounded text-slate-500 hover:bg-slate-100 flex items-center justify-center font-bold text-xs transition-colors"
-                    title="Decrease Quantity"
-                  >
-                    -
-                  </button>
-                  <span className="w-4 text-center font-bold text-[#0D4F4F] text-xs">
-                    {item.quantity || 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleQuantityChange(item.id, 1)}
-                    className="w-5 h-5 rounded text-slate-500 hover:bg-slate-100 flex items-center justify-center font-bold text-xs transition-colors"
-                    title="Increase Quantity"
-                  >
-                    +
-                  </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Price Box for Extra Deliverables */}
+                  {showPriceInput && (
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-400">Rs.</span>
+                      <input
+                        type="number"
+                        value={item.price !== undefined ? (item.price === 0 && cleanName.toLowerCase().includes('transport') ? '' : item.price) : ''}
+                        onChange={(e) =>
+                          handlePriceChange(
+                            item.id,
+                            e.target.value === '' ? (cleanName.toLowerCase().includes('transport') ? 0 : undefined) : parseFloat(e.target.value) || 0
+                          )
+                        }
+                        placeholder="0"
+                        className="w-16 text-xs font-bold text-[#0D4F4F] focus:outline-none bg-transparent"
+                        title="Deliverable Extra Price (PKR)"
+                      />
+                    </div>
+                  )}
+
+                  {/* Quantity Stepper Counter */}
+                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-1.5 py-0.5 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => handleQuantityChange(item.id, -1)}
+                      className="w-5 h-5 rounded text-slate-500 hover:bg-slate-100 flex items-center justify-center font-bold text-xs transition-colors"
+                      title="Decrease Quantity"
+                    >
+                      -
+                    </button>
+                    <span className="w-4 text-center font-bold text-[#0D4F4F] text-xs">
+                      {item.quantity || 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleQuantityChange(item.id, 1)}
+                      className="w-5 h-5 rounded text-slate-500 hover:bg-slate-100 flex items-center justify-center font-bold text-xs transition-colors"
+                      title="Increase Quantity"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               )}
 
               <button
                 type="button"
                 onClick={() => handleRemove(item.id)}
-                className="p-1.5 text-slate-300 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors ml-1"
+                className="p-1.5 text-slate-300 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors shrink-0"
                 title="Remove deliverable item"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -257,8 +314,8 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
             >
               <option value="">+ Select Pre-defined Extra Item...</option>
               {PREDEFINED_EXTRA_ITEMS.map((item) => (
-                <option key={item} value={item}>
-                  + {item}
+                <option key={item.name} value={item.name}>
+                  + {item.name} {item.defaultPrice ? `(Rs. ${item.defaultPrice.toLocaleString()})` : (item.hasPriceBox ? '(Custom Price)' : '')}
                 </option>
               ))}
             </select>
@@ -280,25 +337,29 @@ export function InclusionsPicker({ inclusions, onChange, events }: InclusionsPic
 
         {/* Expandable Custom Other Input */}
         {showCustomInput && (
-          <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 animate-in fade-in zoom-in-95">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 animate-in fade-in zoom-in-95">
             <input
               type="text"
               placeholder="Type custom deliverable name (e.g. 1 Canvas Print Frame)..."
               value={newInclusionText}
               onChange={(e) => setNewInclusionText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddCustomInclusion();
-                }
-              }}
               className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
               autoFocus
             />
+            <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1">
+              <span className="text-[10px] font-bold text-slate-400">Rs.</span>
+              <input
+                type="number"
+                placeholder="Price (Optional)"
+                value={newInclusionPrice}
+                onChange={(e) => setNewInclusionPrice(e.target.value)}
+                className="w-24 text-xs font-bold text-[#0D4F4F] focus:outline-none bg-transparent"
+              />
+            </div>
             <button
               type="button"
               onClick={handleAddCustomInclusion}
-              className="px-4 py-1.5 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs hover:bg-[#093A3A] transition-colors flex items-center gap-1"
+              className="px-4 py-1.5 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs hover:bg-[#093A3A] transition-colors flex items-center justify-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" /> Add
             </button>

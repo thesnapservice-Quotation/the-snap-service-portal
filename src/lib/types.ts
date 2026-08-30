@@ -78,6 +78,7 @@ export interface PackageInclusion {
   name: string;
   included: boolean;
   quantity?: number; // e.g. 1, 2, 3 albums
+  price?: number; // Optional price for extra deliverables/add-ons (e.g. Hard Drive: 4000, USB: 1700)
 }
 
 export interface ClientDetails {

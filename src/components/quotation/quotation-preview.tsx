@@ -16,7 +16,8 @@ import {
   Music,
   Sparkles,
   CheckCircle2,
-  Heart
+  Heart,
+  Car
 } from 'lucide-react';
 
 interface QuotationPreviewProps {
@@ -177,6 +178,7 @@ function getEquipmentIcon(serviceName: string, className = "w-4 h-4 text-[#0D4F4
   if (n.includes('edit') || n.includes('film')) return <FilmEditingIcon className={className} />;
   if (n.includes('album') || n.includes('krizma') || n.includes('sheet') || n.includes('book')) return <PhotoAlbumIcon className={className} />;
   if (n.includes('drive') || n.includes('data') || n.includes('hard') || n.includes('usb') || n.includes('raw')) return <HardDriveIcon className={className} />;
+  if (n.includes('transport') || n.includes('travel') || n.includes('car') || n.includes('fuel')) return <Car className={className} />;
   if (n.includes('coverage') || n.includes('full event')) return <CheckCircle2 className={className} />;
   return <DSLRCameraIcon className={className} />;
 }
@@ -511,17 +513,23 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
                 .map((inc) => {
                   const qty = inc.quantity || 1;
                   const isAlbum = inc.name.toLowerCase().includes('album');
+                  const hasPrice = inc.price !== undefined && inc.price > 0;
                   // Always show quantity for Albums (e.g. "1 KRIZMA ALBUM", "3 FAMILY ALBUMS") or if qty > 1
                   const displayName = (isAlbum || qty > 1) ? `${qty} ${inc.name}` : inc.name;
 
                   return (
-                    <div key={inc.id} className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex flex-col items-center justify-center">
+                    <div key={inc.id} className="bg-white p-2 rounded-xl sm:rounded-2xl border border-[#E5E0D5] shadow-2xs flex flex-col items-center justify-center relative">
                       <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-[#D4AF37] bg-[#FAF9F6] flex items-center justify-center text-[#0D4F4F] mb-1 shadow-2xs">
                         {getEquipmentIcon(inc.name, "w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0D4F4F]")}
                       </div>
                       <span className="font-bold text-[8.5px] sm:text-[9px] text-slate-800 uppercase tracking-tight leading-tight">
                         {displayName}
                       </span>
+                      {hasPrice && (
+                        <span className="mt-1 px-2 py-0.5 rounded-full bg-[#0D4F4F]/10 text-[#0D4F4F] font-bold text-[8px] sm:text-[8.5px] border border-[#0D4F4F]/20">
+                          Rs. {(inc.price! * qty).toLocaleString()}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
