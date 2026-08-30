@@ -127,6 +127,24 @@ export const DEFAULT_INCLUSIONS: PackageInclusion[] = [
   { id: 'inc-6', name: 'Full Event Coverage', included: true, quantity: 1 },
 ];
 
+export interface PredefinedExtraDeliverable {
+  name: string;
+  defaultPrice?: number;
+  label: string;
+}
+
+export const PREDEFINED_EXTRA_DELIVERABLES: PredefinedExtraDeliverable[] = [
+  { name: 'Hard drive 320GB', defaultPrice: 4000, label: 'Hard drive 320GB (Rs. 4,000)' },
+  { name: 'Hard drive 500GB', defaultPrice: 5500, label: 'Hard drive 500GB (Rs. 5,500)' },
+  { name: 'USB', defaultPrice: 1700, label: 'USB (Rs. 1,700)' },
+  { name: 'Extra Album', defaultPrice: 10000, label: 'Extra Album (Rs. 10,000)' },
+  { name: 'Extra Sheets', defaultPrice: 800, label: 'Extra Sheets (Rs. 800 each sheet)' },
+  { name: 'Transport / Travel', defaultPrice: 0, label: 'Transport / Travel Charges (Custom Price)' },
+  { name: 'Coffee table Album Box', defaultPrice: 0, label: 'Coffee table Album Box' },
+  { name: 'Instagram Reels & Teasers Package', defaultPrice: 0, label: 'Instagram Reels & Teasers Package' },
+  { name: 'Same Day Edit (SDE Teaser)', defaultPrice: 0, label: 'Same Day Edit (SDE Teaser)' },
+];
+
 export const DEFAULT_TERMS: string[] = [
   '50% advance to confirm booking.',
   '25% after event completion.',
