@@ -70,13 +70,12 @@ const ALBUM_PROCESS_STEPS: { id: AlbumDeliverableStatus; label: string; stage: n
 
 const VIDEO_PROCESS_STEPS: { id: VideoDeliverableStatus; label: string; stage: number }[] = [
   { id: 'editing_in_progress', label: 'Editing in Progress', stage: 1 },
-  { id: 'music_selection', label: 'Music Selection', stage: 2 },
-  { id: 'music_changes', label: 'Music Changes', stage: 3 },
-  { id: 'client_review', label: 'Client Review', stage: 4 },
-  { id: 'revisions', label: 'Revisions', stage: 5 },
-  { id: 'final_changes', label: 'Final Changes', stage: 6 },
-  { id: 'final_export', label: 'Final Export', stage: 7 },
-  { id: 'delivered', label: 'Delivered', stage: 8 },
+  { id: 'video_edited', label: 'Video Edited', stage: 2 },
+  { id: 'client_review', label: 'Client Review', stage: 3 },
+  { id: 'revisions', label: 'Revisions', stage: 4 },
+  { id: 'final_changes', label: 'Final Changes', stage: 5 },
+  { id: 'final_export', label: 'Final Export', stage: 6 },
+  { id: 'delivered', label: 'Delivered', stage: 7 },
 ];
 
 function normalizeAlbumStatus(status?: string): AlbumDeliverableStatus {
@@ -87,6 +86,7 @@ function normalizeAlbumStatus(status?: string): AlbumDeliverableStatus {
 
 function normalizeVideoStatus(status?: string): VideoDeliverableStatus {
   if (!status || status === 'not_started' || status === 'in_progress') return 'editing_in_progress';
+  if (status === 'music_selection' || status === 'music_changes') return 'video_edited';
   return status as VideoDeliverableStatus;
 }
 

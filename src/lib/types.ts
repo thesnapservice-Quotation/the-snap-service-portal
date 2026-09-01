@@ -172,6 +172,7 @@ export type AlbumDeliverableStatus =
 
 export type VideoDeliverableStatus =
   | 'editing_in_progress'
+  | 'video_edited'
   | 'music_selection'
   | 'music_changes'
   | 'client_review'
