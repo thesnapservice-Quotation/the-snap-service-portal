@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuotations } from '@/hooks/use-quotations';
 import { storage } from '@/lib/storage';
-import { Quotation, DeliverableStatus } from '@/lib/types';
+import { Quotation, DeliverableStatus, AlbumDeliverableStatus, VideoDeliverableStatus } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
 import { Sparkles, CheckCircle2, Film, BookOpen, Clock, AlertTriangle, Calendar, Search, X } from 'lucide-react';
 
@@ -56,6 +56,40 @@ function getDeliveryDeadline(quotation: Quotation) {
   };
 }
 
+const ALBUM_PROCESS_STEPS: { id: AlbumDeliverableStatus; label: string; stage: number }[] = [
+  { id: 'raw_delivery_pending', label: 'Raw Images Delivery to Client', stage: 1 },
+  { id: 'raw_delivered', label: 'Raw Images Delivered to Client', stage: 2 },
+  { id: 'photo_selection', label: 'Photo Selection', stage: 3 },
+  { id: 'album_designing', label: 'Album Designing', stage: 4 },
+  { id: 'client_review', label: 'Client Review', stage: 5 },
+  { id: 'revisions', label: 'Revisions', stage: 6 },
+  { id: 'final_approval', label: 'Final Approval', stage: 7 },
+  { id: 'printing_completed', label: 'Printing Completed', stage: 8 },
+  { id: 'delivered', label: 'Delivered', stage: 9 },
+];
+
+const VIDEO_PROCESS_STEPS: { id: VideoDeliverableStatus; label: string; stage: number }[] = [
+  { id: 'editing_in_progress', label: 'Editing in Progress', stage: 1 },
+  { id: 'music_selection', label: 'Music Selection', stage: 2 },
+  { id: 'music_changes', label: 'Music Changes', stage: 3 },
+  { id: 'client_review', label: 'Client Review', stage: 4 },
+  { id: 'revisions', label: 'Revisions', stage: 5 },
+  { id: 'final_changes', label: 'Final Changes', stage: 6 },
+  { id: 'final_export', label: 'Final Export', stage: 7 },
+  { id: 'delivered', label: 'Delivered', stage: 8 },
+];
+
+function normalizeAlbumStatus(status?: string): AlbumDeliverableStatus {
+  if (!status || status === 'design') return 'raw_delivery_pending';
+  if (status === 'printing') return 'printing_completed';
+  return status as AlbumDeliverableStatus;
+}
+
+function normalizeVideoStatus(status?: string): VideoDeliverableStatus {
+  if (!status || status === 'not_started' || status === 'in_progress') return 'editing_in_progress';
+  return status as VideoDeliverableStatus;
+}
+
 export default function DeliverablesPage() {
   const { quotations, saveQuotation } = useQuotations();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
@@ -71,9 +105,12 @@ export default function DeliverablesPage() {
     field: keyof DeliverableStatus,
     val: string
   ) => {
+    const currentAlbum = normalizeAlbumStatus(quotation.deliverableStatus?.albumStatus);
+    const currentVideo = normalizeVideoStatus(quotation.deliverableStatus?.videoStatus);
+
     const currentStatus: DeliverableStatus = quotation.deliverableStatus || {
-      albumStatus: quotation.status === 'completed' ? 'delivered' : 'design',
-      videoStatus: quotation.status === 'completed' ? 'delivered' : 'in_progress',
+      albumStatus: quotation.status === 'completed' ? 'delivered' : currentAlbum,
+      videoStatus: quotation.status === 'completed' ? 'delivered' : currentVideo,
     };
 
     const newDeliverableStatus: DeliverableStatus = {
@@ -213,10 +250,21 @@ export default function DeliverablesPage() {
         ) : (
           filteredQuotations.map((q) => {
             const isQuotationCompleted = q.status === 'completed';
-            const deliverable = q.deliverableStatus || {
-              albumStatus: isQuotationCompleted ? 'delivered' : 'design',
-              videoStatus: isQuotationCompleted ? 'delivered' : 'in_progress',
-            };
+            const rawAlbum = q.deliverableStatus?.albumStatus;
+            const rawVideo = q.deliverableStatus?.videoStatus;
+            
+            const albumStatus = isQuotationCompleted 
+              ? 'delivered' 
+              : normalizeAlbumStatus(rawAlbum);
+            const videoStatus = isQuotationCompleted 
+              ? 'delivered' 
+              : normalizeVideoStatus(rawVideo);
+
+            const albumStep = ALBUM_PROCESS_STEPS.find((s) => s.id === albumStatus) || ALBUM_PROCESS_STEPS[0];
+            const videoStep = VIDEO_PROCESS_STEPS.find((s) => s.id === videoStatus) || VIDEO_PROCESS_STEPS[0];
+
+            const albumProgressPercent = Math.round((albumStep.stage / ALBUM_PROCESS_STEPS.length) * 100);
+            const videoProgressPercent = Math.round((videoStep.stage / VIDEO_PROCESS_STEPS.length) * 100);
 
             const deadline = getDeliveryDeadline(q);
 
@@ -271,55 +319,107 @@ export default function DeliverablesPage() {
                   </div>
                 </div>
 
-                {/* Grid of 2 Core Deliverable Cards: Albums & Video Editing */}
+                {/* Grid of 2 Core Deliverable Cards: Album Process & Video Editing Process */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  {/* 1. Albums (Krizma, Couple & Family Albums) */}
-                  <div className={`p-4 rounded-xl border space-y-2.5 transition-all ${
-                    deliverable.albumStatus === 'delivered' ? 'bg-emerald-50/70 border-emerald-300' : 'bg-slate-50 border-slate-200'
+                  {/* 1. 📸 Album Process (9 Stages) */}
+                  <div className={`p-4 rounded-xl border space-y-3 transition-all ${
+                    albumStatus === 'delivered' 
+                      ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs' 
+                      : 'bg-slate-50 border-slate-200'
                   }`}>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                        <BookOpen className="w-4 h-4 text-[#0D4F4F]" /> Albums (Krizma & Family Albums)
+                        <BookOpen className="w-4 h-4 text-[#0D4F4F]" />
+                        <span>📸 Album Process</span>
                       </span>
-                      {deliverable.albumStatus === 'delivered' && (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                          Handed Over
+                      {albumStatus === 'delivered' ? (
+                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Delivered</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-[#0D4F4F] bg-[#0D4F4F]/10 px-2 py-0.5 rounded-md">
+                          Stage {albumStep.stage} of {ALBUM_PROCESS_STEPS.length}
                         </span>
                       )}
                     </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ${
+                          albumStatus === 'delivered' ? 'bg-emerald-600' : 'bg-gradient-to-r from-[#0D4F4F] to-[#D4AF37]'
+                        }`}
+                        style={{ width: `${albumProgressPercent}%` }}
+                      />
+                    </div>
+
+                    {/* Select Dropdown */}
                     <select
-                      value={deliverable.albumStatus}
+                      value={albumStatus}
                       onChange={(e) => updateDeliverableStatus(q, 'albumStatus', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-[#0D4F4F] bg-white focus:outline-none focus:ring-2 focus:ring-[#0D4F4F]"
+                      className={`w-full px-3 py-2 rounded-lg border text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#0D4F4F] transition-all cursor-pointer ${
+                        albumStatus === 'delivered'
+                          ? 'border-emerald-300 text-emerald-800 bg-emerald-50/40'
+                          : 'border-slate-300 text-[#0D4F4F]'
+                      }`}
                     >
-                      <option value="design">Layout Design In Progress</option>
-                      <option value="printing">Sent to Printing Press</option>
-                      <option value="delivered">Delivered to Client</option>
+                      {ALBUM_PROCESS_STEPS.map((step) => (
+                        <option key={step.id} value={step.id}>
+                          {step.stage}. {step.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
-                  {/* 2. Video Editing */}
-                  <div className={`p-4 rounded-xl border space-y-2.5 transition-all ${
-                    deliverable.videoStatus === 'delivered' ? 'bg-emerald-50/70 border-emerald-300' : 'bg-slate-50 border-slate-200'
+                  {/* 2. 🎬 Video Editing Process (8 Stages) */}
+                  <div className={`p-4 rounded-xl border space-y-3 transition-all ${
+                    videoStatus === 'delivered' 
+                      ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs' 
+                      : 'bg-slate-50 border-slate-200'
                   }`}>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                        <Film className="w-4 h-4 text-[#0D4F4F]" /> Complete Video Editing
+                        <Film className="w-4 h-4 text-[#0D4F4F]" />
+                        <span>🎬 Video Editing Process</span>
                       </span>
-                      {deliverable.videoStatus === 'delivered' && (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                          Handed Over
+                      {videoStatus === 'delivered' ? (
+                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Delivered</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-[#0D4F4F] bg-[#0D4F4F]/10 px-2 py-0.5 rounded-md">
+                          Stage {videoStep.stage} of {VIDEO_PROCESS_STEPS.length}
                         </span>
                       )}
                     </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ${
+                          videoStatus === 'delivered' ? 'bg-emerald-600' : 'bg-gradient-to-r from-[#0D4F4F] to-[#D4AF37]'
+                        }`}
+                        style={{ width: `${videoProgressPercent}%` }}
+                      />
+                    </div>
+
+                    {/* Select Dropdown */}
                     <select
-                      value={deliverable.videoStatus}
+                      value={videoStatus}
                       onChange={(e) => updateDeliverableStatus(q, 'videoStatus', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-[#0D4F4F] bg-white focus:outline-none focus:ring-2 focus:ring-[#0D4F4F]"
+                      className={`w-full px-3 py-2 rounded-lg border text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#0D4F4F] transition-all cursor-pointer ${
+                        videoStatus === 'delivered'
+                          ? 'border-emerald-300 text-emerald-800 bg-emerald-50/40'
+                          : 'border-slate-300 text-[#0D4F4F]'
+                      }`}
                     >
-                      <option value="not_started">Editing Not Started</option>
-                      <option value="in_progress">Video Editing In Progress</option>
-                      <option value="delivered">Delivered to Client</option>
+                      {VIDEO_PROCESS_STEPS.map((step) => (
+                        <option key={step.id} value={step.id}>
+                          {step.stage}. {step.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

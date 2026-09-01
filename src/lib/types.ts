@@ -157,9 +157,34 @@ export interface InternalAnalysis {
   totalAlbumCost?: number;
 }
 
+export type AlbumDeliverableStatus = 
+  | 'raw_delivery_pending'
+  | 'raw_delivered'
+  | 'photo_selection'
+  | 'album_designing'
+  | 'client_review'
+  | 'revisions'
+  | 'final_approval'
+  | 'printing_completed'
+  | 'delivered'
+  | 'design'
+  | 'printing';
+
+export type VideoDeliverableStatus =
+  | 'editing_in_progress'
+  | 'music_selection'
+  | 'music_changes'
+  | 'client_review'
+  | 'revisions'
+  | 'final_changes'
+  | 'final_export'
+  | 'delivered'
+  | 'not_started'
+  | 'in_progress';
+
 export interface DeliverableStatus {
-  albumStatus: 'design' | 'printing' | 'delivered';
-  videoStatus: 'not_started' | 'in_progress' | 'delivered';
+  albumStatus: AlbumDeliverableStatus;
+  videoStatus: VideoDeliverableStatus;
 }
 
 export interface Quotation {
