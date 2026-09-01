@@ -405,13 +405,17 @@ export interface NotificationPreferences {
 // ----------------------------------------------------
 
 export type ExpenseCategory =
-  | 'team_advance'       // Advance payment disbursed to team member / freelancer
-  | 'salary'             // Monthly salary payout
-  | 'gear_equipment'     // Cameras, lenses, lighting, memory cards, batteries, repairs
-  | 'travel_fuel'        // Fuel, taxi, flight, travel & transport expenses
-  | 'printing_albums'    // Photobook lab printing, album binding & packaging
-  | 'studio_utilities'   // Studio rent, electricity, high-speed internet, office tea
+  | 'event_profit'       // Auto-synced profit from confirmed/completed quotation
+  | 'office_rent'        // Studio / Office Rent
+  | 'electricity'        // Electricity & Power bills
+  | 'internet'           // Internet, Wi-Fi & Subscriptions
+  | 'salary'             // Monthly staff / editor / photographer salaries
   | 'marketing_ads'      // Meta/Instagram advertising, social campaigns
+  | 'travel_fuel'        // Fuel, taxi, flight, travel & transport expenses
+  | 'gear_equipment'     // Cameras, lenses, lighting, memory cards, batteries, repairs
+  | 'team_advance'       // Advance payment disbursed to team member / freelancer
+  | 'printing_albums'    // Photobook lab printing, album binding & packaging
+  | 'studio_utilities'   // General studio utilities & office supplies
   | 'vendor_payout'      // External vendors, third-party sub-contractors
   | 'other';             // Miscellaneous studio operational expense
 
@@ -420,6 +424,10 @@ export interface StudioExpense {
   workspaceId: string;
   amount: number;
   category: ExpenseCategory;
+  type?: 'expense' | 'income';   // 'income' for auto-synced event profits, 'expense' for studio costs
+  quotationId?: string;          // If auto-synced from a quotation
+  quotationNumber?: string;      // e.g. "SS-2026-104"
+  clientName?: string;           // e.g. "Mr Waleed"
   date: string;                  // YYYY-MM-DD
   personName?: string;          // e.g. "Jawad Murtaza", "Ali Photographer", "Farhan Editor"
   userId?: string;              // Optional link to UserAccount if matching team user exists

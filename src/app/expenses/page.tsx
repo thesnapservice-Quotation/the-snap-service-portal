@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useExpenses } from '@/hooks/use-expenses';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useAuth } from '@/hooks/use-auth';
-import { StudioExpense, ExpenseCategory } from '@/lib/types';
+import { StudioExpense, ExpenseCategory, Quotation } from '@/lib/types';
 import { formatCurrency, formatDate, getTodayDateString } from '@/lib/utils';
 import { 
   Receipt, 
@@ -35,40 +35,79 @@ import {
   TrendingUp,
   Clock,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  Zap,
+  Wifi,
+  ExternalLink
 } from 'lucide-react';
+import Link from 'next/link';
 
-const CATEGORY_CONFIG: Record<
+export const CATEGORY_CONFIG: Record<
   ExpenseCategory, 
   { label: string; icon: React.ElementType; color: string; bg: string; border: string }
 > = {
-  team_advance: {
-    label: 'Team Advance',
-    icon: UserCheck,
+  event_profit: {
+    label: 'Event Profit (Income)',
+    icon: TrendingUp,
+    color: 'text-emerald-800',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-300',
+  },
+  office_rent: {
+    label: 'Office Rent',
+    icon: Building,
+    color: 'text-cyan-700',
+    bg: 'bg-cyan-50',
+    border: 'border-cyan-200',
+  },
+  electricity: {
+    label: 'Electricity',
+    icon: Zap,
     color: 'text-amber-700',
     bg: 'bg-amber-50',
     border: 'border-amber-200',
   },
+  internet: {
+    label: 'Internet / Wi-Fi',
+    icon: Wifi,
+    color: 'text-indigo-700',
+    bg: 'bg-indigo-50',
+    border: 'border-indigo-200',
+  },
   salary: {
-    label: 'Salary Payout',
+    label: 'Salaries',
     icon: Wallet,
-    color: 'text-emerald-700',
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
+    color: 'text-teal-700',
+    bg: 'bg-teal-50',
+    border: 'border-teal-200',
+  },
+  marketing_ads: {
+    label: 'Marketing & Ads',
+    icon: Megaphone,
+    color: 'text-pink-700',
+    bg: 'bg-pink-50',
+    border: 'border-pink-200',
+  },
+  travel_fuel: {
+    label: 'Transport & Fuel',
+    icon: Fuel,
+    color: 'text-orange-700',
+    bg: 'bg-orange-50',
+    border: 'border-orange-200',
   },
   gear_equipment: {
-    label: 'Gear & Equipment',
+    label: 'Equipment & Gear',
     icon: Camera,
     color: 'text-blue-700',
     bg: 'bg-blue-50',
     border: 'border-blue-200',
   },
-  travel_fuel: {
-    label: 'Travel & Fuel',
-    icon: Fuel,
-    color: 'text-orange-700',
-    bg: 'bg-orange-50',
-    border: 'border-orange-200',
+  team_advance: {
+    label: 'Team Advance',
+    icon: UserCheck,
+    color: 'text-amber-800',
+    bg: 'bg-amber-100/60',
+    border: 'border-amber-300',
   },
   printing_albums: {
     label: 'Printing & Albums',
@@ -78,18 +117,11 @@ const CATEGORY_CONFIG: Record<
     border: 'border-purple-200',
   },
   studio_utilities: {
-    label: 'Studio & Utilities',
+    label: 'Studio Utilities',
     icon: Building,
-    color: 'text-cyan-700',
-    bg: 'bg-cyan-50',
-    border: 'border-cyan-200',
-  },
-  marketing_ads: {
-    label: 'Marketing & Ads',
-    icon: Megaphone,
-    color: 'text-pink-700',
-    bg: 'bg-pink-50',
-    border: 'border-pink-200',
+    color: 'text-slate-700',
+    bg: 'bg-slate-50',
+    border: 'border-slate-200',
   },
   vendor_payout: {
     label: 'Vendor Payout',
@@ -99,7 +131,7 @@ const CATEGORY_CONFIG: Record<
     border: 'border-indigo-200',
   },
   other: {
-    label: 'Other Operating Cost',
+    label: 'Other Studio Expenses',
     icon: Layers,
     color: 'text-slate-700',
     bg: 'bg-slate-50',
@@ -115,13 +147,28 @@ const PAYMENT_METHOD_LABELS: Record<string, { label: string; icon: React.Element
   other: { label: 'Other', icon: Wallet },
 };
 
+// Categories user can select when adding manual expenses (Event Profit is auto-synced)
+const MANUAL_EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  'office_rent',
+  'electricity',
+  'internet',
+  'salary',
+  'marketing_ads',
+  'travel_fuel',
+  'gear_equipment',
+  'team_advance',
+  'printing_albums',
+  'studio_utilities',
+  'other',
+];
+
 export default function ExpensesPage() {
   const { expenses, loading, addExpense, updateExpense, deleteExpense, totalExpenses, totalTeamAdvances } = useExpenses();
   const { quotations } = useQuotations();
   const { users } = useAuth();
 
-  // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'all' | 'team_ledger'>('team_ledger');
+  // Navigation Tabs: 'all' (Combined Ledger), 'expenses_only' (Studio Expenses), 'team_ledger' (Team Advances)
+  const [activeTab, setActiveTab] = useState<'all' | 'expenses_only' | 'team_ledger'>('all');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,7 +181,7 @@ export default function ExpensesPage() {
 
   // Form State
   const [formAmount, setFormAmount] = useState<number | ''>('');
-  const [formCategory, setFormCategory] = useState<ExpenseCategory>('team_advance');
+  const [formCategory, setFormCategory] = useState<ExpenseCategory>('office_rent');
   const [formPersonName, setFormPersonName] = useState('');
   const [formDate, setFormDate] = useState(getTodayDateString());
   const [formMethod, setFormMethod] = useState<'cash' | 'bank_transfer' | 'online' | 'cheque' | 'other'>('bank_transfer');
@@ -144,53 +191,120 @@ export default function ExpensesPage() {
   // Selected Team Member Drawer/Modal State
   const [selectedPersonForDetail, setSelectedPersonForDetail] = useState<string | null>(null);
 
-  // Total Client Revenue Received (Inflow) - Synced Single Source of Truth
-  const totalClientInflow = useMemo(() => {
-    return quotations.reduce((sum, q) => {
-      if (q.payment?.transactions && q.payment.transactions.length > 0) {
-        return sum + q.payment.transactions.reduce((tSum, tx) => tSum + (Number(tx.amount) || 0), 0);
-      }
-      return sum + (Number(q.payment?.advanceReceived) || 0);
-    }, 0);
+  // ----------------------------------------------------
+  // 1. AUTO-SYNCED EVENT PROFIT FROM CONFIRMED BOOKINGS
+  // ----------------------------------------------------
+  const getQuotationProfit = (q: Quotation): number => {
+    const total = q.payment?.grandTotal || (q.events || []).reduce((sum, e) => sum + (Number(e.price) || 0), 0);
+    const exp = q.internalAnalysis?.totalInternalCost || (q.events || []).reduce((eSum, evt) => {
+      return eSum + (evt.services || []).reduce((sSum, s) => sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000), 0);
+    }, 0) + (q.internalAnalysis?.totalAlbumCost || 0) + (q.internalAnalysis?.totalVideoEditingCost || 0);
+    return Math.max(0, total - exp);
+  };
+
+  const getQuotationTotal = (q: Quotation): number => {
+    return q.payment?.grandTotal || (q.events || []).reduce((sum, e) => sum + (Number(e.price) || 0), 0);
+  };
+
+  const getQuotationExpenses = (q: Quotation): number => {
+    return q.internalAnalysis?.totalInternalCost || (q.events || []).reduce((eSum, evt) => {
+      return eSum + (evt.services || []).reduce((sSum, s) => sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000), 0);
+    }, 0) + (q.internalAnalysis?.totalAlbumCost || 0) + (q.internalAnalysis?.totalVideoEditingCost || 0);
+  };
+
+  // Confirmed & Completed Quotations
+  const confirmedQuotations = useMemo(() => {
+    return quotations.filter((q) => q.status === 'confirmed' || q.status === 'completed');
   }, [quotations]);
 
-  // Net Studio Profit (Inflow - Total Expenses & Advances) -> EXACT SYNC WITH FINANCIAL INTELLIGENCE
-  const netStudioProfit = totalClientInflow - totalExpenses;
-  const profitMargin = totalClientInflow > 0 ? Math.round((netStudioProfit / totalClientInflow) * 100) : 0;
+  // Synthetic auto-synced Event Profit entries
+  const eventProfitEntries: StudioExpense[] = useMemo(() => {
+    return confirmedQuotations.map((q) => {
+      const profit = getQuotationProfit(q);
+      const pkgTotal = getQuotationTotal(q);
+      const expTotal = getQuotationExpenses(q);
+      const dateStr = q.client?.quotationDate || q.createdAt?.split('T')[0] || getTodayDateString();
 
-  // Filtered Expenses
-  const filteredExpenses = useMemo(() => {
+      return {
+        id: `auto-profit-${q.id}`,
+        workspaceId: q.workspaceId || 'ws_user-super-admin',
+        amount: profit,
+        category: 'event_profit' as ExpenseCategory,
+        type: 'income',
+        quotationId: q.id,
+        quotationNumber: q.quotationNumber,
+        clientName: q.client?.name,
+        date: dateStr,
+        personName: q.client?.name ? `${q.client.name}` : 'Confirmed Client',
+        paymentMethod: 'bank_transfer',
+        description: `Event Profit: ${q.client?.name || 'Client'} (${q.quotationNumber || 'SS-2026'}) — Package: ${formatCurrency(pkgTotal)} − Costs: ${formatCurrency(expTotal)}`,
+        reference: q.quotationNumber,
+        createdAt: q.createdAt || new Date().toISOString(),
+        updatedAt: q.updatedAt || new Date().toISOString(),
+      };
+    });
+  }, [confirmedQuotations]);
+
+  // Combined Ledger Items (Income Profits + Manual Studio Expenses)
+  const allLedgerItems = useMemo(() => {
+    const combined = [...eventProfitEntries, ...expenses];
+    return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [eventProfitEntries, expenses]);
+
+  // ----------------------------------------------------
+  // 2. FINANCIAL RECONCILIATION TOTALS
+  // ----------------------------------------------------
+  // Total Event Profit (Income)
+  const totalEventProfit = useMemo(() => {
+    return eventProfitEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }, [eventProfitEntries]);
+
+  // Total Studio Expenses (Manual studio operating costs & advances)
+  const totalStudioExpenses = useMemo(() => {
+    return expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }, [expenses]);
+
+  // Studio Remaining Balance = Total Event Profit − Total Studio Expenses
+  const studioRemainingBalance = totalEventProfit - totalStudioExpenses;
+
+  // ----------------------------------------------------
+  // 3. FILTERING
+  // ----------------------------------------------------
+  const filteredLedgerItems = useMemo(() => {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
 
-    return expenses.filter((exp) => {
+    const sourceList = activeTab === 'expenses_only' ? expenses : allLedgerItems;
+
+    return sourceList.filter((item) => {
       // Search
       const search = searchQuery.toLowerCase().trim();
       const matchSearch =
         !search ||
-        (exp.personName || '').toLowerCase().includes(search) ||
-        (exp.description || '').toLowerCase().includes(search) ||
-        (exp.reference || '').toLowerCase().includes(search);
+        (item.personName || '').toLowerCase().includes(search) ||
+        (item.description || '').toLowerCase().includes(search) ||
+        (item.reference || '').toLowerCase().includes(search) ||
+        (item.quotationNumber || '').toLowerCase().includes(search);
 
       // Category
-      const matchCategory = selectedCategory === 'all' || exp.category === selectedCategory;
+      const matchCategory = selectedCategory === 'all' || item.category === selectedCategory;
 
       // Date
       let matchDate = true;
       if (dateFilter === 'this_month') {
-        const expDate = new Date(exp.date);
-        matchDate = expDate.getFullYear() === currentYear && expDate.getMonth() === currentMonth;
+        const itemDate = new Date(item.date);
+        matchDate = itemDate.getFullYear() === currentYear && itemDate.getMonth() === currentMonth;
       } else if (dateFilter === 'last_month') {
-        const expDate = new Date(exp.date);
+        const itemDate = new Date(item.date);
         const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
         const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-        matchDate = expDate.getFullYear() === prevYear && expDate.getMonth() === prevMonth;
+        matchDate = itemDate.getFullYear() === prevYear && itemDate.getMonth() === prevMonth;
       }
 
       return matchSearch && matchCategory && matchDate;
     });
-  }, [expenses, searchQuery, selectedCategory, dateFilter]);
+  }, [activeTab, expenses, allLedgerItems, searchQuery, selectedCategory, dateFilter]);
 
   // Grouped Team Advances Ledger
   const teamMemberLedgers = useMemo(() => {
@@ -206,7 +320,7 @@ export default function ExpensesPage() {
       }
     > = {};
 
-    // First, populate all registered users into map
+    // Populate registered users
     users.forEach((u) => {
       if (u.role === 'super_admin') return;
       const key = u.name.trim().toLowerCase();
@@ -254,20 +368,29 @@ export default function ExpensesPage() {
   }, [expenses, users]);
 
   // Open Modal for New Record
-  const handleOpenAddModal = (presetCategory: ExpenseCategory = 'team_advance', presetPersonName: string = '') => {
+  const handleOpenAddModal = (presetCategory: ExpenseCategory = 'office_rent', presetPersonName: string = '') => {
     setEditingExpense(null);
     setFormAmount('');
-    setFormCategory(presetCategory);
+    setFormCategory(presetCategory === 'event_profit' ? 'office_rent' : presetCategory);
     setFormPersonName(presetPersonName);
     setFormDate(getTodayDateString());
     setFormMethod('bank_transfer');
-    setFormDescription(presetCategory === 'team_advance' ? 'Advance payment for wedding shoot' : '');
+    setFormDescription(
+      presetCategory === 'team_advance'
+        ? 'Advance payment for wedding shoot'
+        : presetCategory === 'office_rent'
+        ? 'Studio Office Rent'
+        : presetCategory === 'electricity'
+        ? 'Electricity & Power Bill'
+        : ''
+    );
     setFormReference('');
     setIsModalOpen(true);
   };
 
   // Open Modal for Editing
   const handleOpenEditModal = (expense: StudioExpense) => {
+    if (expense.type === 'income' || expense.category === 'event_profit') return;
     setEditingExpense(expense);
     setFormAmount(expense.amount);
     setFormCategory(expense.category);
@@ -333,17 +456,24 @@ export default function ExpensesPage() {
             </div>
             <div>
               <h1 className="font-serif font-bold text-2xl text-[#0D4F4F] tracking-tight">
-                Studio Expenses & Team Ledger
+                Studio Expenses &amp; Team Ledger
               </h1>
               <p className="text-xs text-slate-500 font-medium">
-                Track team advances, payouts, and operating costs with live Net Profit calculations
+                Auto-synced event profits minus studio operating costs (Rent, Electricity, Salaries, Transport) with live Studio Balance
               </p>
             </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/analytics"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[#0D4F4F] font-bold text-xs shadow-2xs transition-all"
+          >
+            <TrendingUp className="w-4 h-4 text-[#D4AF37]" />
+            <span>Financial Intelligence</span>
+          </Link>
           <button
             type="button"
             onClick={() => handleOpenAddModal('team_advance')}
@@ -354,60 +484,60 @@ export default function ExpensesPage() {
           </button>
           <button
             type="button"
-            onClick={() => handleOpenAddModal('other')}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#0D4F4F] to-[#156060] text-white hover:opacity-95 font-bold text-xs shadow-md transition-all"
+            onClick={() => handleOpenAddModal('office_rent')}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#0D4F4F] to-[#156060] text-white hover:opacity-95 font-bold text-xs shadow-md transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4 text-[#D4AF37]" />
-            <span>Record Expense</span>
+            <span>Record Studio Expense</span>
           </button>
         </div>
       </div>
 
       {/* 4 Financial Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Client Inflow */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+        {/* 1. Total Event Profit (Auto-Synced Income) */}
+        <div className="bg-white p-4 rounded-2xl border-2 border-emerald-200 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Client Inflow</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <ArrowDownRight className="w-4 h-4" />
+            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Total Event Profit</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="font-serif font-extrabold text-xl sm:text-2xl text-slate-900">
-            {formatCurrency(totalClientInflow)}
+          <div className="font-serif font-extrabold text-xl sm:text-2xl text-emerald-700">
+            {formatCurrency(totalEventProfit)}
           </div>
-          <span className="text-[10px] text-slate-400 block">From confirmed quotations & payments</span>
+          <span className="text-[10px] text-emerald-600 block">⚡ Auto-synced from {confirmedQuotations.length} confirmed bookings</span>
         </div>
 
-        {/* Total Studio Outflow */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+        {/* 2. Total Studio Expenses */}
+        <div className="bg-white p-4 rounded-2xl border-2 border-rose-200 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Studio Outflow</span>
+            <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider">Total Studio Expenses</span>
             <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
           <div className="font-serif font-extrabold text-xl sm:text-2xl text-rose-600">
-            {formatCurrency(totalExpenses)}
+            {formatCurrency(totalStudioExpenses)}
           </div>
-          <span className="text-[10px] text-slate-400 block">{expenses.length} recorded entries</span>
+          <span className="text-[10px] text-slate-400 block">{expenses.length} recorded operating expenses</span>
         </div>
 
-        {/* Net Studio Profit */}
-        <div className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-4 rounded-2xl border border-[#D4AF37]/30 shadow-md space-y-2 relative overflow-hidden">
+        {/* 3. Studio Remaining Balance */}
+        <div className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-4 rounded-2xl border-2 border-[#D4AF37] shadow-md space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
-            <span className="text-[11px] font-bold text-[#D4AF37] uppercase tracking-wider">Net Studio Profit</span>
+            <span className="text-[11px] font-bold text-[#D4AF37] uppercase tracking-wider">Studio Remaining Balance</span>
             <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-400/30">
-              {profitMargin}% Margin
+              Net Balance
             </span>
           </div>
-          <div className="font-serif font-extrabold text-xl sm:text-2xl text-white tracking-tight relative z-10">
-            {formatCurrency(netStudioProfit)}
+          <div className="font-serif font-extrabold text-xl sm:text-2xl text-emerald-300 tracking-tight relative z-10">
+            {formatCurrency(studioRemainingBalance)}
           </div>
-          <span className="text-[10px] text-teal-200 block relative z-10">Inflow minus all studio expenses</span>
+          <span className="text-[10px] text-teal-200 block relative z-10">Event Profit − Total Studio Expenses</span>
         </div>
 
-        {/* Active Team Advances */}
+        {/* 4. Active Team Advances */}
         <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-xs space-y-2 bg-amber-50/30">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Team Advances Given</span>
@@ -418,7 +548,7 @@ export default function ExpensesPage() {
           <div className="font-serif font-extrabold text-xl sm:text-2xl text-amber-700">
             {formatCurrency(totalTeamAdvances)}
           </div>
-          <span className="text-[10px] text-amber-600 block">Total advances given to crew</span>
+          <span className="text-[10px] text-amber-600 block">Total advances disbursed to crew</span>
         </div>
       </div>
 
@@ -427,6 +557,36 @@ export default function ExpensesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Navigation Pill Tabs */}
           <div className="overflow-x-auto no-scrollbar inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold max-w-full">
+            <button
+              type="button"
+              onClick={() => setActiveTab('all')}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg shrink-0 whitespace-nowrap transition-all ${
+                activeTab === 'all'
+                  ? 'bg-white text-[#0D4F4F] font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Receipt className="w-4 h-4 text-[#D4AF37]" />
+              <span>Combined Studio Ledger</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#0D4F4F]/10 text-[#0D4F4F] text-[10px]">
+                {allLedgerItems.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('expenses_only')}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg shrink-0 whitespace-nowrap transition-all ${
+                activeTab === 'expenses_only'
+                  ? 'bg-white text-[#0D4F4F] font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Building className="w-4 h-4 text-[#D4AF37]" />
+              <span>Studio Expenses Only</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#0D4F4F]/10 text-[#0D4F4F] text-[10px]">
+                {expenses.length}
+              </span>
+            </button>
             <button
               type="button"
               onClick={() => setActiveTab('team_ledger')}
@@ -442,21 +602,6 @@ export default function ExpensesPage() {
                 {teamMemberLedgers.length}
               </span>
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('all')}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg shrink-0 whitespace-nowrap transition-all ${
-                activeTab === 'all'
-                  ? 'bg-white text-[#0D4F4F] font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Receipt className="w-4 h-4 text-[#D4AF37]" />
-              <span>All Expense Entries</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-[#0D4F4F]/10 text-[#0D4F4F] text-[10px]">
-                {expenses.length}
-              </span>
-            </button>
           </div>
 
           {/* Search & Date Filter Bar */}
@@ -466,7 +611,7 @@ export default function ExpensesPage() {
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Search recipient, note..."
+                placeholder="Search client, note, quotation #..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#0D4F4F] text-xs w-48 sm:w-60"
@@ -495,8 +640,8 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {/* Category Filter Pills (Visible when in All Entries Tab) */}
-        {activeTab === 'all' && (
+        {/* Category Filter Pills (Visible when in All or Studio Expenses Tab) */}
+        {(activeTab === 'all' || activeTab === 'expenses_only') && (
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-xs">
             <button
               type="button"
@@ -509,31 +654,162 @@ export default function ExpensesPage() {
             >
               All Categories
             </button>
-            {Object.entries(CATEGORY_CONFIG).map(([catKey, config]) => {
-              const Icon = config.icon;
-              const isSelected = selectedCategory === catKey;
-              return (
-                <button
-                  key={catKey}
-                  type="button"
-                  onClick={() => setSelectedCategory(catKey)}
-                  className={`px-3 py-1 rounded-full shrink-0 whitespace-nowrap flex items-center gap-1.5 transition-all ${
-                    isSelected
-                      ? 'bg-[#0D4F4F] text-[#D4AF37] font-bold shadow-2xs'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{config.label}</span>
-                </button>
-              );
-            })}
+            {Object.entries(CATEGORY_CONFIG)
+              .filter(([catKey]) => activeTab === 'all' || catKey !== 'event_profit')
+              .map(([catKey, config]) => {
+                const Icon = config.icon;
+                const isSelected = selectedCategory === catKey;
+                return (
+                  <button
+                    key={catKey}
+                    type="button"
+                    onClick={() => setSelectedCategory(catKey)}
+                    className={`px-3 py-1 rounded-full shrink-0 whitespace-nowrap flex items-center gap-1.5 transition-all ${
+                      isSelected
+                        ? 'bg-[#0D4F4F] text-[#D4AF37] font-bold shadow-2xs'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{config.label}</span>
+                  </button>
+                );
+              })}
           </div>
         )}
       </div>
 
       {/* ---------------------------------------------------- */}
-      {/* TAB 1: TEAM MEMBER LEDGER VIEW                      */}
+      {/* TAB 1 & 2: COMBINED LEDGER / STUDIO EXPENSES TABLE   */}
+      {/* ---------------------------------------------------- */}
+      {(activeTab === 'all' || activeTab === 'expenses_only') && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                  <th className="p-3 whitespace-nowrap">Date</th>
+                  <th className="p-3 whitespace-nowrap">Category / Type</th>
+                  <th className="p-3 whitespace-nowrap">Source / Recipient</th>
+                  <th className="p-3 whitespace-nowrap">Description / Quotation Details</th>
+                  <th className="p-3 whitespace-nowrap text-right">Inflow (+) / Outflow (-)</th>
+                  <th className="p-3 text-center whitespace-nowrap">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredLedgerItems.map((item) => {
+                  const isIncome = item.type === 'income' || item.category === 'event_profit';
+                  const catConfig = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.other;
+                  const CatIcon = catConfig.icon;
+
+                  return (
+                    <tr key={item.id} className={`hover:bg-slate-50/80 transition-colors ${isIncome ? 'bg-emerald-50/30' : ''}`}>
+                      {/* Date */}
+                      <td className="p-3 font-medium text-slate-700 whitespace-nowrap">
+                        {formatDate(item.date)}
+                      </td>
+
+                      {/* Category Badge */}
+                      <td className="p-3 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${catConfig.bg} ${catConfig.color} ${catConfig.border}`}
+                        >
+                          <CatIcon className="w-3 h-3" />
+                          <span>{catConfig.label}</span>
+                        </span>
+                      </td>
+
+                      {/* Source / Recipient */}
+                      <td className="p-3 font-bold text-slate-900 whitespace-nowrap">
+                        {item.personName || <span className="text-slate-400 italic font-normal">—</span>}
+                      </td>
+
+                      {/* Description */}
+                      <td className="p-3 text-slate-700 max-w-sm">
+                        <div className="font-medium truncate">{item.description}</div>
+                        {isIncome && item.quotationId && (
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-emerald-700 font-bold">⚡ Live Quotation Sync</span>
+                            <Link
+                              href={`/quotations/${item.quotationId}/compare`}
+                              className="text-[10px] text-[#0D4F4F] hover:underline font-bold inline-flex items-center gap-0.5"
+                            >
+                              <span>View Costing</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </Link>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Amount: Inflow (+) / Outflow (-) */}
+                      <td className="p-3 text-right whitespace-nowrap font-mono">
+                        {isIncome ? (
+                          <span className="font-serif font-extrabold text-emerald-700 text-sm">
+                            +{formatCurrency(item.amount)}
+                          </span>
+                        ) : (
+                          <span className="font-serif font-bold text-rose-600 text-sm">
+                            -{formatCurrency(item.amount)}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="p-3 text-center space-x-1 whitespace-nowrap">
+                        {isIncome ? (
+                          <Link
+                            href={`/quotations/${item.quotationId}/compare`}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-100/80 hover:bg-emerald-200 text-emerald-900 font-bold text-[10px] transition-colors inline-flex items-center gap-1 border border-emerald-300 shadow-2xs"
+                          >
+                            <Sparkles className="w-3 h-3 text-[#D4AF37]" />
+                            <span>Quotation</span>
+                          </Link>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(item)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-[#0D4F4F] hover:bg-slate-100 transition-colors inline-flex items-center"
+                              title="Edit Entry"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm('Delete this expense record?')) {
+                                  deleteExpense(item.id);
+                                }
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors inline-flex items-center"
+                              title="Delete Record"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredLedgerItems.length === 0 && (
+            <div className="text-center py-12">
+              <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <h3 className="font-bold text-slate-700 text-sm">No ledger entries found</h3>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
+                {searchQuery ? 'Try changing your search keywords or date filter.' : 'Record a studio operating expense or confirm a quotation to generate event profits.'}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* TAB 3: TEAM MEMBER LEDGER VIEW                      */}
       {/* ---------------------------------------------------- */}
       {activeTab === 'team_ledger' && (
         <div className="space-y-4">
@@ -606,7 +882,7 @@ export default function ExpensesPage() {
               <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
               <h3 className="font-bold text-slate-700 text-sm">No team member records yet</h3>
               <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
-                Disburse an advance or record a salary to start tracking team balances.
+                Disburse an advance to start tracking team balances.
               </p>
               <button
                 type="button"
@@ -621,120 +897,7 @@ export default function ExpensesPage() {
       )}
 
       {/* ---------------------------------------------------- */}
-      {/* TAB 2: ALL TRANSACTIONS DATA TABLE VIEW             */}
-      {/* ---------------------------------------------------- */}
-      {activeTab === 'all' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                  <th className="p-3 whitespace-nowrap">Date</th>
-                  <th className="p-3 whitespace-nowrap">Category</th>
-                  <th className="p-3 whitespace-nowrap">Recipient / Person</th>
-                  <th className="p-3 whitespace-nowrap">Amount (PKR)</th>
-                  <th className="p-3 whitespace-nowrap">Method</th>
-                  <th className="p-3 whitespace-nowrap">Description / Purpose</th>
-                  <th className="p-3 whitespace-nowrap">Reference</th>
-                  <th className="p-3 text-right whitespace-nowrap">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredExpenses.map((exp) => {
-                  const catConfig = CATEGORY_CONFIG[exp.category] || CATEGORY_CONFIG.other;
-                  const CatIcon = catConfig.icon;
-                  const methodConfig = PAYMENT_METHOD_LABELS[exp.paymentMethod] || PAYMENT_METHOD_LABELS.cash;
-                  const MethodIcon = methodConfig.icon;
-
-                  return (
-                    <tr key={exp.id} className="hover:bg-slate-50/80 transition-colors">
-                      {/* Date */}
-                      <td className="p-3 font-medium text-slate-700 whitespace-nowrap">
-                        {formatDate(exp.date)}
-                      </td>
-
-                      {/* Category Badge */}
-                      <td className="p-3 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${catConfig.bg} ${catConfig.color} ${catConfig.border}`}
-                        >
-                          <CatIcon className="w-3 h-3" />
-                          <span>{catConfig.label}</span>
-                        </span>
-                      </td>
-
-                      {/* Recipient */}
-                      <td className="p-3 font-bold text-slate-900 whitespace-nowrap">
-                        {exp.personName || <span className="text-slate-400 italic font-normal">—</span>}
-                      </td>
-
-                      {/* Amount */}
-                      <td className="p-3 font-serif font-bold text-rose-600 text-sm whitespace-nowrap">
-                        {formatCurrency(exp.amount)}
-                      </td>
-
-                      {/* Payment Method */}
-                      <td className="p-3 text-slate-600 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-slate-100 px-2 py-0.5 rounded-md">
-                          <MethodIcon className="w-3 h-3 text-slate-500" />
-                          <span>{methodConfig.label}</span>
-                        </span>
-                      </td>
-
-                      {/* Description */}
-                      <td className="p-3 text-slate-700 max-w-xs truncate">
-                        {exp.description || <span className="text-slate-400 italic">No notes</span>}
-                      </td>
-
-                      {/* Reference */}
-                      <td className="p-3 text-slate-500 font-mono text-[10px] max-w-[120px] truncate">
-                        {exp.reference || '—'}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditModal(exp)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-[#0D4F4F] hover:bg-slate-100 transition-colors"
-                          title="Edit Entry"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (confirm('Delete this expense record?')) {
-                              deleteExpense(exp.id);
-                            }
-                          }}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                          title="Delete Record"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {filteredExpenses.length === 0 && (
-            <div className="text-center py-12">
-              <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-              <h3 className="font-bold text-slate-700 text-sm">No expense entries found</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
-                {searchQuery ? 'Try changing your search keywords or date filter.' : 'Record your first studio expense or team advance.'}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ---------------------------------------------------- */}
-      {/* MODAL: CREATE / EDIT EXPENSE ENTRY                  */}
+      {/* MODAL: CREATE / EDIT STUDIO EXPENSE ENTRY           */}
       {/* ---------------------------------------------------- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[60] flex items-center justify-center p-4">
@@ -746,7 +909,7 @@ export default function ExpensesPage() {
                   <Receipt className="w-4 h-4" />
                 </div>
                 <h3 className="font-serif font-bold text-lg text-[#0D4F4F]">
-                  {editingExpense ? 'Edit Expense Entry' : 'Record Studio Expense / Advance'}
+                  {editingExpense ? 'Edit Studio Expense' : 'Record Studio Expense / Advance'}
                 </h3>
               </div>
               <button
@@ -763,15 +926,16 @@ export default function ExpensesPage() {
               {/* Category Selector */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1.5">Expense Category</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-40 overflow-y-auto p-1 border border-slate-200 rounded-xl bg-slate-50/50">
-                  {Object.entries(CATEGORY_CONFIG).map(([key, config]) => {
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-44 overflow-y-auto p-1 border border-slate-200 rounded-xl bg-slate-50/50">
+                  {MANUAL_EXPENSE_CATEGORIES.map((key) => {
+                    const config = CATEGORY_CONFIG[key];
                     const Icon = config.icon;
                     const isSelected = formCategory === key;
                     return (
                       <button
                         key={key}
                         type="button"
-                        onClick={() => setFormCategory(key as ExpenseCategory)}
+                        onClick={() => setFormCategory(key)}
                         className={`p-2 rounded-lg text-left text-[11px] font-semibold flex items-center gap-1.5 border transition-all ${
                           isSelected
                             ? 'bg-[#0D4F4F] text-[#D4AF37] border-[#0D4F4F] shadow-2xs font-bold'
@@ -796,7 +960,7 @@ export default function ExpensesPage() {
                     type="number"
                     required
                     min="1"
-                    placeholder="e.g. 5000"
+                    placeholder="e.g. 15000"
                     value={formAmount}
                     onChange={(e) => setFormAmount(e.target.value ? Number(e.target.value) : '')}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold text-base text-[#0D4F4F] focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
@@ -808,11 +972,11 @@ export default function ExpensesPage() {
               {/* Recipient / Person Name (Optional or for advances) */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Disbursed To / Team Member Name
+                  Paid To / Recipient / Vendor Name (Optional)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Jawad Murtaza, Ali Shooter, Album Lab"
+                  placeholder="e.g. Office Landlord, LESCO Electricity, PTCL Internet, Jawad Shooter"
                   value={formPersonName}
                   onChange={(e) => setFormPersonName(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
@@ -869,7 +1033,7 @@ export default function ExpensesPage() {
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">Purpose / Notes</label>
                 <input
                   type="text"
-                  placeholder="e.g. Advance for wedding shoot, Camera sensor clean, Studio rent"
+                  placeholder="e.g. September Studio Rent, Electricity Bill, Internet Subscription"
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
@@ -899,7 +1063,7 @@ export default function ExpensesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#0D4F4F] text-[#D4AF37] font-bold hover:bg-[#156060] transition-colors shadow-md flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-xl bg-[#0D4F4F] text-[#D4AF37] font-bold hover:bg-[#156060] transition-colors shadow-md flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>{editingExpense ? 'Update Entry' : 'Save Expense'}</span>

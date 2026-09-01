@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuotations } from '@/hooks/use-quotations';
 import { storage } from '@/lib/storage';
 import { Quotation, DeliverableStatus } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
-import { Sparkles, CheckCircle2, Film, BookOpen, Clock, AlertTriangle, Calendar } from 'lucide-react';
+import { Sparkles, CheckCircle2, Film, BookOpen, Clock, AlertTriangle, Calendar, Search, X } from 'lucide-react';
 
 /**
  * Compute 15-day delivery deadline starting strictly from the LAST event day
@@ -59,6 +59,12 @@ function getDeliveryDeadline(quotation: Quotation) {
 export default function DeliverablesPage() {
   const { quotations, saveQuotation } = useQuotations();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Strictly filter only quotations whose events are confirmed or completed
+  const confirmedQuotations = useMemo(() => {
+    return quotations.filter((q) => q.status === 'confirmed' || q.status === 'completed');
+  }, [quotations]);
 
   const updateDeliverableStatus = async (
     quotation: Quotation,
@@ -96,11 +102,31 @@ export default function DeliverablesPage() {
     await saveQuotation(updatedQuotation);
   };
 
-  const filteredQuotations = quotations.filter((q) => {
-    if (filter === 'all') return true;
-    if (filter === 'pending') return q.status !== 'completed';
-    return q.status === 'completed';
-  });
+  const filteredQuotations = useMemo(() => {
+    return confirmedQuotations.filter((q) => {
+      // Search filter
+      const search = searchQuery.toLowerCase().trim();
+      const matchSearch =
+        !search ||
+        (q.client?.name || '').toLowerCase().includes(search) ||
+        (q.client?.phone || '').toLowerCase().includes(search) ||
+        (q.quotationNumber || '').toLowerCase().includes(search);
+
+      if (!matchSearch) return false;
+
+      if (filter === 'all') return true;
+      if (filter === 'pending') return q.status !== 'completed';
+      return q.status === 'completed';
+    });
+  }, [confirmedQuotations, filter, searchQuery]);
+
+  const pendingCount = useMemo(() => {
+    return confirmedQuotations.filter((q) => q.status !== 'completed').length;
+  }, [confirmedQuotations]);
+
+  const completedCount = useMemo(() => {
+    return confirmedQuotations.filter((q) => q.status === 'completed').length;
+  }, [confirmedQuotations]);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12 font-sans text-slate-800">
@@ -113,13 +139,14 @@ export default function DeliverablesPage() {
               <Sparkles className="w-3.5 h-3.5 fill-[#D4AF37]" /> Deliverables & Printing Hub v2.0
             </div>
             <h1 className="font-serif font-bold text-2xl md:text-3xl text-white tracking-wide">
-              Deliverables & Album Printing Tracker
+              Deliverables &amp; Album Printing Tracker
             </h1>
             <p className="text-xs md:text-sm text-[#C3DFDF] mt-1 max-w-xl">
-              Track Album printing and Video Editing handover. Automatic 15-day delivery deadlines calculated post-event.
+              Track Album printing and Video Editing handover for confirmed event clients. Automatic 15-day delivery deadlines calculated post-event.
             </p>
           </div>
 
+          {/* Filter Pills */}
           <div className="overflow-x-auto no-scrollbar max-w-full flex items-center gap-2 bg-white/10 p-1.5 rounded-xl border border-white/20">
             <button
               onClick={() => setFilter('all')}
@@ -127,7 +154,7 @@ export default function DeliverablesPage() {
                 filter === 'all' ? 'bg-[#D4AF37] text-[#0D4F4F]' : 'text-white hover:bg-white/10'
               }`}
             >
-              All Clients ({quotations.length})
+              All Confirmed ({confirmedQuotations.length})
             </button>
             <button
               onClick={() => setFilter('pending')}
@@ -135,7 +162,7 @@ export default function DeliverablesPage() {
                 filter === 'pending' ? 'bg-[#D4AF37] text-[#0D4F4F]' : 'text-white hover:bg-white/10'
               }`}
             >
-              In Progress
+              In Progress ({pendingCount})
             </button>
             <button
               onClick={() => setFilter('completed')}
@@ -143,9 +170,35 @@ export default function DeliverablesPage() {
                 filter === 'completed' ? 'bg-[#D4AF37] text-[#0D4F4F]' : 'text-white hover:bg-white/10'
               }`}
             >
-              Completed / Delivered
+              Completed / Delivered ({completedCount})
             </button>
           </div>
+        </div>
+
+        {/* Search Input Bar */}
+        <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between gap-3 relative z-10">
+          <div className="relative w-full max-w-md">
+            <Search className="w-4 h-4 text-[#C3DFDF] absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search confirmed client name, quotation #, phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 bg-white/10 border border-white/20 rounded-xl text-xs text-white placeholder:text-[#C3DFDF]/70 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:bg-white/20 transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-2 text-[#C3DFDF] hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <span className="text-[11px] text-[#C3DFDF] hidden sm:inline-block font-medium">
+            Showing {filteredQuotations.length} of {confirmedQuotations.length} confirmed bookings
+          </span>
         </div>
       </div>
 
@@ -153,7 +206,9 @@ export default function DeliverablesPage() {
       <div className="space-y-4">
         {filteredQuotations.length === 0 ? (
           <div className="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center text-slate-400 text-xs">
-            No client quotations found for this filter.
+            {confirmedQuotations.length === 0
+              ? 'No confirmed event bookings found yet. Once an event is confirmed in Quotations, it will appear here automatically.'
+              : 'No confirmed event clients match your search or filter.'}
           </div>
         ) : (
           filteredQuotations.map((q) => {
