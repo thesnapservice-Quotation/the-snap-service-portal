@@ -4,8 +4,8 @@ import React, { useState, useMemo } from 'react';
 import { useQuotations } from '@/hooks/use-quotations';
 import { storage } from '@/lib/storage';
 import { Quotation, DeliverableStatus, AlbumDeliverableStatus, VideoDeliverableStatus } from '@/lib/types';
-import { formatDate } from '@/lib/utils';
-import { Sparkles, CheckCircle2, Film, BookOpen, Clock, AlertTriangle, Calendar, Search, X } from 'lucide-react';
+import { formatDate, formatWhatsAppPhone } from '@/lib/utils';
+import { Sparkles, CheckCircle2, Film, BookOpen, Clock, AlertTriangle, Calendar, Search, X, MessageCircle } from 'lucide-react';
 
 /**
  * Compute 15-day delivery deadline starting strictly from the LAST event day
@@ -88,6 +88,34 @@ function normalizeVideoStatus(status?: string): VideoDeliverableStatus {
   if (!status || status === 'not_started' || status === 'in_progress') return 'editing_in_progress';
   if (status === 'music_selection' || status === 'music_changes') return 'video_edited';
   return status as VideoDeliverableStatus;
+}
+
+function getDeliverableWhatsAppUrl(
+  q: Quotation,
+  albumLabel: string,
+  videoLabel: string,
+  deadlineFormatted: string
+): string {
+  const phone = formatWhatsAppPhone(q.client?.phone || '');
+  const clientName = q.client?.name || 'Valued Client';
+  const qNum = q.quotationNumber || 'SS-2026';
+
+  const message = `*THE SNAP SERVICE*
+Deliverables & Post-Production Update
+
+Assalam-o-Alaikum *${clientName}*,
+Here is the latest progress update on your event deliverables (Ref: #${qNum}):
+
+*Album Process:* ${albumLabel}
+*Video Editing:* ${videoLabel}
+
+*Estimated Delivery Deadline:* ${deadlineFormatted}
+
+If you have any feedback or questions, please feel free to reach out to us.
+
+Thank you for choosing The Snap Service.`;
+
+  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
 export default function DeliverablesPage() {
@@ -330,6 +358,18 @@ export default function DeliverablesPage() {
                     }`}>
                       {q.status === 'completed' ? 'Completed / Delivered' : q.status}
                     </span>
+
+                    {/* WhatsApp Update Button */}
+                    <a
+                      href={getDeliverableWhatsAppUrl(q, albumStep.label, videoStep.label, deadline.deadlineFormatted)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs hover:shadow-md transition-all shrink-0 whitespace-nowrap cursor-pointer"
+                      title="Send Deliverable Update on WhatsApp"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>WhatsApp Update</span>
+                    </a>
                   </div>
                 </div>
 
