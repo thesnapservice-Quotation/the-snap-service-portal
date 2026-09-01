@@ -94,6 +94,7 @@ export default function DeliverablesPage() {
   const { quotations, saveQuotation } = useQuotations();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [localDeliverableStatus, setLocalDeliverableStatus] = useState<Record<string, DeliverableStatus>>({});
 
   // Strictly filter only quotations whose events are confirmed or completed
   const confirmedQuotations = useMemo(() => {
@@ -105,18 +106,25 @@ export default function DeliverablesPage() {
     field: keyof DeliverableStatus,
     val: string
   ) => {
-    const currentAlbum = normalizeAlbumStatus(quotation.deliverableStatus?.albumStatus);
-    const currentVideo = normalizeVideoStatus(quotation.deliverableStatus?.videoStatus);
+    const existingDeliverable = localDeliverableStatus[quotation.id] || quotation.deliverableStatus;
+    const currentAlbum = normalizeAlbumStatus(existingDeliverable?.albumStatus || (quotation.status === 'completed' ? 'delivered' : undefined));
+    const currentVideo = normalizeVideoStatus(existingDeliverable?.videoStatus || (quotation.status === 'completed' ? 'delivered' : undefined));
 
-    const currentStatus: DeliverableStatus = quotation.deliverableStatus || {
-      albumStatus: quotation.status === 'completed' ? 'delivered' : currentAlbum,
-      videoStatus: quotation.status === 'completed' ? 'delivered' : currentVideo,
+    const currentStatus: DeliverableStatus = {
+      albumStatus: currentAlbum,
+      videoStatus: currentVideo,
     };
 
     const newDeliverableStatus: DeliverableStatus = {
       ...currentStatus,
       [field]: val as any,
     };
+
+    // Immediate optimistic state update in React
+    setLocalDeliverableStatus((prev) => ({
+      ...prev,
+      [quotation.id]: newDeliverableStatus,
+    }));
 
     // If BOTH Albums & Video Editing are delivered -> mark as 'completed' (Delivered)
     // If NOT both delivered -> revert from 'completed' back to 'confirmed'
@@ -136,7 +144,11 @@ export default function DeliverablesPage() {
       updatedAt: new Date().toISOString(),
     };
 
-    await saveQuotation(updatedQuotation);
+    try {
+      await saveQuotation(updatedQuotation);
+    } catch (e) {
+      console.error('Error saving deliverable status:', e);
+    }
   };
 
   const filteredQuotations = useMemo(() => {
@@ -249,16 +261,18 @@ export default function DeliverablesPage() {
           </div>
         ) : (
           filteredQuotations.map((q) => {
-            const isQuotationCompleted = q.status === 'completed';
-            const rawAlbum = q.deliverableStatus?.albumStatus;
-            const rawVideo = q.deliverableStatus?.videoStatus;
+            const deliverable = localDeliverableStatus[q.id] || q.deliverableStatus;
+            const rawAlbum = deliverable?.albumStatus;
+            const rawVideo = deliverable?.videoStatus;
             
-            const albumStatus = isQuotationCompleted 
-              ? 'delivered' 
-              : normalizeAlbumStatus(rawAlbum);
-            const videoStatus = isQuotationCompleted 
-              ? 'delivered' 
-              : normalizeVideoStatus(rawVideo);
+            const albumStatus = normalizeAlbumStatus(
+              rawAlbum || (q.status === 'completed' ? 'delivered' : undefined)
+            );
+            const videoStatus = normalizeVideoStatus(
+              rawVideo || (q.status === 'completed' ? 'delivered' : undefined)
+            );
+
+            const isQuotationCompleted = albumStatus === 'delivered' && videoStatus === 'delivered';
 
             const albumStep = ALBUM_PROCESS_STEPS.find((s) => s.id === albumStatus) || ALBUM_PROCESS_STEPS[0];
             const videoStep = VIDEO_PROCESS_STEPS.find((s) => s.id === videoStatus) || VIDEO_PROCESS_STEPS[0];

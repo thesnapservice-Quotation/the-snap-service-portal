@@ -86,6 +86,7 @@ function parseSupabaseRow(r: any): Quotation {
     internalAnalysis: base.internalAnalysis,
     securityPin: base.securityPin,
     publicLinkDate: pubDate,
+    deliverableStatus: base.deliverableStatus || r.deliverable_status || r.deliverableStatus,
     createdAt: r.created_at || base.createdAt || new Date().toISOString(),
     updatedAt: r.updated_at || base.updatedAt || new Date().toISOString(),
   };
@@ -283,6 +284,7 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
     updatedByUserId: quotation.updatedByUserId || authorId,
     status: exactStatus,
     publicLinkDate: finalPublicLinkDate,
+    deliverableStatus: quotation.deliverableStatus !== undefined ? quotation.deliverableStatus : existingRecord?.deliverableStatus,
     updatedAt: now,
     createdAt: quotation.createdAt || existingRecord?.createdAt || now,
   };
