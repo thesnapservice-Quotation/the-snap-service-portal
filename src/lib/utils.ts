@@ -46,6 +46,66 @@ export function formatDate(dateString: string): string {
 }
 
 /**
+ * Format date and time (e.g., "5 Oct 2026 • 2:20 AM")
+ */
+export function formatDateTime(dateString?: string): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  const d = date.toLocaleDateString('en-PK', {
+    timeZone: 'Asia/Karachi',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  const t = date.toLocaleTimeString('en-PK', {
+    timeZone: 'Asia/Karachi',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return `${d} • ${t}`;
+}
+
+/**
+ * Extract sequence integer from Quotation Number (e.g. "SS-2026-105" -> 105)
+ */
+export function extractQuotationSeq(quotationNumber?: string): number {
+  if (!quotationNumber) return 0;
+  const cleaned = quotationNumber.replace(/^#/, '').trim();
+  const match = cleaned.match(/(\d+)$/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  const digits = cleaned.replace(/\D/g, '');
+  return digits ? parseInt(digits, 10) : 0;
+}
+
+/**
+ * Sort quotations strictly by Quotation Number (descending: newest quotation # at the top).
+ * If quotation numbers are equal or non-numeric, fall back to immutable createdAt.
+ * Does NOT sort by updatedAt, so editing a quotation will NEVER change its fixed position in the list.
+ */
+export function sortQuotationsByNumber(quotes: Quotation[]): Quotation[] {
+  return [...quotes].sort((a, b) => {
+    const seqA = extractQuotationSeq(a.quotationNumber);
+    const seqB = extractQuotationSeq(b.quotationNumber);
+
+    if (seqA !== seqB) {
+      return seqB - seqA;
+    }
+
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (timeA !== timeB) {
+      return timeB - timeA;
+    }
+
+    return (b.quotationNumber || '').localeCompare(a.quotationNumber || '');
+  });
+}
+
+/**
  * Format today's date in YYYY-MM-DD for input[type="date"]
  */
 export function getTodayDateString(): string {

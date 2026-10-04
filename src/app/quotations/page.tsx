@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
 import { useProfitPrivacy } from '@/context/profit-privacy-context';
-import { formatCurrency, formatDate, generateWhatsAppShareUrl, generatePortalUrl } from '@/lib/utils';
+import { formatCurrency, formatDate, formatDateTime, sortQuotationsByNumber, generateWhatsAppShareUrl, generatePortalUrl } from '@/lib/utils';
 import { QuotationStatus } from '@/lib/types';
 import { 
   PlusCircle, 
@@ -69,7 +69,10 @@ export default function QuotationsListPage() {
   const [openWhatsAppMenuId, setOpenWhatsAppMenuId] = useState<string | null>(null);
 
   const isTrashView = statusFilter === 'trash';
-  const sourceList = isTrashView ? trashQuotations : quotations;
+  const sourceList = useMemo(() => {
+    const base = isTrashView ? trashQuotations : quotations;
+    return sortQuotationsByNumber(base);
+  }, [isTrashView, trashQuotations, quotations]);
 
   const handleStatusFilterChange = (newStatus: string) => {
     setStatusFilter(newStatus);
@@ -550,44 +553,6 @@ export default function QuotationsListPage() {
                           {q.client.name || 'Unnamed Client'}
                         </span>
                         <span className="text-slate-400 text-[11px] block">{q.client.phone}</span>
-
-                        {/* WhatsApp Status Indicator Badge */}
-                        {(() => {
-                          const waMeta = getLatestWhatsAppStatus(q);
-                          if (!waMeta.isSent) {
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setWhatsAppModalCategory('new_client');
-                                  setWhatsAppModalQuote(q);
-                                }}
-                                className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9.5px] font-medium border border-slate-200 transition-colors cursor-pointer"
-                                title="Click to send initial quotation WhatsApp message"
-                              >
-                                <MessageSquare className="w-2.5 h-2.5 text-slate-400" />
-                                <span>WA: Not Sent Yet</span>
-                              </button>
-                            );
-                          }
-                          return (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setWhatsAppModalCategory(waMeta.category as WhatsAppCategory);
-                                setWhatsAppModalQuote(q);
-                              }}
-                              className={`inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border transition-colors shadow-2xs cursor-pointer ${waMeta.badgeClass}`}
-                              title={`WhatsApp Status: ${waMeta.label} ${waMeta.sentAt ? `(${formatDate(waMeta.sentAt)})` : ''}`}
-                            >
-                              <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
-                              <span>{waMeta.label}</span>
-                              {waMeta.sentAt && (
-                                <span className="opacity-75 font-normal">({formatDate(waMeta.sentAt)})</span>
-                              )}
-                            </button>
-                          );
-                        })()}
                       </td>
 
                       {/* Events Summary */}
@@ -732,19 +697,26 @@ export default function QuotationsListPage() {
                             {(() => {
                               const waMeta = getLatestWhatsAppStatus(q);
                               return (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenWhatsAppMenuId(openWhatsAppMenuId === q.id ? null : q.id);
-                                  }}
-                                  className={`p-1.5 px-2.5 rounded-lg border transition-all shadow-2xs flex items-center gap-1.5 text-[11px] font-bold cursor-pointer ${waMeta.buttonClass}`}
-                                  title={`WhatsApp Status: ${waMeta.label} ${waMeta.sentAt ? `(Sent: ${formatDate(waMeta.sentAt)})` : ''} — Click to manage WhatsApp messages & reminders`}
-                                >
-                                  <MessageSquare className={`w-3.5 h-3.5 ${waMeta.iconColor}`} />
-                                  <span>{waMeta.buttonLabel}</span>
-                                  <ChevronDown className="w-3 h-3 opacity-60" />
-                                </button>
+                                <div className="flex flex-col items-center">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenWhatsAppMenuId(openWhatsAppMenuId === q.id ? null : q.id);
+                                    }}
+                                    className={`p-1.5 px-2.5 rounded-lg border transition-all shadow-2xs flex items-center gap-1.5 text-[11px] font-bold cursor-pointer ${waMeta.buttonClass}`}
+                                    title={`WhatsApp Status: ${waMeta.label} ${waMeta.sentAt ? `(Sent: ${formatDateTime(waMeta.sentAt)})` : ''} — Click to manage WhatsApp messages & reminders`}
+                                  >
+                                    <MessageSquare className={`w-3.5 h-3.5 ${waMeta.iconColor}`} />
+                                    <span>{waMeta.buttonLabel}</span>
+                                    <ChevronDown className="w-3 h-3 opacity-60" />
+                                  </button>
+                                  {waMeta.isSent && waMeta.sentAt && (
+                                    <span className="text-[9.5px] text-slate-500 font-medium text-center mt-1 leading-tight whitespace-nowrap block">
+                                      {formatDateTime(waMeta.sentAt)}
+                                    </span>
+                                  )}
+                                </div>
                               );
                             })()}
 
@@ -773,7 +745,7 @@ export default function QuotationsListPage() {
                                       {waMeta.isSent ? (
                                         <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 font-medium">
                                           <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
-                                          Last sent: <strong className="text-slate-800">{formatDate(waMeta.sentAt!)}</strong>
+                                          Last sent: <strong className="text-slate-800">{formatDateTime(waMeta.sentAt!)}</strong>
                                           {waMeta.sentByUserName ? ` by ${waMeta.sentByUserName}` : ''}
                                         </p>
                                       ) : (
@@ -830,7 +802,7 @@ export default function QuotationsListPage() {
                                                 </div>
                                                 {matchingHistory?.sentAt && (
                                                   <span className="text-[9.5px] text-slate-400 block truncate">
-                                                    {formatDate(matchingHistory.sentAt)}
+                                                    {formatDateTime(matchingHistory.sentAt)}
                                                   </span>
                                                 )}
                                               </div>

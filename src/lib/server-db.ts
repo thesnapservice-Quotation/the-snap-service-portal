@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import { SEED_USERS } from './storage';
 import { generateRandomNumericId } from './crypto';
 import { DEFAULT_SETTINGS, DEFAULT_SERVICES, getDefaultSettingsForWorkspace } from './defaults';
-import { getQuotationSecurityPin } from './utils';
+import { getQuotationSecurityPin, sortQuotationsByNumber } from './utils';
 
 /**
  * Production Central Database Persistence Engine
@@ -157,10 +157,11 @@ export async function getQuotationsFromDb(workspaceId?: string): Promise<Quotati
     if (q.quotationNumber) memoryStore.set(q.quotationNumber.toLowerCase(), q);
   }
 
-  if (targetWorkspace) {
-    return finalList.filter((q) => (q.workspaceId ? q.workspaceId === targetWorkspace : getWorkspaceId(q.userId) === targetWorkspace));
-  }
-  return finalList;
+  const scopedList = targetWorkspace
+    ? finalList.filter((q) => (q.workspaceId ? q.workspaceId === targetWorkspace : getWorkspaceId(q.userId) === targetWorkspace))
+    : finalList;
+
+  return sortQuotationsByNumber(scopedList);
 }
 
 /**

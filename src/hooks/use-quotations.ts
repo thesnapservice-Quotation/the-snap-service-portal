@@ -7,6 +7,7 @@ import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotations, apiSaveQuotation, apiDeleteQuotation } from '@/lib/api-client';
 import { syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
 import { uploadQuotationDirectToDrive } from '@/lib/google-drive-oauth';
+import { sortQuotationsByNumber } from '@/lib/utils';
 
 function resolveUserWs(u: any): string {
   if (!u || !u.id) return 'ws_user-super-admin';
@@ -30,15 +31,18 @@ export function useQuotations() {
     const user = storage.getCurrentUser();
     if (!user || !user.id) return [];
     const targetWs = resolveUserWs(user);
-    return local.filter((q) => matchesWorkspace(q, targetWs));
+    const filtered = local.filter((q) => matchesWorkspace(q, targetWs));
+    return sortQuotationsByNumber(filtered);
   });
 
   const quotations = useMemo(() => {
-    return allQuotations.filter((q) => q.status !== 'trash' && !q.isDeleted);
+    const list = allQuotations.filter((q) => q.status !== 'trash' && !q.isDeleted);
+    return sortQuotationsByNumber(list);
   }, [allQuotations]);
 
   const trashQuotations = useMemo(() => {
-    return allQuotations.filter((q) => q.status === 'trash' || q.isDeleted);
+    const list = allQuotations.filter((q) => q.status === 'trash' || q.isDeleted);
+    return sortQuotationsByNumber(list);
   }, [allQuotations]);
 
   const [loading, setLoading] = useState(false);
@@ -67,13 +71,14 @@ export function useQuotations() {
         });
 
         // Set DB as authoritative
-        storage.setAllQuotations(validDbQuotations);
-        setAllQuotations(validDbQuotations);
+        const sorted = sortQuotationsByNumber(validDbQuotations);
+        storage.setAllQuotations(sorted);
+        setAllQuotations(sorted);
       } else {
         const local = storage.getQuotations();
         const filtered = local.filter((q) => matchesWorkspace(q, targetWs));
         if (filtered.length > 0) {
-          setAllQuotations(filtered);
+          setAllQuotations(sortQuotationsByNumber(filtered));
         }
       }
     } catch {
@@ -135,12 +140,14 @@ export function useQuotations() {
     // 2. Update local state
     setAllQuotations((prev) => {
       const idx = prev.findIndex((q) => q.id === savedFromDb.id);
+      let next: Quotation[];
       if (idx >= 0) {
-        const next = [...prev];
+        next = [...prev];
         next[idx] = savedFromDb;
-        return next;
+      } else {
+        next = [savedFromDb, ...prev];
       }
-      return [savedFromDb, ...prev];
+      return sortQuotationsByNumber(next);
     });
 
     storage.saveQuotationLocally(savedFromDb);
