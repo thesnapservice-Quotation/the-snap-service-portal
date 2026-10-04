@@ -190,9 +190,9 @@ function NewQuotationContent() {
   };
 
   const handleDelete = () => {
-    if (confirm('Are you sure you want to delete this quotation draft?')) {
+    if (confirm('Move this quotation draft to Trash? You can restore it anytime from the Trash folder.')) {
       deleteQuotation(quotation.id);
-      router.push('/quotations');
+      router.push('/quotations?status=trash');
     }
   };
 

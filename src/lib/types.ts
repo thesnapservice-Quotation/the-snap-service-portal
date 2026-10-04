@@ -1,4 +1,4 @@
-export type QuotationStatus = 'draft' | 'sent' | 'not_confirmed' | 'confirmed' | 'completed' | 'cancelled';
+export type QuotationStatus = 'draft' | 'sent' | 'not_confirmed' | 'confirmed' | 'completed' | 'cancelled' | 'trash';
 export type UserRole = 'super_admin' | 'user' | 'task_manager';
 
 export interface Workspace {
@@ -211,6 +211,9 @@ export interface Quotation {
   internalAnalysis?: InternalAnalysis;
   deliverableStatus?: DeliverableStatus;
   whatsappHistory?: WhatsAppHistoryEntry[];
+  previousStatus?: QuotationStatus;
+  isDeleted?: boolean;
+  deletedAt?: string;
 }
 
 export type WhatsAppCategory = 

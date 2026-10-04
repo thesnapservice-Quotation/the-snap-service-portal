@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Quotation } from '@/lib/types';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Quotation, QuotationStatus } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotations, apiSaveQuotation, apiDeleteQuotation } from '@/lib/api-client';
@@ -24,7 +24,7 @@ function matchesWorkspace(q: Quotation, targetWs: string): boolean {
 }
 
 export function useQuotations() {
-  const [quotations, setQuotations] = useState<Quotation[]>(() => {
+  const [allQuotations, setAllQuotations] = useState<Quotation[]>(() => {
     if (typeof window === 'undefined') return [];
     const local = storage.getQuotations();
     const user = storage.getCurrentUser();
@@ -32,12 +32,21 @@ export function useQuotations() {
     const targetWs = resolveUserWs(user);
     return local.filter((q) => matchesWorkspace(q, targetWs));
   });
+
+  const quotations = useMemo(() => {
+    return allQuotations.filter((q) => q.status !== 'trash' && !q.isDeleted);
+  }, [allQuotations]);
+
+  const trashQuotations = useMemo(() => {
+    return allQuotations.filter((q) => q.status === 'trash' || q.isDeleted);
+  }, [allQuotations]);
+
   const [loading, setLoading] = useState(false);
 
   const refreshQuotations = useCallback(async () => {
     const user = storage.getCurrentUser();
     if (!user || !user.id) {
-      setQuotations([]);
+      setAllQuotations([]);
       return;
     }
 
@@ -49,7 +58,7 @@ export function useQuotations() {
       const deletedIds = storage.getDeletedIds();
 
       if (Array.isArray(dbQuotations)) {
-        // Filter out any deleted items from DB results
+        // Filter out any permanently deleted items from DB results
         const validDbQuotations = dbQuotations.filter((q) => {
           const idMatch = q.id && deletedIds.has(q.id.toLowerCase());
           const numMatch = q.quotationNumber && deletedIds.has(q.quotationNumber.toLowerCase());
@@ -59,12 +68,12 @@ export function useQuotations() {
 
         // Set DB as authoritative
         storage.setAllQuotations(validDbQuotations);
-        setQuotations(validDbQuotations);
+        setAllQuotations(validDbQuotations);
       } else {
         const local = storage.getQuotations();
         const filtered = local.filter((q) => matchesWorkspace(q, targetWs));
         if (filtered.length > 0) {
-          setQuotations(filtered);
+          setAllQuotations(filtered);
         }
       }
     } catch {
@@ -124,7 +133,7 @@ export function useQuotations() {
     const savedFromDb = await apiSaveQuotation(quotationWithWs);
 
     // 2. Update local state
-    setQuotations((prev) => {
+    setAllQuotations((prev) => {
       const idx = prev.findIndex((q) => q.id === savedFromDb.id);
       if (idx >= 0) {
         const next = [...prev];
@@ -150,9 +159,44 @@ export function useQuotations() {
     return savedFromDb;
   };
 
-  const deleteQuotation = async (id: string): Promise<void> => {
+  const moveToTrash = async (id: string): Promise<Quotation | null> => {
+    const target = allQuotations.find((q) => q.id === id || q.quotationNumber === id) || storage.getQuotationById(id);
+    if (!target) return null;
+
+    const previous = target.status !== 'trash' ? target.status : (target.previousStatus || 'sent');
+
+    const updatedQuotation: Quotation = {
+      ...target,
+      previousStatus: previous,
+      status: 'trash',
+      isDeleted: true,
+      deletedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return await saveQuotation(updatedQuotation);
+  };
+
+  const restoreFromTrash = async (id: string): Promise<Quotation | null> => {
+    const target = allQuotations.find((q) => q.id === id || q.quotationNumber === id) || storage.getQuotationById(id);
+    if (!target) return null;
+
+    const targetStatus = (target.previousStatus as QuotationStatus) || 'sent';
+
+    const updatedQuotation: Quotation = {
+      ...target,
+      status: targetStatus === 'trash' ? 'sent' : targetStatus,
+      isDeleted: false,
+      deletedAt: undefined,
+      updatedAt: new Date().toISOString(),
+    };
+
+    return await saveQuotation(updatedQuotation);
+  };
+
+  const permanentlyDeleteQuotation = async (id: string): Promise<void> => {
     const target =
-      quotations.find(
+      allQuotations.find(
         (q) => q.id === id || q.quotationNumber === id || q.id.toLowerCase() === id.toLowerCase()
       ) || storage.getQuotationById(id);
     const targetId = target?.id || id;
@@ -162,7 +206,7 @@ export function useQuotations() {
     storage.deleteQuotation(targetId);
     if (targetNum) storage.deleteQuotation(targetNum);
 
-    setQuotations((prev) =>
+    setAllQuotations((prev) =>
       prev.filter(
         (q) =>
           q.id !== targetId &&
@@ -184,9 +228,21 @@ export function useQuotations() {
     }
   };
 
+  const emptyTrash = async (): Promise<void> => {
+    const trashItems = allQuotations.filter((q) => q.status === 'trash' || q.isDeleted);
+    for (const item of trashItems) {
+      await permanentlyDeleteQuotation(item.id);
+    }
+  };
+
+  // Safe delete (moves to trash by default)
+  const deleteQuotation = async (id: string): Promise<void> => {
+    await moveToTrash(id);
+  };
+
   const duplicateQuotation = async (id: string): Promise<Quotation | null> => {
     const user = storage.getCurrentUser();
-    const target = quotations.find((q) => q.id === id) || storage.getQuotationById(id);
+    const target = allQuotations.find((q) => q.id === id) || storage.getQuotationById(id);
     if (!target) return null;
 
     const settings = storage.getSettings();
@@ -202,6 +258,8 @@ export function useQuotations() {
         name: `${target.client.name} (Copy)`,
       },
       status: 'draft',
+      isDeleted: false,
+      deletedAt: undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -212,10 +270,16 @@ export function useQuotations() {
 
   return {
     quotations,
+    trashQuotations,
+    allQuotations,
     loading,
     refreshQuotations,
     saveQuotation,
     deleteQuotation,
+    moveToTrash,
+    restoreFromTrash,
+    permanentlyDeleteQuotation,
+    emptyTrash,
     duplicateQuotation,
   };
 }

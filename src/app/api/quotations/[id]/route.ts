@@ -23,6 +23,11 @@ export async function GET(
 
     const quotation = await getQuotationFromDb(id);
     if (quotation) {
+      const url = new URL(request.url);
+      const isPublic = url.searchParams.get('public') === 'true';
+      if (isPublic && (quotation.status === 'trash' || quotation.isDeleted || quotation.deletedAt)) {
+        return NextResponse.json({ error: 'Quotation not found' }, { status: 404, headers: NO_CACHE_HEADERS });
+      }
       return NextResponse.json({ success: true, quotation }, { headers: NO_CACHE_HEADERS });
     }
 

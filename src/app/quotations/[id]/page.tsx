@@ -9,7 +9,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { QuotationActions } from '@/components/quotation/quotation-actions';
 import { PaymentLedgerModal } from '@/components/quotation/payment-ledger-modal';
-import { ArrowLeft, Edit3, Sparkles, Receipt } from 'lucide-react';
+import { ArrowLeft, Edit3, Sparkles, Receipt, Trash2, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 
 export default function QuotationDetailPage() {
@@ -78,15 +78,62 @@ export default function QuotationDetailPage() {
     }
   };
 
+  const isQuotationInTrash = quotation.status === 'trash' || quotation.isDeleted;
+
   const handleDelete = () => {
-    if (confirm('Are you sure you want to delete this quotation?')) {
-      storage.deleteQuotation(quotation.id);
-      router.push('/quotations');
+    if (confirm(`Move quotation #${quotation.quotationNumber} to Trash? Client link will immediately show "Quotation Not Found".`)) {
+      const updated: Quotation = {
+        ...quotation,
+        previousStatus: quotation.status !== 'trash' ? quotation.status : (quotation.previousStatus || 'sent'),
+        status: 'trash',
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      storage.saveQuotation(updated);
+      router.push('/quotations?status=trash');
     }
+  };
+
+  const handleRestore = () => {
+    const restoredStatus = (quotation.previousStatus as Quotation['status']) || 'sent';
+    const updated: Quotation = {
+      ...quotation,
+      status: restoredStatus === 'trash' ? 'sent' : restoredStatus,
+      isDeleted: false,
+      deletedAt: undefined,
+      updatedAt: new Date().toISOString(),
+    };
+    storage.saveQuotation(updated);
+    setQuotation(updated);
   };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      {/* Trash Warning Banner */}
+      {isQuotationInTrash && (
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-rose-900 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-rose-200 flex items-center justify-center shrink-0 text-rose-700">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-sm text-rose-950">This Quotation is in Trash</p>
+              <p className="text-rose-700 text-xs mt-0.5">
+                Public client links are deactivated. If opened by the client, they will see <strong>"Quotation Not Found"</strong>.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleRestore}
+            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+          >
+            <RotateCcw className="w-4 h-4" /> Restore Quotation
+          </button>
+        </div>
+      )}
+
       {/* Action Header */}
       <div className="no-print flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-3">

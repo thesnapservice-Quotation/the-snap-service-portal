@@ -8,6 +8,7 @@ export const STATUS_CLASSES: Record<QuotationStatus, string> = {
   confirmed: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold',
   completed: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold',
   cancelled: 'bg-slate-100 text-slate-600 border-slate-300 line-through',
+  trash: 'bg-rose-100 text-rose-800 border-rose-300 font-bold',
 };
 
 export function StatusBadge({ status }: { status: QuotationStatus }) {

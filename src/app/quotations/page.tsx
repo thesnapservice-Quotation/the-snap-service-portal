@@ -14,6 +14,7 @@ import {
   Edit3, 
   Copy, 
   Trash2, 
+  RotateCcw,
   FileText,
   Filter,
   MessageSquare,
@@ -33,7 +34,17 @@ import { WhatsAppCategory, getAllWhatsAppCategories } from '@/lib/whatsapp';
 import { Quotation } from '@/lib/types';
 
 export default function QuotationsListPage() {
-  const { quotations, loading, saveQuotation, deleteQuotation, duplicateQuotation } = useQuotations();
+  const { 
+    quotations, 
+    trashQuotations, 
+    loading, 
+    saveQuotation, 
+    deleteQuotation, 
+    restoreFromTrash, 
+    permanentlyDeleteQuotation, 
+    emptyTrash, 
+    duplicateQuotation 
+  } = useQuotations();
   const { settings } = useSettings();
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
   const [search, setSearch] = useState('');
@@ -45,13 +56,16 @@ export default function QuotationsListPage() {
   const [whatsAppModalCategory, setWhatsAppModalCategory] = useState<WhatsAppCategory>('new_client');
   const [openWhatsAppMenuId, setOpenWhatsAppMenuId] = useState<string | null>(null);
 
-  const filtered = quotations.filter((q) => {
+  const isTrashView = statusFilter === 'trash';
+  const sourceList = isTrashView ? trashQuotations : quotations;
+
+  const filtered = sourceList.filter((q) => {
     const matchesSearch =
       q.client.name.toLowerCase().includes(search.toLowerCase()) ||
       q.quotationNumber.toLowerCase().includes(search.toLowerCase()) ||
       q.client.phone.includes(search);
 
-    const matchesStatus = statusFilter === 'all' || q.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || statusFilter === 'trash' || q.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -69,13 +83,62 @@ export default function QuotationsListPage() {
           </p>
         </div>
 
-        <Link
-          href="/quotations/new"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs shadow-sm hover:brightness-105 transition-all"
-        >
-          <PlusCircle className="w-4 h-4" /> Create Quotation
-        </Link>
+        <div className="flex items-center gap-2.5">
+          {/* Trash Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter(isTrashView ? 'all' : 'trash')}
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg font-bold text-xs transition-all border shadow-xs cursor-pointer ${
+              isTrashView
+                ? 'bg-rose-600 text-white border-rose-700 shadow-md ring-2 ring-rose-200'
+                : 'bg-slate-50 text-slate-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 border-slate-200'
+            }`}
+            title="Open Trash Folder"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Trash ({trashQuotations.length})</span>
+          </button>
+
+          <Link
+            href="/quotations/new"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-xs shadow-sm hover:brightness-105 transition-all"
+          >
+            <PlusCircle className="w-4 h-4" /> Create Quotation
+          </Link>
+        </div>
       </div>
+
+      {/* Trash Warning & Empty Trash Banner */}
+      {isTrashView && (
+        <div className="bg-rose-50 border-2 border-rose-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs text-rose-900 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-rose-200 flex items-center justify-center shrink-0 text-rose-700 shadow-xs">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-sm text-rose-950 flex items-center gap-2">
+                Trash Folder ({trashQuotations.length} {trashQuotations.length === 1 ? 'Quotation' : 'Quotations'})
+              </p>
+              <p className="text-rose-700 text-xs mt-0.5">
+                Quotations in trash are hidden from active reports and calendar. If a client opens their quotation link, it will display <strong>"Quotation Not Found"</strong>.
+              </p>
+            </div>
+          </div>
+          {trashQuotations.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm(`Are you sure you want to permanently delete all ${trashQuotations.length} quotations in Trash? This action cannot be undone.`)) {
+                  emptyTrash();
+                }
+              }}
+              className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" /> Empty Trash ({trashQuotations.length})
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -84,7 +147,7 @@ export default function QuotationsListPage() {
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Search by Client Name, Quotation # or Phone..."
+            placeholder={isTrashView ? "Search deleted quotations in Trash..." : "Search by Client Name, Quotation # or Phone..."}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
@@ -99,12 +162,13 @@ export default function QuotationsListPage() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 border border-slate-300 rounded-lg bg-white font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
           >
-            <option value="all">All Statuses ({quotations.length})</option>
+            <option value="all">All Active ({quotations.length})</option>
             <option value="draft">Draft</option>
             <option value="sent">Sent</option>
             <option value="confirmed">Confirmed</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
+            <option value="trash">🗑️ Trash ({trashQuotations.length})</option>
           </select>
         </div>
       </div>
@@ -115,15 +179,32 @@ export default function QuotationsListPage() {
           <div className="text-center py-12 text-slate-400 text-xs">Loading quotations...</div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 space-y-3">
-            <FileText className="w-10 h-10 text-slate-300 mx-auto" />
-            <p className="text-slate-600 font-medium text-sm">No quotations found</p>
-            <p className="text-slate-400 text-xs">Try adjusting search query or create a new quotation.</p>
-            <Link
-              href="/quotations/new"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs"
-            >
-              <PlusCircle className="w-4 h-4" /> Create First Quotation
-            </Link>
+            {isTrashView ? (
+              <>
+                <Trash2 className="w-12 h-12 text-slate-300 mx-auto" />
+                <p className="text-slate-600 font-medium text-sm">Trash is empty</p>
+                <p className="text-slate-400 text-xs">Deleted quotations will appear here. You can restore them anytime.</p>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('all')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs cursor-pointer hover:brightness-110"
+                >
+                  View Active Quotations
+                </button>
+              </>
+            ) : (
+              <>
+                <FileText className="w-10 h-10 text-slate-300 mx-auto" />
+                <p className="text-slate-600 font-medium text-sm">No quotations found</p>
+                <p className="text-slate-400 text-xs">Try adjusting search query or create a new quotation.</p>
+                <Link
+                  href="/quotations/new"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs"
+                >
+                  <PlusCircle className="w-4 h-4" /> Create First Quotation
+                </Link>
+              </>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -239,23 +320,37 @@ export default function QuotationsListPage() {
 
                       {/* Status */}
                       <td className="px-5 py-4">
-                        <select
-                          value={q.status}
-                          onChange={(e) => {
-                            const newStatus = e.target.value as QuotationStatus;
-                            saveQuotation({ ...q, status: newStatus, updatedAt: new Date().toISOString() });
-                          }}
-                          className={`px-2.5 py-1 rounded-full border text-[11px] font-bold uppercase tracking-wider cursor-pointer focus:outline-none ${
-                            STATUS_CLASSES[q.status] || STATUS_CLASSES.draft
-                          }`}
-                        >
-                          <option value="draft">Draft</option>
-                          <option value="sent">Sent</option>
-                          <option value="not_confirmed">Not Confirmed</option>
-                          <option value="confirmed">Confirmed</option>
-                          <option value="completed">Completed</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
+                        {isTrashView ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-[11px] font-bold uppercase tracking-wider border border-rose-300">
+                            <Trash2 className="w-3 h-3 text-rose-600" />
+                            <span>In Trash</span>
+                          </span>
+                        ) : (
+                          <select
+                            value={q.status}
+                            onChange={(e) => {
+                              const newStatus = e.target.value as QuotationStatus;
+                              if (newStatus === 'trash') {
+                                if (confirm(`Move quotation #${q.quotationNumber} to Trash? Client link will immediately show "Quotation Not Found".`)) {
+                                  deleteQuotation(q.id);
+                                }
+                              } else {
+                                saveQuotation({ ...q, status: newStatus, updatedAt: new Date().toISOString() });
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded-full border text-[11px] font-bold uppercase tracking-wider cursor-pointer focus:outline-none ${
+                              STATUS_CLASSES[q.status] || STATUS_CLASSES.draft
+                            }`}
+                          >
+                            <option value="draft">Draft</option>
+                            <option value="sent">Sent</option>
+                            <option value="not_confirmed">Not Confirmed</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="trash">🗑️ Move to Trash</option>
+                          </select>
+                        )}
                       </td>
 
                       {/* Date */}
@@ -265,7 +360,38 @@ export default function QuotationsListPage() {
 
                       {/* Actions */}
                       <td className="px-5 py-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
+                        {isTrashView ? (
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Restore Button */}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await restoreFromTrash(q.id);
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 transition-colors font-bold text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                              title="Restore to active registry"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Restore</span>
+                            </button>
+
+                            {/* Permanently Delete Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`Permanently delete quotation #${q.quotationNumber}? This action cannot be undone.`)) {
+                                  permanentlyDeleteQuotation(q.id);
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-300 transition-colors font-bold text-xs flex items-center gap-1 shadow-2xs cursor-pointer"
+                              title="Delete Permanently Forever"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                              <span>Delete Forever</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5">
                           {/* WhatsApp Dropdown Button */}
                           <div className="relative inline-block text-left">
                             <button
@@ -397,16 +523,17 @@ export default function QuotationsListPage() {
                           </button>
                           <button
                             onClick={() => {
-                              if (confirm('Delete this quotation?')) {
+                              if (confirm(`Move quotation #${q.quotationNumber} to Trash? Client link will immediately show "Quotation Not Found".`)) {
                                 deleteQuotation(q.id);
                               }
                             }}
-                            className="p-1.5 rounded-lg text-slate-600 hover:text-red-600 hover:bg-red-50"
-                            title="Delete Quotation"
+                            className="p-1.5 rounded-lg text-slate-600 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                            title="Move to Trash"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
+                        )}
                       </td>
                     </tr>
                   );

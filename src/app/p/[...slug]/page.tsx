@@ -91,6 +91,11 @@ function ShortClientPortalContent() {
         }
       }
 
+      // If quotation is in Trash or soft-deleted -> client MUST see "Quotation Not Found"
+      if (q && (q.status === 'trash' || q.isDeleted || q.deletedAt)) {
+        q = null;
+      }
+
       if (isMounted) {
         if (q) {
           setQuotation(q);

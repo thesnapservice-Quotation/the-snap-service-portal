@@ -77,6 +77,9 @@ function parseSupabaseRow(r: any): Quotation {
     createdByUserId: creatorId,
     updatedByUserId: base.updatedByUserId || r.updated_by_user_id || creatorId,
     status: r.status || base.status || 'sent',
+    previousStatus: base.previousStatus,
+    isDeleted: base.isDeleted || r.status === 'trash' || base.status === 'trash' || false,
+    deletedAt: base.deletedAt,
     client: r.client || base.client || { name: '', phone: '', quotationDate: '', eventDates: '' },
     packageType: base.packageType || 'multi_event',
     events: r.events || base.events || [],
@@ -227,6 +230,9 @@ export async function getPublicQuotationFromDb(
   const all = await getQuotationsFromDb();
 
   for (const q of all) {
+    // If quotation is in Trash / deleted -> strictly NOT accessible by client (Quotation Not Found)
+    if (q.status === 'trash' || q.isDeleted || q.deletedAt) continue;
+
     const candidateNum = (q.quotationNumber || q.id || '').trim().toUpperCase();
     if (candidateNum !== cleanQNum) continue;
 
@@ -283,6 +289,9 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
     createdByUserId: authorId,
     updatedByUserId: quotation.updatedByUserId || authorId,
     status: exactStatus,
+    previousStatus: quotation.previousStatus !== undefined ? quotation.previousStatus : existingRecord?.previousStatus,
+    isDeleted: quotation.isDeleted !== undefined ? quotation.isDeleted : (exactStatus === 'trash' || existingRecord?.isDeleted || false),
+    deletedAt: quotation.deletedAt !== undefined ? quotation.deletedAt : (exactStatus === 'trash' ? (existingRecord?.deletedAt || now) : existingRecord?.deletedAt),
     publicLinkDate: finalPublicLinkDate,
     deliverableStatus: quotation.deliverableStatus !== undefined ? quotation.deliverableStatus : existingRecord?.deliverableStatus,
     updatedAt: now,
