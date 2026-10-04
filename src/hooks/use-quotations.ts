@@ -235,6 +235,24 @@ export function useQuotations() {
     }
   };
 
+  const bulkMoveToTrash = async (ids: string[]): Promise<void> => {
+    for (const id of ids) {
+      await moveToTrash(id);
+    }
+  };
+
+  const bulkRestoreFromTrash = async (ids: string[]): Promise<void> => {
+    for (const id of ids) {
+      await restoreFromTrash(id);
+    }
+  };
+
+  const bulkPermanentlyDelete = async (ids: string[]): Promise<void> => {
+    for (const id of ids) {
+      await permanentlyDeleteQuotation(id);
+    }
+  };
+
   // Safe delete (moves to trash by default)
   const deleteQuotation = async (id: string): Promise<void> => {
     await moveToTrash(id);
@@ -280,6 +298,9 @@ export function useQuotations() {
     restoreFromTrash,
     permanentlyDeleteQuotation,
     emptyTrash,
+    bulkMoveToTrash,
+    bulkRestoreFromTrash,
+    bulkPermanentlyDelete,
     duplicateQuotation,
   };
 }

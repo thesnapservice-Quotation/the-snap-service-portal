@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-export const CATEGORY_CONFIG: Record<
+const CATEGORY_CONFIG: Record<
   ExpenseCategory, 
   { label: string; icon: React.ElementType; color: string; bg: string; border: string }
 > = {

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Quotation, AppSettings } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { apiFetchQuotationById, apiFetchSettings } from '@/lib/api-client';
+import { apiFetchQuotationById, apiFetchSettings, apiSaveQuotation } from '@/lib/api-client';
 import { useSettings } from '@/hooks/use-settings';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { QuotationActions } from '@/components/quotation/quotation-actions';
@@ -69,6 +69,7 @@ export default function QuotationDetailPage() {
     const updated = { ...quotation, status };
     storage.saveQuotation(updated);
     setQuotation(updated);
+    apiSaveQuotation(updated).catch(() => {});
   };
 
   const handleDuplicate = () => {
@@ -80,7 +81,7 @@ export default function QuotationDetailPage() {
 
   const isQuotationInTrash = quotation.status === 'trash' || quotation.isDeleted;
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (confirm(`Move quotation #${quotation.quotationNumber} to Trash? Client link will immediately show "Quotation Not Found".`)) {
       const updated: Quotation = {
         ...quotation,
@@ -91,11 +92,14 @@ export default function QuotationDetailPage() {
         updatedAt: new Date().toISOString(),
       };
       storage.saveQuotation(updated);
+      try {
+        await apiSaveQuotation(updated);
+      } catch {}
       router.push('/quotations?status=trash');
     }
   };
 
-  const handleRestore = () => {
+  const handleRestore = async () => {
     const restoredStatus = (quotation.previousStatus as Quotation['status']) || 'sent';
     const updated: Quotation = {
       ...quotation,
@@ -106,6 +110,9 @@ export default function QuotationDetailPage() {
     };
     storage.saveQuotation(updated);
     setQuotation(updated);
+    try {
+      await apiSaveQuotation(updated);
+    } catch {}
   };
 
   return (

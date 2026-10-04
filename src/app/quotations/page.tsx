@@ -42,7 +42,10 @@ export default function QuotationsListPage() {
     deleteQuotation, 
     restoreFromTrash, 
     permanentlyDeleteQuotation, 
-    emptyTrash, 
+    emptyTrash,
+    bulkMoveToTrash,
+    bulkRestoreFromTrash,
+    bulkPermanentlyDelete,
     duplicateQuotation 
   } = useQuotations();
   const { settings } = useSettings();
@@ -51,6 +54,10 @@ export default function QuotationsListPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedLedgerQuote, setSelectedLedgerQuote] = useState<Quotation | null>(null);
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+
   // WhatsApp Modal & Dropdown state
   const [whatsAppModalQuote, setWhatsAppModalQuote] = useState<Quotation | null>(null);
   const [whatsAppModalCategory, setWhatsAppModalCategory] = useState<WhatsAppCategory>('new_client');
@@ -58,6 +65,11 @@ export default function QuotationsListPage() {
 
   const isTrashView = statusFilter === 'trash';
   const sourceList = isTrashView ? trashQuotations : quotations;
+
+  const handleStatusFilterChange = (newStatus: string) => {
+    setStatusFilter(newStatus);
+    setSelectedIds(new Set());
+  };
 
   const filtered = sourceList.filter((q) => {
     const matchesSearch =
@@ -69,6 +81,74 @@ export default function QuotationsListPage() {
 
     return matchesSearch && matchesStatus;
   });
+
+  // Bulk selection helpers
+  const allFilteredSelected = filtered.length > 0 && filtered.every((q) => selectedIds.has(q.id));
+  const someFilteredSelected = filtered.some((q) => selectedIds.has(q.id));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((q) => q.id)));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkMoveToTrash = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (confirm(`Move ${count} selected quotation${count > 1 ? 's' : ''} to Trash?\nClient links will immediately show "Quotation Not Found".`)) {
+      setIsProcessingBulk(true);
+      try {
+        await bulkMoveToTrash(Array.from(selectedIds));
+        clearSelection();
+      } finally {
+        setIsProcessingBulk(false);
+      }
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    setIsProcessingBulk(true);
+    try {
+      await bulkRestoreFromTrash(Array.from(selectedIds));
+      clearSelection();
+    } finally {
+      setIsProcessingBulk(false);
+    }
+  };
+
+  const handleBulkPermanentDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (confirm(`Permanently delete ${count} selected quotation${count > 1 ? 's' : ''}?\nThis action CANNOT be undone and will permanently remove them from the database.`)) {
+      setIsProcessingBulk(true);
+      try {
+        await bulkPermanentlyDelete(Array.from(selectedIds));
+        clearSelection();
+      } finally {
+        setIsProcessingBulk(false);
+      }
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -87,7 +167,7 @@ export default function QuotationsListPage() {
           {/* Trash Toggle Button */}
           <button
             type="button"
-            onClick={() => setStatusFilter(isTrashView ? 'all' : 'trash')}
+            onClick={() => handleStatusFilterChange(isTrashView ? 'all' : 'trash')}
             className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg font-bold text-xs transition-all border shadow-xs cursor-pointer ${
               isTrashView
                 ? 'bg-rose-600 text-white border-rose-700 shadow-md ring-2 ring-rose-200'
@@ -159,7 +239,7 @@ export default function QuotationsListPage() {
           <Filter className="w-4 h-4 text-slate-400" />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => handleStatusFilterChange(e.target.value)}
             className="px-3 py-2 border border-slate-300 rounded-lg bg-white font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
           >
             <option value="all">All Active ({quotations.length})</option>
@@ -172,6 +252,66 @@ export default function QuotationsListPage() {
           </select>
         </div>
       </div>
+
+      {/* Sticky Bulk Selection Floating Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-4 z-30 bg-[#0D4F4F] text-[#FAF9F6] px-5 py-3 rounded-2xl shadow-xl border border-[#D4AF37]/40 flex flex-wrap items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center justify-center bg-[#D4AF37] text-[#0D4F4F] font-bold text-xs px-2.5 py-1 rounded-full shadow-2xs">
+              {selectedIds.size}
+            </span>
+            <span className="text-xs font-semibold">
+              {selectedIds.size === 1 ? '1 quotation selected' : `${selectedIds.size} quotations selected`}
+            </span>
+            <span className="text-slate-400 text-xs">|</span>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="text-xs text-[#D4AF37] hover:underline cursor-pointer font-medium"
+            >
+              Deselect All
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isTrashView ? (
+              <>
+                <button
+                  type="button"
+                  disabled={isProcessingBulk}
+                  onClick={handleBulkRestore}
+                  className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Restore selected quotations to active list"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Restore Selected ({selectedIds.size})</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isProcessingBulk}
+                  onClick={handleBulkPermanentDelete}
+                  className="px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Permanently delete selected quotations forever"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Forever ({selectedIds.size})</span>
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={isProcessingBulk}
+                onClick={handleBulkMoveToTrash}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+                title="Move selected quotations to Trash"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Move to Trash ({selectedIds.size})</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -186,7 +326,7 @@ export default function QuotationsListPage() {
                 <p className="text-slate-400 text-xs">Deleted quotations will appear here. You can restore them anytime.</p>
                 <button
                   type="button"
-                  onClick={() => setStatusFilter('all')}
+                  onClick={() => handleStatusFilterChange('all')}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs cursor-pointer hover:brightness-110"
                 >
                   View Active Quotations
@@ -211,6 +351,20 @@ export default function QuotationsListPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#0D4F4F] text-[#FAF9F6] font-serif uppercase tracking-wider text-[11px]">
                 <tr>
+                  <th className="px-4 py-3.5 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={allFilteredSelected}
+                      ref={(el) => {
+                        if (el) {
+                          el.indeterminate = !allFilteredSelected && someFilteredSelected;
+                        }
+                      }}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-slate-300 accent-[#0D4F4F] cursor-pointer"
+                      title={allFilteredSelected ? 'Deselect All' : 'Select All Visible'}
+                    />
+                  </th>
                   <th className="px-5 py-3.5">Quotation #</th>
                   <th className="px-5 py-3.5">Client Details</th>
                   <th className="px-5 py-3.5">Events Summary</th>
@@ -245,10 +399,33 @@ export default function QuotationsListPage() {
                   const netProfit = q.payment.grandTotal - totalCost;
 
                   return (
-                    <tr key={q.id} className="hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={q.id}
+                      className={`transition-colors ${
+                        selectedIds.has(q.id)
+                          ? 'bg-amber-50/70 hover:bg-amber-100/60'
+                          : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="px-4 py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(q.id)}
+                          onChange={() => toggleSelectOne(q.id)}
+                          className="w-4 h-4 rounded border-slate-300 accent-[#0D4F4F] cursor-pointer"
+                        />
+                      </td>
+
                       {/* Quotation Number */}
                       <td className="px-5 py-4 font-mono font-bold text-[#0D4F4F]">
-                        {q.quotationNumber}
+                        <Link
+                          href={`/quotations/${q.id}`}
+                          className="hover:underline hover:text-[#B89228] transition-colors"
+                          title="View quotation preview internally"
+                        >
+                          {q.quotationNumber}
+                        </Link>
                       </td>
 
                       {/* Client Details */}
@@ -361,7 +538,25 @@ export default function QuotationsListPage() {
                       {/* Actions */}
                       <td className="px-5 py-4 text-right whitespace-nowrap">
                         {isTrashView ? (
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* View Full Preview (Internal) */}
+                            <Link
+                              href={`/quotations/${q.id}`}
+                              className="p-1.5 rounded-lg text-slate-700 bg-slate-100 hover:text-[#0D4F4F] hover:bg-slate-200 border border-slate-300 transition-colors shadow-2xs"
+                              title="View Quotation Internally"
+                            >
+                              <Eye className="w-4 h-4 text-[#0D4F4F]" />
+                            </Link>
+
+                            {/* Internal Profit Compare */}
+                            <Link
+                              href={`/quotations/${q.id}/compare`}
+                              className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#0D4F4F] font-bold text-[11px] shadow-2xs hover:brightness-105 transition-all flex items-center gap-1"
+                              title="Internal Profit Analysis"
+                            >
+                              Compare
+                            </Link>
+
                             {/* Restore Button */}
                             <button
                               type="button"
