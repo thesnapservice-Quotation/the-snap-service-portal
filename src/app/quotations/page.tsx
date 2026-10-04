@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
@@ -130,6 +130,52 @@ export default function QuotationsListPage() {
 
     return matchesSearch && matchesStatus && matchesWa;
   });
+
+  // Financial Totals Calculation across all filtered quotations
+  const { totalSellingPrice, totalAdvanceReceived, totalInternalCost, totalEstimatedProfit } = useMemo(() => {
+    let sellingPrice = 0;
+    let advance = 0;
+    let cost = 0;
+
+    for (const q of filtered) {
+      sellingPrice += q.payment?.grandTotal || 0;
+      advance += q.payment?.advanceReceived || 0;
+
+      const qCost = q.internalAnalysis?.totalInternalCost ?? (q.events || []).reduce((sum, evt) => {
+        return sum + (evt.services || []).reduce((sSum, s) => sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000), 0);
+      }, 0);
+      cost += qCost;
+    }
+
+    return {
+      totalSellingPrice: sellingPrice,
+      totalAdvanceReceived: advance,
+      totalInternalCost: cost,
+      totalEstimatedProfit: sellingPrice - cost,
+    };
+  }, [filtered]);
+
+  // Totals for selected quotations (if any)
+  const { selectedSellingPrice, selectedEstimatedProfit } = useMemo(() => {
+    if (selectedIds.size === 0) return { selectedSellingPrice: 0, selectedEstimatedProfit: 0 };
+    let selSelling = 0;
+    let selCost = 0;
+
+    for (const q of filtered) {
+      if (selectedIds.has(q.id)) {
+        selSelling += q.payment?.grandTotal || 0;
+        const qCost = q.internalAnalysis?.totalInternalCost ?? (q.events || []).reduce((sum, evt) => {
+          return sum + (evt.services || []).reduce((sSum, s) => sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000), 0);
+        }, 0);
+        selCost += qCost;
+      }
+    }
+
+    return {
+      selectedSellingPrice: selSelling,
+      selectedEstimatedProfit: selSelling - selCost,
+    };
+  }, [filtered, selectedIds]);
 
   // Bulk selection helpers
   const allFilteredSelected = filtered.length > 0 && filtered.every((q) => selectedIds.has(q.id));
@@ -932,10 +978,206 @@ export default function QuotationsListPage() {
                   );
                 })}
               </tbody>
+
+              {/* Table Footer: Total Selling Price & Estimated Profit */}
+              <tfoot className="bg-slate-100/90 border-t-2 border-slate-300 font-bold text-xs text-slate-800">
+                <tr>
+                  <td colSpan={4} className="px-5 py-4 text-right font-serif uppercase tracking-wider text-slate-700 bg-slate-200/50">
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="font-bold text-slate-800">Total ({filtered.length} {filtered.length === 1 ? 'Quotation' : 'Quotations'})</span>
+                      {selectedIds.size > 0 && (
+                        <span className="text-amber-900 bg-amber-200/80 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                          {selectedIds.size} Selected
+                        </span>
+                      )}
+                      <span>:</span>
+                    </div>
+                  </td>
+
+                  {/* Total Selling Price */}
+                  <td className="px-5 py-4 bg-amber-50/40">
+                    <span className="font-extrabold text-slate-900 text-sm block">
+                      {formatCurrency(totalSellingPrice)}
+                    </span>
+                    {totalAdvanceReceived > 0 && (
+                      <span className="text-[10.5px] text-emerald-700 font-semibold block mt-0.5">
+                        Adv: {formatCurrency(totalAdvanceReceived)}
+                      </span>
+                    )}
+                    {totalSellingPrice - totalAdvanceReceived > 0 && (
+                      <span className="text-[10px] text-slate-500 font-medium block">
+                        Pending: {formatCurrency(totalSellingPrice - totalAdvanceReceived)}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Total Estimated Profit */}
+                  <td className="px-5 py-4 bg-emerald-50/40">
+                    {isProfitUnlocked ? (
+                      <>
+                        <span className={`font-extrabold text-sm block ${totalEstimatedProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                          {formatCurrency(totalEstimatedProfit)}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+                          Total Net Profit {totalSellingPrice > 0 ? `(${((totalEstimatedProfit / totalSellingPrice) * 100).toFixed(0)}%)` : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={openUnlockModal}
+                        className="text-left group cursor-pointer"
+                        title="Click to enter password and reveal total profit"
+                      >
+                        <span className="font-bold text-xs block text-slate-400 group-hover:text-[#0D4F4F] transition-colors tracking-widest">
+                          ••••••••
+                        </span>
+                        <span className="text-[10px] text-slate-400 group-hover:text-[#0D4F4F] flex items-center gap-1 font-normal">
+                          <Lock className="w-2.5 h-2.5" /> Hidden (password)
+                        </span>
+                      </button>
+                    )}
+                  </td>
+
+                  <td colSpan={3} className="px-5 py-4 text-slate-500 text-[11px] font-normal bg-slate-100/50">
+                    {selectedIds.size > 0 && (
+                      <div className="flex flex-col gap-0.5 text-xs">
+                        <span className="text-slate-800 font-semibold">
+                          Selected Revenue: <strong>{formatCurrency(selectedSellingPrice)}</strong>
+                        </span>
+                        {isProfitUnlocked && (
+                          <span className="text-emerald-800 font-semibold">
+                            Selected Profit: <strong>{formatCurrency(selectedEstimatedProfit)}</strong>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
       </div>
+
+      {/* Executive Financial Summary Cards at Page Bottom */}
+      {filtered.length > 0 && (
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in">
+          {/* Card 1: Total Quotations */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Total Quotations
+              </p>
+              <p className="text-2xl font-bold font-serif text-[#0D4F4F] mt-1">
+                {filtered.length}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {isTrashView ? 'In Trash Folder' : 'Showing in Registry'}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-[#0D4F4F]/10 text-[#0D4F4F] flex items-center justify-center">
+              <FileText className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Card 2: Total Selling Price / Revenue */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Total Selling Price
+              </p>
+              <p className="text-xl font-bold font-sans text-slate-900 mt-1">
+                {formatCurrency(totalSellingPrice)}
+              </p>
+              <div className="flex items-center gap-2 text-[10.5px] mt-0.5">
+                <span className="text-emerald-700 font-semibold">
+                  Adv: {formatCurrency(totalAdvanceReceived)}
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="text-slate-500 font-medium">
+                  Pending: {formatCurrency(totalSellingPrice - totalAdvanceReceived)}
+                </span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center justify-center">
+              <Receipt className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Card 3: Total Event Expenses */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Total Event Expenses
+              </p>
+              {isProfitUnlocked ? (
+                <>
+                  <p className="text-xl font-bold font-sans text-rose-800 mt-1">
+                    {formatCurrency(totalInternalCost)}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Team + Editing + Albums
+                  </p>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openUnlockModal}
+                  className="text-left group cursor-pointer mt-1"
+                  title="Click to enter password and reveal costs"
+                >
+                  <p className="text-xl font-bold text-slate-400 group-hover:text-[#0D4F4F] tracking-widest">
+                    ••••••••
+                  </p>
+                  <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" /> Hidden (password)
+                  </p>
+                </button>
+              )}
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 flex items-center justify-center">
+              <Lock className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Card 4: Total Estimated Profit */}
+          <div className="bg-gradient-to-br from-[#0D4F4F] to-[#156060] text-white p-4 rounded-xl border border-[#D4AF37]/30 flex items-center justify-between shadow-sm">
+            <div>
+              <p className="text-[11px] font-bold text-[#D4AF37] uppercase tracking-wider">
+                Total Estimated Profit
+              </p>
+              {isProfitUnlocked ? (
+                <>
+                  <p className="text-xl font-bold font-sans text-white mt-1">
+                    {formatCurrency(totalEstimatedProfit)}
+                  </p>
+                  <p className="text-[11px] text-emerald-200 mt-0.5 font-medium">
+                    {totalSellingPrice > 0 ? `${((totalEstimatedProfit / totalSellingPrice) * 100).toFixed(1)}% Profit Margin` : 'Net Profit'}
+                  </p>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openUnlockModal}
+                  className="text-left group cursor-pointer mt-1"
+                  title="Click to enter password and reveal profits"
+                >
+                  <p className="text-xl font-bold text-slate-300 group-hover:text-[#D4AF37] tracking-widest">
+                    ••••••••
+                  </p>
+                  <p className="text-[10px] text-slate-300 flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" /> Click to reveal
+                  </p>
+                </button>
+              )}
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-white/10 text-[#D4AF37] flex items-center justify-center">
+              <Unlock className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Live Payment Ledger Modal */}
       {selectedLedgerQuote && (
