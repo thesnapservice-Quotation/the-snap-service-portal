@@ -267,3 +267,124 @@ export function generateWhatsAppIntentUrl(phone: string, message: string): strin
   const encoded = encodeURIComponent(message);
   return `https://wa.me/${normalized}?text=${encoded}`;
 }
+
+export interface LatestWhatsAppStatusMeta {
+  category: WhatsAppCategory | 'none';
+  label: string;
+  shortLabel: string;
+  buttonLabel: string;
+  badgeLabel: string;
+  sentAt?: string;
+  sentByUserName?: string;
+  buttonClass: string;
+  badgeClass: string;
+  iconColor: string;
+  isSent: boolean;
+}
+
+export function getLatestWhatsAppStatus(q: Quotation): LatestWhatsAppStatusMeta {
+  const history = q.whatsappHistory;
+  const latest = history && history.length > 0 ? history[0] : null;
+
+  if (!latest) {
+    return {
+      category: 'none',
+      label: 'Not Sent',
+      shortLabel: 'Not Sent',
+      buttonLabel: 'WhatsApp',
+      badgeLabel: 'Not Sent',
+      buttonClass: 'text-slate-700 bg-slate-50 hover:bg-slate-100 border-slate-300',
+      badgeClass: 'bg-slate-100 text-slate-500 border-slate-200',
+      iconColor: 'text-slate-400',
+      isSent: false,
+    };
+  }
+
+  switch (latest.category) {
+    case 'new_client':
+      return {
+        category: 'new_client',
+        label: '1st Message',
+        shortLabel: '1st Msg',
+        buttonLabel: '1st Msg Sent',
+        badgeLabel: '1st Msg Sent',
+        sentAt: latest.sentAt,
+        sentByUserName: latest.sentByUserName,
+        buttonClass: 'text-emerald-900 bg-emerald-100/90 hover:bg-emerald-200 border-emerald-300',
+        badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+        iconColor: 'text-emerald-700',
+        isSent: true,
+      };
+    case 'second_reminder':
+      return {
+        category: 'second_reminder',
+        label: '2nd Reminder',
+        shortLabel: '2nd Rem',
+        buttonLabel: '2nd Reminder',
+        badgeLabel: '2nd Reminder',
+        sentAt: latest.sentAt,
+        sentByUserName: latest.sentByUserName,
+        buttonClass: 'text-blue-900 bg-blue-100/90 hover:bg-blue-200 border-blue-300',
+        badgeClass: 'bg-blue-50 text-blue-800 border-blue-200',
+        iconColor: 'text-blue-700',
+        isSent: true,
+      };
+    case 'final_reminder':
+      return {
+        category: 'final_reminder',
+        label: 'Final Reminder',
+        shortLabel: 'Final Rem',
+        buttonLabel: 'Final Reminder',
+        badgeLabel: 'Final Reminder',
+        sentAt: latest.sentAt,
+        sentByUserName: latest.sentByUserName,
+        buttonClass: 'text-rose-900 bg-rose-100/90 hover:bg-rose-200 border-rose-300',
+        badgeClass: 'bg-rose-50 text-rose-800 border-rose-200',
+        iconColor: 'text-rose-700',
+        isSent: true,
+      };
+    case 'offer_reminder':
+      return {
+        category: 'offer_reminder',
+        label: 'Offer Reminder',
+        shortLabel: 'Offer',
+        buttonLabel: 'Offer Sent',
+        badgeLabel: 'Offer Sent',
+        sentAt: latest.sentAt,
+        sentByUserName: latest.sentByUserName,
+        buttonClass: 'text-amber-900 bg-amber-100/90 hover:bg-amber-200 border-amber-300',
+        badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+        iconColor: 'text-amber-700',
+        isSent: true,
+      };
+    case 'event_confirmation':
+      return {
+        category: 'event_confirmation',
+        label: 'Booking Locked',
+        shortLabel: 'Confirmed',
+        buttonLabel: 'Confirmed',
+        badgeLabel: 'Confirmed',
+        sentAt: latest.sentAt,
+        sentByUserName: latest.sentByUserName,
+        buttonClass: 'text-purple-900 bg-purple-100/90 hover:bg-purple-200 border-purple-300',
+        badgeClass: 'bg-purple-50 text-purple-800 border-purple-200',
+        iconColor: 'text-purple-700',
+        isSent: true,
+      };
+    default:
+      return {
+        category: latest.category,
+        label: latest.categoryLabel || 'WA Sent',
+        shortLabel: (latest.categoryLabel || 'WA Sent').slice(0, 10),
+        buttonLabel: latest.categoryLabel || 'WA Sent',
+        badgeLabel: latest.categoryLabel || 'WA Sent',
+        sentAt: latest.sentAt,
+        sentByUserName: latest.sentByUserName,
+        buttonClass: 'text-teal-900 bg-teal-100/90 hover:bg-teal-200 border-teal-300',
+        badgeClass: 'bg-teal-50 text-teal-800 border-teal-200',
+        iconColor: 'text-teal-700',
+        isSent: true,
+      };
+  }
+}
+

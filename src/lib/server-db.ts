@@ -90,6 +90,7 @@ function parseSupabaseRow(r: any): Quotation {
     securityPin: base.securityPin,
     publicLinkDate: pubDate,
     deliverableStatus: base.deliverableStatus || r.deliverable_status || r.deliverableStatus,
+    whatsappHistory: base.whatsappHistory || r.whatsapp_history || r.whatsappHistory || [],
     createdAt: r.created_at || base.createdAt || new Date().toISOString(),
     updatedAt: r.updated_at || base.updatedAt || new Date().toISOString(),
   };

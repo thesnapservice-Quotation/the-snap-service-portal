@@ -24,14 +24,18 @@ import {
   Receipt,
   ChevronDown,
   History,
-  Send
+  Send,
+  CheckCircle2,
+  Check,
+  Clock
 } from 'lucide-react';
 
 import { StatusBadge, STATUS_CLASSES } from '@/components/quotation/status-badge';
 import { PaymentLedgerModal } from '@/components/quotation/payment-ledger-modal';
 import { SendWhatsAppModal } from '@/components/quotation/send-whatsapp-modal';
-import { WhatsAppCategory, getAllWhatsAppCategories } from '@/lib/whatsapp';
-import { Quotation } from '@/lib/types';
+import { WhatsAppCategory, getAllWhatsAppCategories, getLatestWhatsAppStatus } from '@/lib/whatsapp';
+import { Quotation, WhatsAppHistoryEntry } from '@/lib/types';
+import { storage } from '@/lib/storage';
 
 export default function QuotationsListPage() {
   const { 
@@ -52,6 +56,7 @@ export default function QuotationsListPage() {
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [waFilter, setWaFilter] = useState<string>('all');
   const [selectedLedgerQuote, setSelectedLedgerQuote] = useState<Quotation | null>(null);
 
   // Bulk selection state
@@ -71,6 +76,44 @@ export default function QuotationsListPage() {
     setSelectedIds(new Set());
   };
 
+  const handleQuickMarkSent = async (q: Quotation, category: WhatsAppCategory, categoryLabel: string) => {
+    const user = storage.getCurrentUser();
+    const newEntry: WhatsAppHistoryEntry = {
+      id: `wah-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      sentAt: new Date().toISOString(),
+      category,
+      categoryLabel,
+      sentTo: q.client.name,
+      phone: q.client.phone,
+      messageSnippet: `Marked as sent: ${categoryLabel}`,
+      sentByUserId: user?.id,
+      sentByUserName: user?.name,
+      status: 'sent',
+    };
+
+    const existing = q.whatsappHistory || [];
+    const updated: Quotation = {
+      ...q,
+      whatsappHistory: [newEntry, ...existing],
+      updatedAt: new Date().toISOString(),
+    };
+
+    await saveQuotation(updated);
+    setOpenWhatsAppMenuId(null);
+  };
+
+  const handleResetWhatsAppStatus = async (q: Quotation) => {
+    if (confirm(`Reset WhatsApp status for "${q.client.name || 'Client'}" to Not Sent?`)) {
+      const updated: Quotation = {
+        ...q,
+        whatsappHistory: [],
+        updatedAt: new Date().toISOString(),
+      };
+      await saveQuotation(updated);
+      setOpenWhatsAppMenuId(null);
+    }
+  };
+
   const filtered = sourceList.filter((q) => {
     const matchesSearch =
       q.client.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -79,7 +122,13 @@ export default function QuotationsListPage() {
 
     const matchesStatus = statusFilter === 'all' || statusFilter === 'trash' || q.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    const waMeta = getLatestWhatsAppStatus(q);
+    const matchesWa =
+      waFilter === 'all' ||
+      (waFilter === 'not_sent' && !waMeta.isSent) ||
+      (waFilter === waMeta.category);
+
+    return matchesSearch && matchesStatus && matchesWa;
   });
 
   // Bulk selection helpers
@@ -234,22 +283,43 @@ export default function QuotationsListPage() {
           />
         </div>
 
-        {/* Status Filter */}
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) => handleStatusFilterChange(e.target.value)}
-            className="px-3 py-2 border border-slate-300 rounded-lg bg-white font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-          >
-            <option value="all">All Active ({quotations.length})</option>
-            <option value="draft">Draft</option>
-            <option value="sent">Sent</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="trash">🗑️ Trash ({trashQuotations.length})</option>
-          </select>
+        {/* Filters Group */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status Filter */}
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
+              className="px-3 py-2 border border-slate-300 rounded-lg bg-white font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+            >
+              <option value="all">All Active ({quotations.length})</option>
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="trash">🗑️ Trash ({trashQuotations.length})</option>
+            </select>
+          </div>
+
+          {/* WhatsApp Status Filter */}
+          <div className="flex items-center gap-1.5">
+            <MessageSquare className="w-4 h-4 text-emerald-600" />
+            <select
+              value={waFilter}
+              onChange={(e) => setWaFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-300 rounded-lg bg-white font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+            >
+              <option value="all">All WhatsApp Status</option>
+              <option value="not_sent">💬 Not Sent</option>
+              <option value="new_client">🟢 1st Msg Sent</option>
+              <option value="second_reminder">🔵 2nd Reminder Sent</option>
+              <option value="final_reminder">🔴 Final Reminder Sent</option>
+              <option value="offer_reminder">🟡 Offer Sent</option>
+              <option value="event_confirmation">🟣 Confirmed</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -434,20 +504,44 @@ export default function QuotationsListPage() {
                           {q.client.name || 'Unnamed Client'}
                         </span>
                         <span className="text-slate-400 text-[11px] block">{q.client.phone}</span>
-                        {q.whatsappHistory && q.whatsappHistory.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setWhatsAppModalCategory(q.whatsappHistory![0].category);
-                              setWhatsAppModalQuote(q);
-                            }}
-                            className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[9.5px] font-semibold border border-emerald-200 transition-colors"
-                            title="Click to view WhatsApp sending history"
-                          >
-                            <MessageSquare className="w-2.5 h-2.5 text-emerald-600" />
-                            <span>{q.whatsappHistory[0].categoryLabel} ({formatDate(q.whatsappHistory[0].sentAt)})</span>
-                          </button>
-                        )}
+
+                        {/* WhatsApp Status Indicator Badge */}
+                        {(() => {
+                          const waMeta = getLatestWhatsAppStatus(q);
+                          if (!waMeta.isSent) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setWhatsAppModalCategory('new_client');
+                                  setWhatsAppModalQuote(q);
+                                }}
+                                className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 text-[9.5px] font-medium border border-slate-200 transition-colors cursor-pointer"
+                                title="Click to send initial quotation WhatsApp message"
+                              >
+                                <MessageSquare className="w-2.5 h-2.5 text-slate-400" />
+                                <span>WA: Not Sent Yet</span>
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setWhatsAppModalCategory(waMeta.category as WhatsAppCategory);
+                                setWhatsAppModalQuote(q);
+                              }}
+                              className={`inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border transition-colors shadow-2xs cursor-pointer ${waMeta.badgeClass}`}
+                              title={`WhatsApp Status: ${waMeta.label} ${waMeta.sentAt ? `(${formatDate(waMeta.sentAt)})` : ''}`}
+                            >
+                              <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
+                              <span>{waMeta.label}</span>
+                              {waMeta.sentAt && (
+                                <span className="opacity-75 font-normal">({formatDate(waMeta.sentAt)})</span>
+                              )}
+                            </button>
+                          );
+                        })()}
                       </td>
 
                       {/* Events Summary */}
@@ -587,84 +681,188 @@ export default function QuotationsListPage() {
                           </div>
                         ) : (
                           <div className="flex items-center justify-end gap-1.5">
-                          {/* WhatsApp Dropdown Button */}
+                          {/* WhatsApp Dropdown Button with Dynamic Status */}
                           <div className="relative inline-block text-left">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenWhatsAppMenuId(openWhatsAppMenuId === q.id ? null : q.id);
-                              }}
-                              className="p-1.5 px-2 rounded-lg text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 transition-colors shadow-2xs flex items-center gap-1 text-[11px] font-bold"
-                              title="Send WhatsApp Message"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
-                              <span>WhatsApp</span>
-                              <ChevronDown className="w-3 h-3 text-emerald-600" />
-                            </button>
+                            {(() => {
+                              const waMeta = getLatestWhatsAppStatus(q);
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenWhatsAppMenuId(openWhatsAppMenuId === q.id ? null : q.id);
+                                  }}
+                                  className={`p-1.5 px-2.5 rounded-lg border transition-all shadow-2xs flex items-center gap-1.5 text-[11px] font-bold cursor-pointer ${waMeta.buttonClass}`}
+                                  title={`WhatsApp Status: ${waMeta.label} ${waMeta.sentAt ? `(Sent: ${formatDate(waMeta.sentAt)})` : ''} — Click to manage WhatsApp messages & reminders`}
+                                >
+                                  <MessageSquare className={`w-3.5 h-3.5 ${waMeta.iconColor}`} />
+                                  <span>{waMeta.buttonLabel}</span>
+                                  <ChevronDown className="w-3 h-3 opacity-60" />
+                                </button>
+                              );
+                            })()}
 
-                            {openWhatsAppMenuId === q.id && (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-30"
-                                  onClick={() => setOpenWhatsAppMenuId(null)}
-                                />
-                                <div className="absolute right-0 mt-1 w-72 sm:w-80 rounded-2xl bg-white shadow-2xl border border-slate-200 p-1.5 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
-                                  <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                                      WhatsApp Message Category
-                                    </span>
-                                    <span className="text-xs font-bold text-slate-800 truncate block">
-                                      {q.client.name}
-                                    </span>
-                                  </div>
+                            {openWhatsAppMenuId === q.id && (() => {
+                              const waMeta = getLatestWhatsAppStatus(q);
+                              return (
+                                <>
+                                  <div
+                                    className="fixed inset-0 z-30"
+                                    onClick={() => setOpenWhatsAppMenuId(null)}
+                                  />
+                                  <div className="absolute right-0 mt-1 w-80 sm:w-88 rounded-2xl bg-white shadow-2xl border border-slate-200 p-2 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
+                                    {/* Header with live status */}
+                                    <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl mb-1.5">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                          WhatsApp Status
+                                        </span>
+                                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${waMeta.badgeClass}`}>
+                                          {waMeta.label}
+                                        </span>
+                                      </div>
+                                      <span className="text-xs font-bold text-slate-900 truncate block mt-0.5">
+                                        {q.client.name || 'Unnamed Client'}
+                                      </span>
+                                      {waMeta.isSent ? (
+                                        <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 font-medium">
+                                          <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
+                                          Last sent: <strong className="text-slate-800">{formatDate(waMeta.sentAt!)}</strong>
+                                          {waMeta.sentByUserName ? ` by ${waMeta.sentByUserName}` : ''}
+                                        </p>
+                                      ) : (
+                                        <p className="text-[10px] text-amber-700 mt-1 flex items-center gap-1 font-medium">
+                                          <MessageSquare className="w-3 h-3 text-amber-600 shrink-0" />
+                                          No WhatsApp message sent yet
+                                        </p>
+                                      )}
+                                    </div>
 
-                                  <div className="space-y-0.5 max-h-72 overflow-y-auto">
-                                    {getAllWhatsAppCategories(settings).map((cat) => (
+                                    {/* Categories List */}
+                                    <div className="space-y-1 max-h-72 overflow-y-auto pr-0.5">
+                                      {getAllWhatsAppCategories(settings).map((cat) => {
+                                        const matchingHistory = q.whatsappHistory?.find((h) => h.category === cat.id);
+                                        const isLatest = waMeta.category === cat.id;
+
+                                        return (
+                                          <div
+                                            key={cat.id}
+                                            className={`group/cat flex items-center justify-between gap-2 p-1.5 px-2 rounded-xl transition-colors border ${
+                                              isLatest
+                                                ? 'bg-emerald-50/80 border-emerald-300'
+                                                : matchingHistory
+                                                ? 'bg-slate-50 border-slate-200'
+                                                : 'hover:bg-slate-50 border-transparent hover:border-slate-200'
+                                            }`}
+                                          >
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenWhatsAppMenuId(null);
+                                                setWhatsAppModalCategory(cat.id);
+                                                setWhatsAppModalQuote(q);
+                                              }}
+                                              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer"
+                                              title={`Send ${cat.label} via WhatsApp`}
+                                            >
+                                              <span
+                                                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                                  isLatest ? 'bg-emerald-600 ring-2 ring-emerald-200' : 'bg-slate-300 group-hover/cat:bg-emerald-500'
+                                                }`}
+                                              />
+                                              <div className="min-w-0">
+                                                <div className="flex items-center gap-1.5">
+                                                  <span className="font-semibold text-slate-800 group-hover/cat:text-emerald-900 text-xs truncate">
+                                                    {cat.label}
+                                                  </span>
+                                                  {matchingHistory && (
+                                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold">
+                                                      ✓ Sent
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                {matchingHistory?.sentAt && (
+                                                  <span className="text-[9.5px] text-slate-400 block truncate">
+                                                    {formatDate(matchingHistory.sentAt)}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </button>
+
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              {/* Quick Mark as Sent Button */}
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleQuickMarkSent(q, cat.id, cat.label);
+                                                }}
+                                                className={`p-1 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+                                                  matchingHistory
+                                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                                    : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 border-slate-200'
+                                                }`}
+                                                title={`Mark "${cat.label}" as sent without opening WhatsApp`}
+                                              >
+                                                <Check className="w-3 h-3" />
+                                              </button>
+
+                                              {/* Send Button */}
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setOpenWhatsAppMenuId(null);
+                                                  setWhatsAppModalCategory(cat.id);
+                                                  setWhatsAppModalQuote(q);
+                                                }}
+                                                className="px-2 py-1 rounded-lg bg-[#0D4F4F] hover:bg-[#156060] text-[#D4AF37] font-bold text-[10px] flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                                                title="Open template & send"
+                                              >
+                                                <Send className="w-2.5 h-2.5" />
+                                                <span>Send</span>
+                                              </button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {/* Dropdown Footer */}
+                                    <div className="border-t border-slate-100 mt-1.5 pt-1.5 flex items-center justify-between gap-2 px-1">
                                       <button
-                                        key={cat.id}
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setOpenWhatsAppMenuId(null);
-                                          setWhatsAppModalCategory(cat.id);
+                                          setWhatsAppModalCategory('new_client');
                                           setWhatsAppModalQuote(q);
                                         }}
-                                        className="w-full px-3 py-2 text-left hover:bg-emerald-50 rounded-xl transition-colors flex items-center justify-between gap-2.5 text-xs group"
+                                        className="px-2 py-1.5 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-1.5 text-[11px] text-slate-600 font-medium cursor-pointer"
                                       >
-                                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                                          <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0 group-hover:scale-125 transition-transform" />
-                                          <span className="font-semibold text-slate-800 group-hover:text-emerald-900 truncate">
-                                            {cat.label}
-                                          </span>
-                                        </div>
-                                        <span className={`shrink-0 whitespace-nowrap text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${cat.bg} ${cat.color}`}>
-                                          {cat.badgeLabel}
-                                        </span>
+                                        <History className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        <span>History ({q.whatsappHistory?.length || 0})</span>
                                       </button>
-                                    ))}
-                                  </div>
 
-                                  <div className="border-t border-slate-100 mt-1 pt-1">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setOpenWhatsAppMenuId(null);
-                                        setWhatsAppModalCategory('new_client');
-                                        setWhatsAppModalQuote(q);
-                                      }}
-                                      className="w-full px-3 py-2 text-left hover:bg-slate-50 rounded-xl transition-colors flex items-center gap-2 text-[11px] text-slate-600 font-medium"
-                                    >
-                                      <History className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                      <span>
-                                        View Sending History ({q.whatsappHistory?.length || 0})
-                                      </span>
-                                    </button>
+                                      {waMeta.isSent && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleResetWhatsAppStatus(q);
+                                          }}
+                                          className="text-[10px] text-slate-400 hover:text-rose-600 hover:underline transition-colors cursor-pointer"
+                                          title="Reset WhatsApp status to Not Sent"
+                                        >
+                                          Reset Status
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              </>
-                            )}
+                                </>
+                              );
+                            })()}
                           </div>
 
                           <a
