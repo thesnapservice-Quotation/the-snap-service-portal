@@ -5,7 +5,7 @@ import { useExpenses } from '@/hooks/use-expenses';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useAuth } from '@/hooks/use-auth';
 import { StudioExpense, ExpenseCategory, Quotation } from '@/lib/types';
-import { formatCurrency, formatDate, getTodayDateString } from '@/lib/utils';
+import { formatCurrency, formatDate, getTodayDateString, calculateQuotationInternalCost, calculateQuotationNetProfit } from '@/lib/utils';
 import { 
   Receipt, 
   Plus, 
@@ -195,11 +195,7 @@ export default function ExpensesPage() {
   // 1. AUTO-SYNCED EVENT PROFIT FROM CONFIRMED BOOKINGS
   // ----------------------------------------------------
   const getQuotationProfit = (q: Quotation): number => {
-    const total = q.payment?.grandTotal || (q.events || []).reduce((sum, e) => sum + (Number(e.price) || 0), 0);
-    const exp = q.internalAnalysis?.totalInternalCost || (q.events || []).reduce((eSum, evt) => {
-      return eSum + (evt.services || []).reduce((sSum, s) => sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000), 0);
-    }, 0) + (q.internalAnalysis?.totalAlbumCost || 0) + (q.internalAnalysis?.totalVideoEditingCost || 0);
-    return Math.max(0, total - exp);
+    return Math.max(0, calculateQuotationNetProfit(q));
   };
 
   const getQuotationTotal = (q: Quotation): number => {
@@ -207,9 +203,7 @@ export default function ExpensesPage() {
   };
 
   const getQuotationExpenses = (q: Quotation): number => {
-    return q.internalAnalysis?.totalInternalCost || (q.events || []).reduce((eSum, evt) => {
-      return eSum + (evt.services || []).reduce((sSum, s) => sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000), 0);
-    }, 0) + (q.internalAnalysis?.totalAlbumCost || 0) + (q.internalAnalysis?.totalVideoEditingCost || 0);
+    return calculateQuotationInternalCost(q);
   };
 
   // Confirmed & Completed Quotations

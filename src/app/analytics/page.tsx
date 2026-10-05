@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useExpenses } from '@/hooks/use-expenses';
 import { useProfitPrivacy } from '@/context/profit-privacy-context';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, calculateQuotationInternalCost, calculateQuotationNetProfit } from '@/lib/utils';
 import { Quotation } from '@/lib/types';
 import { PaymentLedgerModal } from '@/components/quotation/payment-ledger-modal';
 import { DateRangePicker, DateRange, computePresetRange } from '@/components/analytics/date-range-picker';
@@ -58,17 +58,7 @@ export default function StudioAnalyticsPage() {
   };
 
   const getEventExpenses = (q: Quotation): number => {
-    if (q.internalAnalysis?.totalInternalCost !== undefined && q.internalAnalysis.totalInternalCost > 0) {
-      return q.internalAnalysis.totalInternalCost;
-    }
-    const servicesCost = (q.events || []).reduce((eSum, evt) => {
-      return eSum + (evt.services || []).reduce((sSum, s) => {
-        return sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000);
-      }, 0);
-    }, 0);
-    const albumCost = q.internalAnalysis?.totalAlbumCost || 0;
-    const videoCost = q.internalAnalysis?.totalVideoEditingCost || 0;
-    return servicesCost + albumCost + videoCost;
+    return calculateQuotationInternalCost(q);
   };
 
   const getReceivedAmount = (q: Quotation): number => {

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
 import { useProfitPrivacy } from '@/context/profit-privacy-context';
-import { formatCurrency, formatDate, formatDateTime, sortQuotationsByNumber, generateWhatsAppShareUrl, generatePortalUrl } from '@/lib/utils';
+import { formatCurrency, formatDate, formatDateTime, sortQuotationsByNumber, generateWhatsAppShareUrl, generatePortalUrl, calculateQuotationInternalCost, calculateQuotationNetProfit } from '@/lib/utils';
 import { QuotationStatus } from '@/lib/types';
 import { 
   PlusCircle, 
@@ -144,9 +144,7 @@ export default function QuotationsListPage() {
       sellingPrice += q.payment?.grandTotal || 0;
       advance += q.payment?.advanceReceived || 0;
 
-      const qCost = q.internalAnalysis?.totalInternalCost ?? (q.events || []).reduce((sum, evt) => {
-        return sum + (evt.services || []).reduce((sSum, s) => sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000), 0);
-      }, 0);
+      const qCost = calculateQuotationInternalCost(q);
       cost += qCost;
     }
 
@@ -167,9 +165,7 @@ export default function QuotationsListPage() {
     for (const q of filtered) {
       if (selectedIds.has(q.id)) {
         selSelling += q.payment?.grandTotal || 0;
-        const qCost = q.internalAnalysis?.totalInternalCost ?? (q.events || []).reduce((sum, evt) => {
-          return sum + (evt.services || []).reduce((sSum, s) => sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000), 0);
-        }, 0);
+        const qCost = calculateQuotationInternalCost(q);
         selCost += qCost;
       }
     }
@@ -511,11 +507,9 @@ export default function QuotationsListPage() {
                 {filtered.map((q) => {
                   const eventsSummary = q.events.map((e) => e.name).join(', ') || 'No events';
 
-                  // Dynamic internal profit calculation for display
-                  const totalCost = q.internalAnalysis?.totalInternalCost ?? q.events.reduce((sum, evt) => {
-                    return sum + evt.services.reduce((sSum, s) => sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000), 0);
-                  }, 0);
-                  const netProfit = q.payment.grandTotal - totalCost;
+                  // Dynamic internal profit calculation for display (unified across compare, analytics, and ledger)
+                  const totalCost = calculateQuotationInternalCost(q);
+                  const netProfit = calculateQuotationNetProfit(q);
 
                   return (
                     <tr

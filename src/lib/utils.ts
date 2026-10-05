@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Quotation, EventItem } from './types';
+import { Quotation, EventItem, Service } from './types';
 import { generateSecureId } from './crypto';
 
 export function cn(...inputs: ClassValue[]) {
@@ -199,6 +199,110 @@ export function sortCalendarQuotations(quotes: Quotation[]): Quotation[] {
 
     return 0;
   });
+}
+
+/**
+ * Pricing formula for video editing:
+ * - 2000 for single camera
+ * - 2500 for single camera with drone
+ * - 2500 for double camera
+ * - 3000 for double camera with drone
+ */
+export function computeDefaultVideoEditingCost(
+  videoCount: number,
+  droneCount: number
+): { tierDescription: string; cost: number } {
+  if (videoCount <= 0) return { tierDescription: 'No Video Coverage', cost: 0 };
+  if (videoCount === 1) {
+    if (droneCount >= 1) return { tierDescription: 'Single Camera + Drone', cost: 2500 };
+    return { tierDescription: 'Single Camera', cost: 2000 };
+  }
+  // 2 or more videographers
+  if (droneCount >= 1) return { tierDescription: 'Double Camera + Drone', cost: 3000 };
+  return { tierDescription: 'Double Camera', cost: 2500 };
+}
+
+/**
+ * Default internal cost for album printing based on album name / type
+ */
+export function getDefaultAlbumUnitCost(name: string, srvs?: Service[]): number {
+  const n = (name || '').toLowerCase();
+  if (srvs && srvs.length > 0) {
+    const matched = srvs.find(
+      (s) => s.name.toLowerCase().includes(n) || n.includes(s.name.toLowerCase())
+    );
+    if (matched?.defaultInternalCost) return matched.defaultInternalCost;
+  }
+  if (n.includes('krizma')) return 8000;
+  if (n.includes('family')) return 3000;
+  if (n.includes('couple')) return 5000;
+  if (n.includes('extra')) return 4000;
+  return 5000;
+}
+
+/**
+ * Universal Single Source of Truth for Quotation Internal Cost:
+ * Used across Quotations Registry, Profit Compare, Financial Analytics, and Studio Expenses Ledger.
+ *
+ * Grand Total Cost = Event Crew Cost + Video Editing Cost + Album Cost + Additional Expenses (MANUAL ONLY, NEVER AUTO-ADDED)
+ */
+export function calculateQuotationInternalCost(q: Quotation, srvs?: Service[]): number {
+  if (!q) return 0;
+
+  // 1. If internalAnalysis was specifically customized and saved, use it as authoritative
+  if (q.internalAnalysis?.totalInternalCost !== undefined && q.internalAnalysis.totalInternalCost > 0) {
+    return q.internalAnalysis.totalInternalCost;
+  }
+
+  // 2. Services / Shooting Team Crew Cost
+  const servicesCost = (q.events || []).reduce((eSum, evt) => {
+    return eSum + (evt.services || []).reduce((sSum, s) => {
+      if (s.crewBreakdown && s.crewBreakdown.length > 0) {
+        return sSum + s.crewBreakdown.reduce((cSum, c) => cSum + (Number(c.cost) || 0), 0);
+      }
+      return sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000);
+    }, 0);
+  }, 0);
+
+  // 3. Day-by-Day Video Editing Cost
+  const videoCost = q.internalAnalysis?.totalVideoEditingCost ?? (q.events || []).reduce((sum, evt) => {
+    const vQty = (evt.services || [])
+      .filter((s) => s.serviceName.toLowerCase().includes('video') || s.serviceName.toLowerCase().includes('videographer'))
+      .reduce((sSum, s) => sSum + (s.quantity || 1), 0);
+    const dQty = (evt.services || [])
+      .filter((s) => s.serviceName.toLowerCase().includes('drone'))
+      .reduce((sSum, s) => sSum + (s.quantity || 1), 0);
+    return sum + computeDefaultVideoEditingCost(vQty, dQty).cost;
+  }, 0);
+
+  // 4. Album Printing Cost (from package inclusions)
+  const albumCost = q.internalAnalysis?.totalAlbumCost ?? (q.inclusions || [])
+    .filter((i) => i.included && (i.name.toLowerCase().includes('album') || i.name.toLowerCase().includes('book')))
+    .reduce((sum, inc) => {
+      const qty = inc.quantity || 1;
+      const unitCost = getDefaultAlbumUnitCost(inc.name, srvs);
+      return sum + qty * unitCost;
+    }, 0);
+
+  // 5. Additional Non-Service Expenses (clean, without auto-injected dummy transport)
+  const rawAdditional = q.additionalExpenses || q.internalAnalysis?.additionalExpenses || [];
+  const cleanAdditional = rawAdditional.filter(
+    (e) => !(e.id === 'exp-1' && e.description === 'Transport & Logistics' && e.amount === 3000)
+  );
+  const additionalCost = cleanAdditional.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+
+  return servicesCost + videoCost + albumCost + additionalCost;
+}
+
+/**
+ * Universal Single Source of Truth for Quotation Net Profit:
+ * Selling Price - Total Internal Cost
+ */
+export function calculateQuotationNetProfit(q: Quotation, srvs?: Service[]): number {
+  if (!q) return 0;
+  const sellingPrice = q.payment?.grandTotal || (q.events || []).reduce((sum, e) => sum + (Number(e.price) || 0), 0);
+  const cost = calculateQuotationInternalCost(q, srvs);
+  return sellingPrice - cost;
 }
 
 /**

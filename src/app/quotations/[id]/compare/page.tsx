@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Quotation, AdditionalExpense, Service, SelectedService, CrewMemberCost, VideoEditingEventCost, AlbumItemCost } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, computeDefaultVideoEditingCost, getDefaultAlbumUnitCost } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotationById, apiSaveQuotation } from '@/lib/api-client';
 import { sortEventsInSequence } from '@/components/quotation/quotation-preview';
@@ -35,30 +35,6 @@ import {
   MapPin,
   Clock
 } from 'lucide-react';
-
-// Pricing formula as specified by user:
-// 2000 for single camera, 2500 for single camera with drone, 2500 for double camera, 3000 for double camera with drone
-const computeDefaultVideoEditingCost = (videoCount: number, droneCount: number): { tierDescription: string; cost: number } => {
-  if (videoCount <= 0) return { tierDescription: 'No Video Coverage', cost: 0 };
-  if (videoCount === 1) {
-    if (droneCount >= 1) return { tierDescription: 'Single Camera + Drone', cost: 2500 };
-    return { tierDescription: 'Single Camera', cost: 2000 };
-  }
-  // 2 or more videographers
-  if (droneCount >= 1) return { tierDescription: 'Double Camera + Drone', cost: 3000 };
-  return { tierDescription: 'Double Camera', cost: 2500 };
-};
-
-const getDefaultAlbumUnitCost = (name: string, srvs: Service[]): number => {
-  const n = name.toLowerCase();
-  const matched = srvs.find(s => s.name.toLowerCase().includes(n) || n.includes(s.name.toLowerCase()));
-  if (matched?.defaultInternalCost) return matched.defaultInternalCost;
-  if (n.includes('krizma')) return 8000;
-  if (n.includes('family')) return 3000;
-  if (n.includes('couple')) return 5000;
-  if (n.includes('extra')) return 4000;
-  return 5000;
-};
 
 export default function QuotationComparePage() {
   const params = useParams();
@@ -152,12 +128,15 @@ export default function QuotationComparePage() {
     });
     setAlbumCosts(initialAlbumCosts);
 
+    const rawAdditional = q.additionalExpenses || q.internalAnalysis?.additionalExpenses || [];
+    const cleanAdditional = rawAdditional.filter(
+      (e) => !(e.id === 'exp-1' && e.description === 'Transport & Logistics' && e.amount === 3000)
+    );
+
     return {
       ...q,
       events: updatedEvents,
-      additionalExpenses: q.additionalExpenses || q.internalAnalysis?.additionalExpenses || [
-        { id: 'exp-1', description: 'Transport & Logistics', amount: 3000 },
-      ],
+      additionalExpenses: cleanAdditional,
     };
   };
 
@@ -348,8 +327,8 @@ export default function QuotationComparePage() {
   const handleAddExpense = () => {
     const newExp: AdditionalExpense = {
       id: generateSecureId('exp'),
-      description: 'New Expense (Food / Transport / Lodging)',
-      amount: 2000,
+      description: 'Transport / Logistics',
+      amount: 0,
     };
     setQuotation({
       ...quotation,
