@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
+import { useServices } from '@/hooks/use-services';
 import { useProfitPrivacy } from '@/context/profit-privacy-context';
 import { formatCurrency, formatDate, formatDateTime, sortQuotationsByNumber, generateWhatsAppShareUrl, generatePortalUrl, calculateQuotationInternalCost, calculateQuotationNetProfit } from '@/lib/utils';
 import { QuotationStatus } from '@/lib/types';
@@ -53,6 +54,7 @@ export default function QuotationsListPage() {
     duplicateQuotation 
   } = useQuotations();
   const { settings } = useSettings();
+  const { services } = useServices();
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -144,7 +146,7 @@ export default function QuotationsListPage() {
       sellingPrice += q.payment?.grandTotal || 0;
       advance += q.payment?.advanceReceived || 0;
 
-      const qCost = calculateQuotationInternalCost(q);
+      const qCost = calculateQuotationInternalCost(q, services);
       cost += qCost;
     }
 
@@ -154,7 +156,7 @@ export default function QuotationsListPage() {
       totalInternalCost: cost,
       totalEstimatedProfit: sellingPrice - cost,
     };
-  }, [filtered]);
+  }, [filtered, services]);
 
   // Totals for selected quotations (if any)
   const { selectedSellingPrice, selectedEstimatedProfit } = useMemo(() => {
@@ -165,7 +167,7 @@ export default function QuotationsListPage() {
     for (const q of filtered) {
       if (selectedIds.has(q.id)) {
         selSelling += q.payment?.grandTotal || 0;
-        const qCost = calculateQuotationInternalCost(q);
+        const qCost = calculateQuotationInternalCost(q, services);
         selCost += qCost;
       }
     }
@@ -174,7 +176,7 @@ export default function QuotationsListPage() {
       selectedSellingPrice: selSelling,
       selectedEstimatedProfit: selSelling - selCost,
     };
-  }, [filtered, selectedIds]);
+  }, [filtered, selectedIds, services]);
 
   // Bulk selection helpers
   const allFilteredSelected = filtered.length > 0 && filtered.every((q) => selectedIds.has(q.id));
@@ -508,8 +510,8 @@ export default function QuotationsListPage() {
                   const eventsSummary = q.events.map((e) => e.name).join(', ') || 'No events';
 
                   // Dynamic internal profit calculation for display (unified across compare, analytics, and ledger)
-                  const totalCost = calculateQuotationInternalCost(q);
-                  const netProfit = calculateQuotationNetProfit(q);
+                  const totalCost = calculateQuotationInternalCost(q, services);
+                  const netProfit = calculateQuotationNetProfit(q, services);
 
                   return (
                     <tr

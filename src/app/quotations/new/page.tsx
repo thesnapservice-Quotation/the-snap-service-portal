@@ -155,9 +155,24 @@ function NewQuotationContent() {
     const finalStatus = status || quotation.status || 'sent';
     const sortedEvents = sortEventsInSequence(quotation.events || []);
 
+    const servicesWithCosts = sortedEvents.map((evt) => ({
+      ...evt,
+      services: (evt.services || []).map((s) => {
+        const defaultMatch = (services || []).find(
+          (srv) => srv.id === s.serviceId || srv.name.toLowerCase() === s.serviceName.toLowerCase()
+        );
+        return {
+          ...s,
+          internalCostPerUnit: s.internalCostPerUnit !== undefined && s.internalCostPerUnit !== null
+            ? s.internalCostPerUnit
+            : (defaultMatch?.defaultInternalCost ?? 5000),
+        };
+      }),
+    }));
+
     const toSave: Quotation = {
       ...quotation,
-      events: sortedEvents,
+      events: servicesWithCosts,
       workspaceId: quotation.workspaceId || activeWs,
       userId: activeUserId,
       createdByUserId: quotation.createdByUserId || activeUserId,

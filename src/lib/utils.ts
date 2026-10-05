@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Quotation, EventItem, Service } from './types';
 import { generateSecureId } from './crypto';
+import { DEFAULT_SERVICES } from './defaults';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -223,18 +224,42 @@ export function computeDefaultVideoEditingCost(
 }
 
 /**
+ * Safely retrieve active studio configured services with fallback to defaults
+ */
+export function getStoredServicesFallback(srvs?: Service[]): Service[] {
+  if (srvs && srvs.length > 0) return srvs;
+  if (typeof window !== 'undefined') {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('snap_service_services')) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          }
+        }
+      }
+    } catch {}
+  }
+  return DEFAULT_SERVICES;
+}
+
+/**
  * Default internal cost for album printing based on album name / type
  */
 export function getDefaultAlbumUnitCost(name: string, srvs?: Service[]): number {
   const n = (name || '').toLowerCase();
-  if (srvs && srvs.length > 0) {
-    const matched = srvs.find(
+  const srvsList = getStoredServicesFallback(srvs);
+
+  if (srvsList && srvsList.length > 0) {
+    const matched = srvsList.find(
       (s) => s.name.toLowerCase().includes(n) || n.includes(s.name.toLowerCase())
     );
     if (matched?.defaultInternalCost) return matched.defaultInternalCost;
   }
   if (n.includes('krizma')) return 8000;
-  if (n.includes('family')) return 3000;
+  if (n.includes('family')) return 5000;
   if (n.includes('couple')) return 5000;
   if (n.includes('extra')) return 4000;
   return 5000;
@@ -254,13 +279,22 @@ export function calculateQuotationInternalCost(q: Quotation, srvs?: Service[]): 
     return q.internalAnalysis.totalInternalCost;
   }
 
+  const srvsList = getStoredServicesFallback(srvs);
+
   // 2. Services / Shooting Team Crew Cost
   const servicesCost = (q.events || []).reduce((eSum, evt) => {
     return eSum + (evt.services || []).reduce((sSum, s) => {
       if (s.crewBreakdown && s.crewBreakdown.length > 0) {
         return sSum + s.crewBreakdown.reduce((cSum, c) => cSum + (Number(c.cost) || 0), 0);
       }
-      return sSum + (s.quantity || 1) * (s.internalCostPerUnit ?? 5000);
+      const matched = srvsList.find(
+        (srv) => (s.serviceId && srv.id === s.serviceId) || (s.serviceName && srv.name.toLowerCase() === s.serviceName.toLowerCase())
+      );
+      const unitCost = s.internalCostPerUnit !== undefined && s.internalCostPerUnit !== null
+        ? s.internalCostPerUnit
+        : (matched?.defaultInternalCost ?? 5000);
+
+      return sSum + (s.quantity || 1) * unitCost;
     }, 0);
   }, 0);
 
@@ -283,7 +317,7 @@ export function calculateQuotationInternalCost(q: Quotation, srvs?: Service[]): 
     .filter((i) => i.included && (i.name.toLowerCase().includes('album') || i.name.toLowerCase().includes('book')))
     .reduce((sum, inc) => {
       const qty = inc.quantity || 1;
-      const unitCost = getDefaultAlbumUnitCost(inc.name, srvs);
+      const unitCost = getDefaultAlbumUnitCost(inc.name, srvsList);
       return sum + qty * unitCost;
     }, 0);
 
