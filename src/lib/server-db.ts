@@ -145,7 +145,38 @@ function parseSupabaseRow(r: any): Quotation {
     whatsappHistory: base.whatsappHistory || r.whatsapp_history || r.whatsappHistory || [],
     hasVariations: r.has_variations ?? r.hasVariations ?? base.hasVariations ?? (base.variations && Array.isArray(base.variations) && base.variations.length > 1) ?? false,
     selectedVariationId: r.selected_variation_id || r.selectedVariationId || base.selectedVariationId || (base.variations && base.variations[0]?.id) || undefined,
-    variations: r.variations || (base.variations && Array.isArray(base.variations) ? base.variations : undefined),
+    variations: (() => {
+      const rawVars = r.variations || (base.variations && Array.isArray(base.variations) ? base.variations : undefined);
+      if (!rawVars || !Array.isArray(rawVars)) return undefined;
+      const effectiveSelId = r.selected_variation_id || r.selectedVariationId || base.selectedVariationId || rawVars[0]?.id;
+      return rawVars.map((v: any) => {
+        const isTarget = v.id === effectiveSelId || v.isAccepted;
+        const vTx = (v.payment?.transactions && Array.isArray(v.payment.transactions) && v.payment.transactions.length > 0)
+          ? v.payment.transactions
+          : isTarget && finalTransactions.length > 0
+          ? finalTransactions
+          : [];
+        const vTotalPaid = vTx.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+        const vGrandTotal = Number(v.payment?.grandTotal) || 0;
+        const vAdvance = vTotalPaid > 0 ? vTotalPaid : (Number(v.payment?.advanceReceived) || (isTarget ? effectiveAdvance : 0));
+        const vBalance = Math.max(0, vGrandTotal - vAdvance);
+        let vPStatus = v.payment?.paymentStatus || (isTarget ? paymentStatus : 'unpaid');
+        if (vAdvance >= vGrandTotal && vGrandTotal > 0) vPStatus = 'paid_in_full';
+        else if (vAdvance > 0) vPStatus = 'partially_paid';
+
+        return {
+          ...v,
+          payment: {
+            ...(v.payment || {}),
+            grandTotal: vGrandTotal,
+            advanceReceived: vAdvance,
+            balancePayable: vBalance,
+            transactions: vTx,
+            paymentStatus: vPStatus,
+          },
+        };
+      });
+    })(),
     createdAt: r.created_at || base.createdAt || new Date().toISOString(),
     updatedAt: r.updated_at || base.updatedAt || new Date().toISOString(),
   };

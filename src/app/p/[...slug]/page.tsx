@@ -136,7 +136,10 @@ function ShortClientPortalContent() {
     setCustomAdvanceAmount(initialAdv);
   };
 
-  const activeVar = quotation?.variations?.find((v) => v.id === activeVariationId) || quotation?.variations?.[0];
+  const resolvedVarId = activeVariationId || quotation?.selectedVariationId || (quotation?.variations && quotation.variations.find((v) => v.isAccepted)?.id);
+  const activeVar = (quotation?.variations && resolvedVarId)
+    ? (quotation.variations.find((v) => v.id === resolvedVarId) || quotation.variations[0])
+    : quotation?.variations?.[0];
   const displayQuotation = (quotation && activeVar && quotation.variations && quotation.variations.length > 1)
     ? mergeVariationIntoQuotation(quotation, activeVar)
     : quotation;
@@ -185,12 +188,31 @@ function ShortClientPortalContent() {
       paymentStatus = 'partially_paid';
     }
 
+    const updatedPayment = {
+      ...currentActiveQuote.payment,
+      grandTotal: currentActiveQuote.payment?.grandTotal || 0,
+      advanceReceived: totalPaid,
+      balancePayable: balancePayable,
+      transactions: updatedTx,
+      paymentStatus: paymentStatus,
+      clientProposedAdvance: proposed,
+    };
+
     let updatedVariations = quotation.variations;
     if (updatedVariations && updatedVariations.length > 0) {
-      updatedVariations = updatedVariations.map((v) => ({
-        ...v,
-        isAccepted: v.id === activeVariationId,
-      }));
+      updatedVariations = updatedVariations.map((v) => {
+        const isThisVar = v.id === activeVariationId;
+        return {
+          ...v,
+          isAccepted: isThisVar,
+          ...(isThisVar ? {
+            payment: {
+              ...v.payment,
+              ...updatedPayment,
+            },
+          } : {}),
+        };
+      });
     }
 
     const updated: Quotation = {
@@ -199,14 +221,7 @@ function ShortClientPortalContent() {
       selectedVariationId: activeVariationId,
       hasVariations: quotation.hasVariations,
       variations: updatedVariations,
-      payment: {
-        ...currentActiveQuote.payment,
-        advanceReceived: totalPaid,
-        balancePayable: balancePayable,
-        transactions: updatedTx,
-        paymentStatus: paymentStatus,
-        clientProposedAdvance: proposed,
-      },
+      payment: updatedPayment,
       updatedAt: new Date().toISOString(),
     };
     setQuotation(updated);

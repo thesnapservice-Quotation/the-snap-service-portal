@@ -875,6 +875,36 @@ export function mergeVariationIntoQuotation(
     ? q.variations.map((item) => (item.id === v.id ? { ...v } : item))
     : [{ ...v }];
 
+  // Retain transactions from either variation or root quotation so payment receipts are NEVER lost!
+  const rawTx = (v.payment?.transactions && Array.isArray(v.payment.transactions) && v.payment.transactions.length > 0)
+    ? v.payment.transactions
+    : (q.payment?.transactions && Array.isArray(q.payment.transactions) && q.payment.transactions.length > 0)
+    ? q.payment.transactions
+    : [];
+
+  const totalPaid = rawTx.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+  const vGrandTotal = Number(v.payment?.grandTotal) || 0;
+  const effectiveAdvance = totalPaid > 0
+    ? totalPaid
+    : (Number(v.payment?.advanceReceived) || Number(q.payment?.advanceReceived) || 0);
+  const balance = Math.max(0, vGrandTotal - effectiveAdvance);
+
+  let pStatus: 'unpaid' | 'partially_paid' | 'paid_in_full' =
+    v.payment?.paymentStatus || q.payment?.paymentStatus || 'unpaid';
+  if (effectiveAdvance >= vGrandTotal && vGrandTotal > 0) pStatus = 'paid_in_full';
+  else if (effectiveAdvance > 0) pStatus = 'partially_paid';
+
+  const mergedPayment = {
+    ...(q.payment || {}),
+    ...(v.payment || {}),
+    grandTotal: vGrandTotal,
+    advanceReceived: effectiveAdvance,
+    balancePayable: balance,
+    transactions: rawTx,
+    paymentStatus: pStatus,
+    clientProposedAdvance: v.payment?.clientProposedAdvance || q.payment?.clientProposedAdvance || (effectiveAdvance > 0 ? effectiveAdvance : undefined),
+  };
+
   return {
     ...q,
     hasVariations: currentVariations.length > 1,
@@ -883,7 +913,7 @@ export function mergeVariationIntoQuotation(
     packageType: v.packageType,
     events: JSON.parse(JSON.stringify(v.events || [])),
     inclusions: JSON.parse(JSON.stringify(v.inclusions || [])),
-    payment: JSON.parse(JSON.stringify(v.payment)),
+    payment: mergedPayment,
     termsAndConditions: v.termsAndConditions ? [...v.termsAndConditions] : q.termsAndConditions,
     notes: v.notes !== undefined ? v.notes : q.notes,
     additionalExpenses: v.additionalExpenses ? JSON.parse(JSON.stringify(v.additionalExpenses)) : q.additionalExpenses,
