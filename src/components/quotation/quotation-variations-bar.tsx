@@ -70,31 +70,68 @@ export function QuotationVariationsBar({
     );
 
     onQuotationChange((prev) => {
-      const currentList = prev.variations || [];
+      // 1. First sync live form state into currently active variation
+      const currentList = (prev.variations || []).map((v) => {
+        if (v.id === activeVariationId) {
+          return {
+            ...v,
+            packageType: prev.packageType,
+            events: JSON.parse(JSON.stringify(prev.events || [])),
+            inclusions: JSON.parse(JSON.stringify(prev.inclusions || [])),
+            payment: JSON.parse(JSON.stringify(prev.payment)),
+            termsAndConditions: prev.termsAndConditions ? [...prev.termsAndConditions] : undefined,
+            notes: prev.notes,
+            additionalExpenses: prev.additionalExpenses ? JSON.parse(JSON.stringify(prev.additionalExpenses)) : undefined,
+            internalAnalysis: prev.internalAnalysis ? JSON.parse(JSON.stringify(prev.internalAnalysis)) : undefined,
+          };
+        }
+        return v;
+      });
       const updatedList = [...currentList, newVar];
       // Switch active to the newly created option
-      const merged = mergeVariationIntoQuotation(
+      return mergeVariationIntoQuotation(
         { ...prev, variations: updatedList },
         newVar
       );
-      return merged;
     });
   };
 
   // Duplicate the currently selected variation
   const handleDuplicateCurrentOption = () => {
-    const currentVar = variations.find((v) => v.id === activeVariationId);
-    if (!currentVar) return;
-
-    const newVar: QuotationVariation = {
-      ...JSON.parse(JSON.stringify(currentVar)),
-      id: `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      name: `${currentVar.name} (Copy)`,
-      isAccepted: false,
-    };
-
     onQuotationChange((prev) => {
-      const currentList = prev.variations || [];
+      const active = (prev.variations || []).find((v) => v.id === activeVariationId);
+      const activeName = active?.name || 'Option';
+      const newVar: QuotationVariation = {
+        id: `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name: `${activeName} (Copy)`,
+        packageType: prev.packageType,
+        events: JSON.parse(JSON.stringify(prev.events || [])),
+        inclusions: JSON.parse(JSON.stringify(prev.inclusions || [])),
+        payment: JSON.parse(JSON.stringify(prev.payment)),
+        termsAndConditions: prev.termsAndConditions ? [...prev.termsAndConditions] : undefined,
+        notes: prev.notes,
+        additionalExpenses: prev.additionalExpenses ? JSON.parse(JSON.stringify(prev.additionalExpenses)) : undefined,
+        internalAnalysis: prev.internalAnalysis ? JSON.parse(JSON.stringify(prev.internalAnalysis)) : undefined,
+        isAccepted: false,
+      };
+
+      const currentList = (prev.variations || []).map((v) => {
+        if (v.id === activeVariationId) {
+          return {
+            ...v,
+            packageType: prev.packageType,
+            events: JSON.parse(JSON.stringify(prev.events || [])),
+            inclusions: JSON.parse(JSON.stringify(prev.inclusions || [])),
+            payment: JSON.parse(JSON.stringify(prev.payment)),
+            termsAndConditions: prev.termsAndConditions ? [...prev.termsAndConditions] : undefined,
+            notes: prev.notes,
+            additionalExpenses: prev.additionalExpenses ? JSON.parse(JSON.stringify(prev.additionalExpenses)) : undefined,
+            internalAnalysis: prev.internalAnalysis ? JSON.parse(JSON.stringify(prev.internalAnalysis)) : undefined,
+          };
+        }
+        return v;
+      });
+
       const updatedList = [...currentList, newVar];
       return mergeVariationIntoQuotation(
         { ...prev, variations: updatedList },

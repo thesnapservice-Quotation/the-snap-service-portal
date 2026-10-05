@@ -143,6 +143,9 @@ function parseSupabaseRow(r: any): Quotation {
     publicLinkDate: pubDate,
     deliverableStatus: base.deliverableStatus || r.deliverable_status || r.deliverableStatus,
     whatsappHistory: base.whatsappHistory || r.whatsapp_history || r.whatsappHistory || [],
+    hasVariations: r.has_variations ?? r.hasVariations ?? base.hasVariations ?? (base.variations && Array.isArray(base.variations) && base.variations.length > 1) ?? false,
+    selectedVariationId: r.selected_variation_id || r.selectedVariationId || base.selectedVariationId || (base.variations && base.variations[0]?.id) || undefined,
+    variations: r.variations || (base.variations && Array.isArray(base.variations) ? base.variations : undefined),
     createdAt: r.created_at || base.createdAt || new Date().toISOString(),
     updatedAt: r.updated_at || base.updatedAt || new Date().toISOString(),
   };

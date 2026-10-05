@@ -274,15 +274,24 @@ export function getDefaultAlbumUnitCost(name: string, srvs?: Service[]): number 
 export function calculateQuotationInternalCost(q: Quotation, srvs?: Service[]): number {
   if (!q) return 0;
 
-  // 1. If internalAnalysis was specifically customized and saved, use it as authoritative
-  if (q.internalAnalysis?.totalInternalCost !== undefined && q.internalAnalysis.totalInternalCost > 0) {
+  const currentEvents = q.events || [];
+  const breakdown = q.internalAnalysis?.eventBreakdown || [];
+  const isAnalysisValid = Boolean(
+    q.internalAnalysis?.totalInternalCost !== undefined &&
+    q.internalAnalysis.totalInternalCost > 0 &&
+    breakdown.length > 0 &&
+    breakdown.length === currentEvents.length
+  );
+
+  // 1. If internalAnalysis was specifically customized and saved, use it as authoritative IF consistent with current events
+  if (isAnalysisValid && q.internalAnalysis?.totalInternalCost !== undefined) {
     return q.internalAnalysis.totalInternalCost;
   }
 
   const srvsList = getStoredServicesFallback(srvs);
 
   // 2. Services / Shooting Team Crew Cost
-  const servicesCost = (q.events || []).reduce((eSum, evt) => {
+  const servicesCost = currentEvents.reduce((eSum, evt) => {
     return eSum + (evt.services || []).reduce((sSum, s) => {
       if (s.crewBreakdown && s.crewBreakdown.length > 0) {
         return sSum + s.crewBreakdown.reduce((cSum, c) => cSum + (Number(c.cost) || 0), 0);
@@ -299,7 +308,12 @@ export function calculateQuotationInternalCost(q: Quotation, srvs?: Service[]): 
   }, 0);
 
   // 3. Day-by-Day Video Editing Cost
-  const videoCost = q.internalAnalysis?.totalVideoEditingCost ?? (q.events || []).reduce((sum, evt) => {
+  const existingVideoBreakdown = isAnalysisValid ? (q.internalAnalysis?.videoEditingBreakdown || []) : [];
+  const videoCost = currentEvents.reduce((sum, evt) => {
+    const existing = existingVideoBreakdown.find((v) => v.eventId === evt.id);
+    if (existing && existing.cost !== undefined) {
+      return sum + existing.cost;
+    }
     const vQty = (evt.services || [])
       .filter((s) => {
         const name = s.serviceName.toLowerCase();
@@ -313,11 +327,16 @@ export function calculateQuotationInternalCost(q: Quotation, srvs?: Service[]): 
   }, 0);
 
   // 4. Album Printing Cost (from package inclusions)
-  const albumCost = q.internalAnalysis?.totalAlbumCost ?? (q.inclusions || [])
+  const existingAlbumBreakdown = isAnalysisValid ? (q.internalAnalysis?.albumBreakdown || []) : [];
+  const albumCost = (q.inclusions || [])
     .filter((i) => i.included && (i.name.toLowerCase().includes('album') || i.name.toLowerCase().includes('book')))
     .reduce((sum, inc) => {
+      const existing = existingAlbumBreakdown.find((a) => a.id === inc.id);
+      if (existing && existing.totalCost !== undefined) {
+        return sum + existing.totalCost;
+      }
       const qty = inc.quantity || 1;
-      const unitCost = getDefaultAlbumUnitCost(inc.name, srvsList);
+      const unitCost = existing?.unitCost ?? getDefaultAlbumUnitCost(inc.name, srvsList);
       return sum + qty * unitCost;
     }, 0);
 
