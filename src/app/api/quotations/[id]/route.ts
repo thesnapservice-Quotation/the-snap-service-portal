@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Quotation } from '@/lib/types';
 import { getQuotationFromDb, saveQuotationToDb, deleteQuotationFromDb } from '@/lib/server-db';
+import { isQuotationExpired } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -25,7 +26,7 @@ export async function GET(
     if (quotation) {
       const url = new URL(request.url);
       const isPublic = url.searchParams.get('public') === 'true';
-      if (isPublic && (quotation.status === 'trash' || quotation.isDeleted || quotation.deletedAt)) {
+      if (isPublic && (quotation.status === 'trash' || quotation.isDeleted || quotation.deletedAt || isQuotationExpired(quotation))) {
         return NextResponse.json({ error: 'Quotation not found' }, { status: 404, headers: NO_CACHE_HEADERS });
       }
       return NextResponse.json({ success: true, quotation }, { headers: NO_CACHE_HEADERS });

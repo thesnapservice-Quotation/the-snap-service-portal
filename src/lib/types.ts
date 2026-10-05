@@ -214,6 +214,9 @@ export interface Quotation {
   previousStatus?: QuotationStatus;
   isDeleted?: boolean;
   deletedAt?: string;
+  autoExpired?: boolean;
+  autoExpiredReason?: string;
+  restoredAt?: string;
 }
 
 export type WhatsAppCategory = 

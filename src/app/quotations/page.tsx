@@ -294,7 +294,7 @@ export default function QuotationsListPage() {
                 Trash Folder ({trashQuotations.length} {trashQuotations.length === 1 ? 'Quotation' : 'Quotations'})
               </p>
               <p className="text-rose-700 text-xs mt-0.5">
-                Quotations in trash are hidden from active reports and calendar. If a client opens their quotation link, it will display <strong>"Quotation Not Found"</strong>.
+                Quotations in trash are hidden from active reports and calendar. Unconfirmed quotations whose event dates have arrived or passed are automatically moved here. Confirmed bookings are never deleted.
               </p>
             </div>
           </div>
@@ -597,10 +597,21 @@ export default function QuotationsListPage() {
                       {/* Status */}
                       <td className="px-5 py-4">
                         {isTrashView ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-[11px] font-bold uppercase tracking-wider border border-rose-300">
-                            <Trash2 className="w-3 h-3 text-rose-600" />
-                            <span>In Trash</span>
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-[11px] font-bold uppercase tracking-wider border border-rose-300 w-fit">
+                              <Trash2 className="w-3 h-3 text-rose-600" />
+                              <span>In Trash</span>
+                            </span>
+                            {q.autoExpired && (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-semibold border border-amber-200 w-fit"
+                                title={q.autoExpiredReason || 'Event date arrived/passed without client confirmation'}
+                              >
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                <span>Auto-Expired (Date Due)</span>
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <select
                             value={q.status}

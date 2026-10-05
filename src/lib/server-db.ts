@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import { SEED_USERS } from './storage';
 import { generateRandomNumericId } from './crypto';
 import { DEFAULT_SETTINGS, DEFAULT_SERVICES, getDefaultSettingsForWorkspace } from './defaults';
-import { getQuotationSecurityPin, sortQuotationsByNumber } from './utils';
+import { getQuotationSecurityPin, sortQuotationsByNumber, isQuotationExpired } from './utils';
 
 /**
  * Production Central Database Persistence Engine
@@ -119,6 +119,9 @@ function parseSupabaseRow(r: any): Quotation {
     previousStatus: base.previousStatus,
     isDeleted: base.isDeleted || r.status === 'trash' || base.status === 'trash' || false,
     deletedAt: base.deletedAt,
+    autoExpired: base.autoExpired || false,
+    autoExpiredReason: base.autoExpiredReason,
+    restoredAt: base.restoredAt,
     client: r.client || base.client || { name: '', phone: '', quotationDate: '', eventDates: '' },
     packageType: base.packageType || 'multi_event',
     events: r.events || base.events || [],
@@ -199,8 +202,16 @@ export async function getQuotationsFromDb(workspaceId?: string): Promise<Quotati
     (q) => q && q.id && !q.id.startsWith('sys_') && !(q as any).full_data?.isSystemTaskRecord && !(q as any).full_data?.isSystemSettingsRecord && !(q as any).full_data?.isSystemServicesRecord
   );
 
-  // Sync into in-memory store
+  // Auto-expire unconfirmed quotations and sync into in-memory store
   for (const q of finalList) {
+    if (isQuotationExpired(q)) {
+      q.previousStatus = q.status !== 'trash' ? q.status : (q.previousStatus || 'sent');
+      q.status = 'trash';
+      q.isDeleted = true;
+      q.autoExpired = true;
+      q.autoExpiredReason = 'Event date arrived/passed without client confirmation';
+      if (!q.deletedAt) q.deletedAt = new Date().toISOString();
+    }
     if (q.id) memoryStore.set(q.id.toLowerCase(), q);
     if (q.quotationNumber) memoryStore.set(q.quotationNumber.toLowerCase(), q);
   }
@@ -342,6 +353,9 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
     previousStatus: quotation.previousStatus !== undefined ? quotation.previousStatus : existingRecord?.previousStatus,
     isDeleted: quotation.isDeleted !== undefined ? quotation.isDeleted : (exactStatus === 'trash' || existingRecord?.isDeleted || false),
     deletedAt: quotation.deletedAt !== undefined ? quotation.deletedAt : (exactStatus === 'trash' ? (existingRecord?.deletedAt || now) : existingRecord?.deletedAt),
+    autoExpired: quotation.autoExpired !== undefined ? quotation.autoExpired : existingRecord?.autoExpired,
+    autoExpiredReason: quotation.autoExpiredReason !== undefined ? quotation.autoExpiredReason : existingRecord?.autoExpiredReason,
+    restoredAt: quotation.restoredAt !== undefined ? quotation.restoredAt : existingRecord?.restoredAt,
     publicLinkDate: finalPublicLinkDate,
     deliverableStatus: quotation.deliverableStatus !== undefined ? quotation.deliverableStatus : existingRecord?.deliverableStatus,
     updatedAt: now,

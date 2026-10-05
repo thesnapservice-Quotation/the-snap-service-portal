@@ -317,6 +317,103 @@ export function getTodayDateString(): string {
 }
 
 /**
+ * Extract all event dates from a quotation in YYYY-MM-DD sorted order.
+ */
+export function getQuotationEventDates(q: Quotation): string[] {
+  if (!q) return [];
+  const dateSet = new Set<string>();
+
+  // 1. From individual events
+  (q.events || []).forEach((e) => {
+    if (e.eventDate && e.eventDate.trim().length >= 10) {
+      const match = e.eventDate.trim().match(/\d{4}-\d{2}-\d{2}/);
+      if (match) dateSet.add(match[0]);
+    }
+  });
+
+  // 2. From client.eventDates string fallback
+  if (dateSet.size === 0 && q.client?.eventDates) {
+    const matches = q.client.eventDates.match(/\d{4}-\d{2}-\d{2}/g);
+    if (matches && matches.length > 0) {
+      matches.forEach((m) => dateSet.add(m));
+    } else {
+      // Try parsing English date strings like "5th Oct 2026" or "5 Oct 2026"
+      const clean = q.client.eventDates.replace(/(\d+)(st|nd|rd|th)/gi, '$1');
+      const d = new Date(clean);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        dateSet.add(`${y}-${m}-${day}`);
+      }
+    }
+  }
+
+  return Array.from(dateSet).sort();
+}
+
+/**
+ * Check if an unconfirmed quotation has expired and should automatically move to Trash.
+ *
+ * Strict Rules:
+ * 1. Confirmed and completed quotations MUST NEVER expire ("jo confirmed qoutations hain woh na delete hoon kisi surat me bhi").
+ * 2. Already trashed or deleted quotations are skipped.
+ * 3. Quotations with a recent manual restoration (grace period of 4 hours) are protected.
+ * 4. Quotations without any event dates (TBD / pending) do not expire.
+ * 5. If earliest event date < today: Expired (date has passed without client confirmation).
+ * 6. If earliest event date === today:
+ *    - If created before today: Expired (event day has arrived without booking confirmation).
+ *    - If created today: Protected for the current day.
+ */
+export function isQuotationExpired(q: Quotation, todayStr?: string): boolean {
+  if (!q) return false;
+
+  // Rule 1: Confirmed or completed quotations are 100% immune from auto-expiry
+  if (q.status === 'confirmed' || q.status === 'completed') {
+    return false;
+  }
+
+  // Rule 2: Already trashed or deleted
+  if (q.status === 'trash' || q.isDeleted) {
+    return false;
+  }
+
+  // Rule 3: Grace period after manual restoration from trash (4 hours)
+  if (q.restoredAt) {
+    const restoredTime = new Date(q.restoredAt).getTime();
+    if (!isNaN(restoredTime) && Date.now() - restoredTime < 4 * 60 * 60 * 1000) {
+      return false;
+    }
+  }
+
+  const today = todayStr || getTodayDateString();
+  const dates = getQuotationEventDates(q);
+
+  // Rule 4: No dates specified (TBD / pending)
+  if (dates.length === 0) {
+    return false;
+  }
+
+  const earliestDate = dates[0];
+
+  // Rule 5: Earliest event date has already passed
+  if (earliestDate < today) {
+    return true;
+  }
+
+  // Rule 6: Earliest event date is TODAY
+  if (earliestDate === today) {
+    const createdDate = (q.createdAt || q.client?.quotationDate || '').slice(0, 10);
+    // If quotation was created on a previous day and still unconfirmed on the event day
+    if (createdDate && createdDate < today) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Format Pakistani phone numbers for WhatsApp API (e.g. "03211234567" -> "923211234567")
  */
 export function formatWhatsAppPhone(phone: string): string {

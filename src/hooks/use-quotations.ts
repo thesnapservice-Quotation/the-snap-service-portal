@@ -7,7 +7,7 @@ import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotations, apiSaveQuotation, apiDeleteQuotation } from '@/lib/api-client';
 import { syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
 import { uploadQuotationDirectToDrive } from '@/lib/google-drive-oauth';
-import { sortQuotationsByNumber } from '@/lib/utils';
+import { sortQuotationsByNumber, isQuotationExpired } from '@/lib/utils';
 
 function resolveUserWs(u: any): string {
   if (!u || !u.id) return 'ws_user-super-admin';
@@ -36,12 +36,12 @@ export function useQuotations() {
   });
 
   const quotations = useMemo(() => {
-    const list = allQuotations.filter((q) => q.status !== 'trash' && !q.isDeleted);
+    const list = allQuotations.filter((q) => q.status !== 'trash' && !q.isDeleted && !isQuotationExpired(q));
     return sortQuotationsByNumber(list);
   }, [allQuotations]);
 
   const trashQuotations = useMemo(() => {
-    const list = allQuotations.filter((q) => q.status === 'trash' || q.isDeleted);
+    const list = allQuotations.filter((q) => q.status === 'trash' || q.isDeleted || isQuotationExpired(q));
     return sortQuotationsByNumber(list);
   }, [allQuotations]);
 
@@ -70,15 +70,45 @@ export function useQuotations() {
           return !idMatch && !numMatch && wsMatch;
         });
 
+        // Process expired unconfirmed quotations
+        const processedDb = validDbQuotations.map((q) => {
+          if (isQuotationExpired(q)) {
+            return {
+              ...q,
+              previousStatus: q.status !== 'trash' ? q.status : (q.previousStatus || 'sent'),
+              status: 'trash' as QuotationStatus,
+              isDeleted: true,
+              autoExpired: true,
+              autoExpiredReason: 'Event date arrived/passed without client confirmation',
+              deletedAt: q.deletedAt || new Date().toISOString(),
+            };
+          }
+          return q;
+        });
+
         // Set DB as authoritative
-        const sorted = sortQuotationsByNumber(validDbQuotations);
+        const sorted = sortQuotationsByNumber(processedDb);
         storage.setAllQuotations(sorted);
         setAllQuotations(sorted);
       } else {
         const local = storage.getQuotations();
         const filtered = local.filter((q) => matchesWorkspace(q, targetWs));
         if (filtered.length > 0) {
-          setAllQuotations(sortQuotationsByNumber(filtered));
+          const processedLocal = filtered.map((q) => {
+            if (isQuotationExpired(q)) {
+              return {
+                ...q,
+                previousStatus: q.status !== 'trash' ? q.status : (q.previousStatus || 'sent'),
+                status: 'trash' as QuotationStatus,
+                isDeleted: true,
+                autoExpired: true,
+                autoExpiredReason: 'Event date arrived/passed without client confirmation',
+                deletedAt: q.deletedAt || new Date().toISOString(),
+              };
+            }
+            return q;
+          });
+          setAllQuotations(sortQuotationsByNumber(processedLocal));
         }
       }
     } catch {
@@ -113,6 +143,46 @@ export function useQuotations() {
       }
     };
   }, [refreshQuotations]);
+
+  // Auto-expire unconfirmed quotations whose event dates are due or past into Trash
+  useEffect(() => {
+    if (typeof window === 'undefined' || loading) return;
+
+    const unexpiredTrashCandidates = allQuotations.filter(
+      (q) => q.status !== 'trash' && !q.isDeleted && isQuotationExpired(q)
+    );
+
+    if (unexpiredTrashCandidates.length === 0) return;
+
+    const timer = setTimeout(async () => {
+      let anyUpdated = false;
+      for (const item of unexpiredTrashCandidates) {
+        const previous = item.status !== 'trash' ? item.status : (item.previousStatus || 'sent');
+        const updated: Quotation = {
+          ...item,
+          previousStatus: previous,
+          status: 'trash',
+          isDeleted: true,
+          autoExpired: true,
+          autoExpiredReason: 'Event date arrived/passed without client confirmation',
+          deletedAt: item.deletedAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        storage.saveQuotationLocally(updated);
+        try {
+          await apiSaveQuotation(updated);
+        } catch {}
+        anyUpdated = true;
+      }
+
+      if (anyUpdated) {
+        window.dispatchEvent(new Event('snap_quotation_updated'));
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [allQuotations, loading]);
 
   const saveQuotation = async (quotation: Quotation): Promise<Quotation> => {
     const user = storage.getCurrentUser();
@@ -166,7 +236,7 @@ export function useQuotations() {
     return savedFromDb;
   };
 
-  const moveToTrash = async (id: string): Promise<Quotation | null> => {
+  const moveToTrash = async (id: string, reason?: string): Promise<Quotation | null> => {
     const target = allQuotations.find((q) => q.id === id || q.quotationNumber === id) || storage.getQuotationById(id);
     if (!target) return null;
 
@@ -177,6 +247,8 @@ export function useQuotations() {
       previousStatus: previous,
       status: 'trash',
       isDeleted: true,
+      autoExpired: Boolean(reason),
+      autoExpiredReason: reason,
       deletedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -195,6 +267,9 @@ export function useQuotations() {
       status: targetStatus === 'trash' ? 'sent' : targetStatus,
       isDeleted: false,
       deletedAt: undefined,
+      autoExpired: false,
+      autoExpiredReason: undefined,
+      restoredAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 

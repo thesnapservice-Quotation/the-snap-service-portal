@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { Quotation, AppSettings, PaymentTransaction } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { apiFetchQuotationById, apiFetchPublicQuotation, apiSaveQuotation, apiFetchSettings } from '@/lib/api-client';
-import { decompactQuotationData, decodeQuotationData, formatCurrency, formatWhatsAppPhone, getQuotationSecurityPin, calculatePaymentMilestones, getTodayDateString } from '@/lib/utils';
+import { decompactQuotationData, decodeQuotationData, formatCurrency, formatWhatsAppPhone, getQuotationSecurityPin, calculatePaymentMilestones, getTodayDateString, isQuotationExpired } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check, ShieldAlert, Wallet } from 'lucide-react';
@@ -92,8 +92,8 @@ function ShortClientPortalContent() {
         }
       }
 
-      // If quotation is in Trash or soft-deleted -> client MUST see "Quotation Not Found"
-      if (q && (q.status === 'trash' || q.isDeleted || q.deletedAt)) {
+      // If quotation is in Trash, soft-deleted, or expired -> client MUST see "Quotation Not Found"
+      if (q && (q.status === 'trash' || q.isDeleted || q.deletedAt || isQuotationExpired(q))) {
         q = null;
       }
 
