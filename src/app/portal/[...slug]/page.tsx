@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Quotation, AppSettings, PaymentTransaction } from '@/lib/types';
+import { Quotation, AppSettings, PaymentTransaction, QuotationVariation } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { apiFetchQuotationById, apiFetchPublicQuotation, apiSaveQuotation, apiFetchSettings } from '@/lib/api-client';
-import { formatCurrency, formatWhatsAppPhone, decodeQuotationData, getQuotationSecurityPin, calculatePaymentMilestones, getTodayDateString, isQuotationExpired } from '@/lib/utils';
+import { formatCurrency, formatWhatsAppPhone, decodeQuotationData, getQuotationSecurityPin, calculatePaymentMilestones, getTodayDateString, isQuotationExpired, mergeVariationIntoQuotation } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
+import { ClientVariationSelector } from '@/components/portal/client-variation-selector';
 import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check, ShieldAlert, Wallet } from 'lucide-react';
 
 function ClientPortalContent() {
@@ -34,6 +35,7 @@ function ClientPortalContent() {
   }
 
   const [quotation, setQuotation] = useState<Quotation | null>(null);
+  const [activeVariationId, setActiveVariationId] = useState<string>('');
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
@@ -93,6 +95,9 @@ function ClientPortalContent() {
       if (isMounted) {
         if (q) {
           setQuotation(q);
+          if (q.variations && q.variations.length > 0) {
+            setActiveVariationId(q.selectedVariationId || q.variations[0].id);
+          }
           const qWs = q.workspaceId || (q.userId === 'user-super-admin' ? 'ws_user-super-admin' : `ws_${q.userId}`);
           const liveSettings = await apiFetchSettings(qWs);
           if (liveSettings && liveSettings.bank) {
@@ -116,9 +121,20 @@ function ClientPortalContent() {
     return () => { isMounted = false; };
   }, [urlDate, quoteKey, expectedPin, searchParams]);
 
+  const handleSelectVariation = (v: QuotationVariation) => {
+    setActiveVariationId(v.id);
+    const initialAdv = v.payment.clientProposedAdvance || (v.payment.advanceReceived > 0 ? v.payment.advanceReceived : Math.round((v.payment.grandTotal || 0) * 0.5));
+    setCustomAdvanceAmount(initialAdv);
+  };
+
+  const activeVar = quotation?.variations?.find((v) => v.id === activeVariationId) || quotation?.variations?.[0];
+  const displayQuotation = (quotation && activeVar && quotation.variations && quotation.variations.length > 1)
+    ? mergeVariationIntoQuotation(quotation, activeVar)
+    : quotation;
+
   const handleOpenModal = () => {
-    if (quotation) {
-      const initialAdv = quotation.payment.clientProposedAdvance || (quotation.payment.advanceReceived > 0 ? quotation.payment.advanceReceived : Math.round((quotation.payment.grandTotal || 0) * 0.5));
+    if (displayQuotation) {
+      const initialAdv = displayQuotation.payment.clientProposedAdvance || (displayQuotation.payment.advanceReceived > 0 ? displayQuotation.payment.advanceReceived : Math.round((displayQuotation.payment.grandTotal || 0) * 0.5));
       setCustomAdvanceAmount(initialAdv);
     }
     setShowConfirmModal(true);
@@ -126,10 +142,11 @@ function ClientPortalContent() {
 
   const handleStep1Confirm = async () => {
     if (!quotation) return;
-    const proposed = Number(customAdvanceAmount) || Math.round((quotation.payment.grandTotal || 0) * 0.5);
+    const currentActiveQuote = displayQuotation || quotation;
+    const proposed = Number(customAdvanceAmount) || Math.round((currentActiveQuote.payment.grandTotal || 0) * 0.5);
 
     // Synchronize to Payment Ledger transactions
-    const existingTx = quotation.payment?.transactions || [];
+    const existingTx = currentActiveQuote.payment?.transactions || [];
     const portalTxIndex = existingTx.findIndex(
       (t) => t.recordedBy === 'Client Portal (Online Confirmation)' || t.id.startsWith('tx-portal-')
     );
@@ -149,7 +166,7 @@ function ClientPortalContent() {
       : [portalTx, ...existingTx];
 
     const totalPaid = updatedTx.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    const grandTotal = quotation.payment?.grandTotal || 0;
+    const grandTotal = currentActiveQuote.payment?.grandTotal || 0;
     const balancePayable = Math.max(0, grandTotal - totalPaid);
 
     let paymentStatus: 'unpaid' | 'partially_paid' | 'paid_in_full' = 'unpaid';
@@ -159,11 +176,22 @@ function ClientPortalContent() {
       paymentStatus = 'partially_paid';
     }
 
+    let updatedVariations = quotation.variations;
+    if (updatedVariations && updatedVariations.length > 0) {
+      updatedVariations = updatedVariations.map((v) => ({
+        ...v,
+        isAccepted: v.id === activeVariationId,
+      }));
+    }
+
     const updated: Quotation = {
-      ...quotation,
+      ...currentActiveQuote,
       status: 'confirmed',
+      selectedVariationId: activeVariationId,
+      hasVariations: quotation.hasVariations,
+      variations: updatedVariations,
       payment: {
-        ...quotation.payment,
+        ...currentActiveQuote.payment,
         advanceReceived: totalPaid,
         balancePayable: balancePayable,
         transactions: updatedTx,
@@ -209,7 +237,7 @@ function ClientPortalContent() {
     );
   }
 
-  if (!quotation || !settings) {
+  if (!quotation || !settings || !displayQuotation) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center p-4 font-sans text-slate-800">
         <div className="bg-white p-8 rounded-3xl border-2 border-[#E5E0D5] text-center max-w-md shadow-xl">
@@ -227,23 +255,23 @@ function ClientPortalContent() {
 
   const effectiveAdv = customAdvanceAmount !== ''
     ? (Number(customAdvanceAmount) || 0)
-    : (quotation.payment.clientProposedAdvance ?? quotation.payment.advanceReceived ?? 0);
+    : (displayQuotation.payment.clientProposedAdvance ?? displayQuotation.payment.advanceReceived ?? 0);
 
   const portalMilestones = calculatePaymentMilestones(
-    quotation.payment.grandTotal,
+    displayQuotation.payment.grandTotal,
     effectiveAdv,
-    quotation.payment.advancePercentage
+    displayQuotation.payment.advancePercentage
   );
 
   const proposedAdv = effectiveAdv > 0 ? effectiveAdv : portalMilestones.stage1Amount;
 
   const whatsappMessage = encodeURIComponent(
-    `Assalam-o-Alaikum! I have confirmed booking for Quotation #${quotation.quotationNumber} (${quotation.client.name}). Advance Amount: ${formatCurrency(proposedAdv)} (Bank Transfer / Cash). Here is my payment receipt screenshot!`
+    `Assalam-o-Alaikum! I have confirmed booking for Quotation #${displayQuotation.quotationNumber} (${displayQuotation.client.name})${displayQuotation.variations && displayQuotation.variations.length > 1 ? ` - ${activeVar?.name}` : ''}. Advance Amount: ${formatCurrency(proposedAdv)} (Bank Transfer / Cash). Here is my payment receipt screenshot!`
   );
 
-  const txList = quotation.payment?.transactions || [];
+  const txList = displayQuotation.payment?.transactions || [];
   const totalVerifiedPaid = txList.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  const liveRemainingBalance = Math.max(0, (quotation.payment?.grandTotal || 0) - totalVerifiedPaid);
+  const liveRemainingBalance = Math.max(0, (displayQuotation.payment?.grandTotal || 0) - totalVerifiedPaid);
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] font-sans text-slate-800 pb-16 relative">
@@ -282,9 +310,19 @@ function ClientPortalContent() {
 
       {/* Main Quotation View Area */}
       <main className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+        {/* Interactive Package Variation Selector (For multi-option quotations) */}
+        {quotation.variations && quotation.variations.length > 1 && (
+          <ClientVariationSelector
+            quotation={quotation}
+            activeVariationId={activeVariationId}
+            onSelectVariation={handleSelectVariation}
+            isConfirmed={accepted || quotation.status === 'confirmed'}
+          />
+        )}
+
         <div className="bg-white rounded-3xl p-6 md:p-8 border-2 border-[#E5E0D5] shadow-xl">
           <QuotationPreview
-            quotation={quotation}
+            quotation={displayQuotation}
             settings={settings}
           />
         </div>
@@ -390,7 +428,12 @@ function ClientPortalContent() {
                     Lock Booking & Bank Transfer
                   </h3>
                   <p className="text-[9.5px] text-slate-500 font-medium">
-                    Quotation #{quotation.quotationNumber} • {quotation.client.name}
+                    Quotation #{displayQuotation.quotationNumber} • {displayQuotation.client.name}
+                    {displayQuotation.variations && displayQuotation.variations.length > 1 && (
+                      <span className="ml-1 text-[#D4AF37] font-bold">
+                        • {activeVar?.name}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

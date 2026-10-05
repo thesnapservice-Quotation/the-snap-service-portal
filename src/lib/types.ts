@@ -188,6 +188,21 @@ export interface DeliverableStatus {
   videoStatus: VideoDeliverableStatus;
 }
 
+export interface QuotationVariation {
+  id: string; // e.g. "var-1", "var-2"
+  name: string; // e.g. "Single Day Package", "2 Days Package"
+  badgeText?: string;
+  packageType: 'single_day' | 'multi_event';
+  events: EventItem[];
+  inclusions: PackageInclusion[];
+  payment: PaymentDetails;
+  termsAndConditions?: string[];
+  notes?: string;
+  additionalExpenses?: AdditionalExpense[];
+  internalAnalysis?: InternalAnalysis;
+  isAccepted?: boolean;
+}
+
 export interface Quotation {
   id: string;
   quotationNumber: string; // e.g., "SS-2026-001"
@@ -217,6 +232,9 @@ export interface Quotation {
   autoExpired?: boolean;
   autoExpiredReason?: string;
   restoredAt?: string;
+  hasVariations?: boolean;
+  selectedVariationId?: string;
+  variations?: QuotationVariation[];
 }
 
 export type WhatsAppCategory = 

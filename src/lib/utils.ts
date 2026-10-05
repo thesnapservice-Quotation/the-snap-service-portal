@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Quotation, EventItem, Service } from './types';
+import { Quotation, EventItem, Service, QuotationVariation } from './types';
 import { generateSecureId } from './crypto';
 import { DEFAULT_SERVICES } from './defaults';
 
@@ -795,5 +795,141 @@ export function calculatePaymentMilestones(
     grandTotal: total,
     advancePaid: paid,
     balancePayable: Math.max(0, total - paid),
+  };
+}
+
+/**
+ * Creates a clean QuotationVariation clone from existing quotation fields
+ */
+export function createVariationFromQuotation(
+  q: Partial<Quotation>,
+  name?: string,
+  id?: string
+): QuotationVariation {
+  const eventsCount = q.events?.length || 1;
+  const defaultName = name || (eventsCount === 1 ? 'Single Day Package' : `${eventsCount} Days Package`);
+  const varId = id || `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  return {
+    id: varId,
+    name: defaultName,
+    packageType: q.packageType || (eventsCount > 1 ? 'multi_event' : 'single_day'),
+    events: q.events ? JSON.parse(JSON.stringify(q.events)) : [],
+    inclusions: q.inclusions ? JSON.parse(JSON.stringify(q.inclusions)) : [],
+    payment: q.payment ? JSON.parse(JSON.stringify(q.payment)) : {
+      grandTotal: 0,
+      advanceReceived: 0,
+      advanceType: 'fixed',
+      balancePayable: 0,
+    },
+    termsAndConditions: q.termsAndConditions ? [...q.termsAndConditions] : undefined,
+    notes: q.notes,
+    additionalExpenses: q.additionalExpenses ? JSON.parse(JSON.stringify(q.additionalExpenses)) : undefined,
+    internalAnalysis: q.internalAnalysis ? JSON.parse(JSON.stringify(q.internalAnalysis)) : undefined,
+    isAccepted: q.status === 'confirmed',
+  };
+}
+
+/**
+ * Returns the currently active or selected variation from a quotation
+ */
+export function getQuotationActiveVariation(q: Quotation): QuotationVariation {
+  if (q.variations && q.variations.length > 0) {
+    if (q.selectedVariationId) {
+      const match = q.variations.find((v) => v.id === q.selectedVariationId);
+      if (match) return match;
+    }
+    return q.variations[0];
+  }
+  return createVariationFromQuotation(q, 'Default Option', 'var_default');
+}
+
+/**
+ * Merges an active variation's fields into the root quotation (events, inclusions, payment, internal analysis)
+ * guaranteeing 100% backward compatibility for PDF generation, prints, and legacy handlers.
+ */
+export function mergeVariationIntoQuotation(
+  q: Quotation,
+  v: QuotationVariation
+): Quotation {
+  const currentVariations = q.variations && q.variations.length > 0
+    ? q.variations.map((item) => (item.id === v.id ? { ...v } : item))
+    : [{ ...v }];
+
+  return {
+    ...q,
+    hasVariations: currentVariations.length > 1,
+    selectedVariationId: v.id,
+    variations: currentVariations,
+    packageType: v.packageType,
+    events: JSON.parse(JSON.stringify(v.events || [])),
+    inclusions: JSON.parse(JSON.stringify(v.inclusions || [])),
+    payment: JSON.parse(JSON.stringify(v.payment)),
+    termsAndConditions: v.termsAndConditions ? [...v.termsAndConditions] : q.termsAndConditions,
+    notes: v.notes !== undefined ? v.notes : q.notes,
+    additionalExpenses: v.additionalExpenses ? JSON.parse(JSON.stringify(v.additionalExpenses)) : q.additionalExpenses,
+    internalAnalysis: v.internalAnalysis ? JSON.parse(JSON.stringify(v.internalAnalysis)) : q.internalAnalysis,
+  };
+}
+
+/**
+ * Helper to compute selling price and profit ranges for multi-variation quotations on dashboard
+ */
+export function getQuotationPriceRangeDisplay(q: Quotation): {
+  priceDisplay: string;
+  profitDisplay: string;
+  hasRange: boolean;
+  count: number;
+} {
+  if (!q.variations || q.variations.length <= 1) {
+    const price = q.payment?.grandTotal || 0;
+    const profit = q.internalAnalysis?.netProfit ?? calculateQuotationNetProfit(q);
+    return {
+      priceDisplay: formatCurrency(price),
+      profitDisplay: formatCurrency(profit),
+      hasRange: false,
+      count: q.variations?.length || 1,
+    };
+  }
+
+  // If quotation is confirmed, show the confirmed variation's exact values
+  if (q.status === 'confirmed' && q.selectedVariationId) {
+    const active = q.variations.find((v) => v.id === q.selectedVariationId);
+    if (active) {
+      const price = active.payment?.grandTotal || 0;
+      const profit = active.internalAnalysis?.netProfit ?? calculateQuotationNetProfit(mergeVariationIntoQuotation(q, active));
+      return {
+        priceDisplay: formatCurrency(price),
+        profitDisplay: formatCurrency(profit),
+        hasRange: false,
+        count: q.variations.length,
+      };
+    }
+  }
+
+  // Multiple unconfirmed options: compute range
+  const prices = q.variations.map((v) => v.payment?.grandTotal || 0);
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+
+  const priceDisplay = minPrice === maxPrice
+    ? formatCurrency(minPrice)
+    : `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`;
+
+  const profits = q.variations.map((v) => {
+    return v.internalAnalysis?.netProfit ?? calculateQuotationNetProfit(mergeVariationIntoQuotation(q, v));
+  });
+  const minProfit = Math.min(...profits);
+  const maxProfit = Math.max(...profits);
+
+  const profitDisplay = minProfit === maxProfit
+    ? formatCurrency(minProfit)
+    : `${formatCurrency(minProfit)} - ${formatCurrency(maxProfit)}`;
+
+  return {
+    priceDisplay,
+    profitDisplay,
+    hasRange: minPrice !== maxPrice,
+    count: q.variations.length,
   };
 }

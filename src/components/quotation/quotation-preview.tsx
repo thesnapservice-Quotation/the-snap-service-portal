@@ -250,9 +250,15 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
   );
 
   const hasAdvance = payment.advanceReceived > 0;
-  const packageTypeTitle = quotation.packageType === 'single_day' || sortedEvents.length === 1 
-    ? 'SINGLE DAY PACKAGE' 
-    : 'WEDDING PACKAGE';
+  const activeVar = quotation.variations && quotation.selectedVariationId
+    ? quotation.variations.find((v) => v.id === quotation.selectedVariationId)
+    : quotation.variations?.[0];
+
+  const packageTypeTitle = (activeVar?.name ? activeVar.name : null) || (
+    quotation.packageType === 'single_day' || sortedEvents.length === 1 
+      ? 'SINGLE DAY PACKAGE' 
+      : 'WEDDING PACKAGE'
+  );
 
   return (
     <div className="w-full flex justify-center py-1 sm:py-2 px-0 sm:px-1">

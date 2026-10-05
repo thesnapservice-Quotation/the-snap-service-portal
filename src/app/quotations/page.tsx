@@ -6,7 +6,7 @@ import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
 import { useServices } from '@/hooks/use-services';
 import { useProfitPrivacy } from '@/context/profit-privacy-context';
-import { formatCurrency, formatDate, formatDateTime, sortQuotationsByNumber, generateWhatsAppShareUrl, generatePortalUrl, calculateQuotationInternalCost, calculateQuotationNetProfit } from '@/lib/utils';
+import { formatCurrency, formatDate, formatDateTime, sortQuotationsByNumber, generateWhatsAppShareUrl, generatePortalUrl, calculateQuotationInternalCost, calculateQuotationNetProfit, getQuotationPriceRangeDisplay } from '@/lib/utils';
 import { QuotationStatus } from '@/lib/types';
 import { 
   PlusCircle, 
@@ -28,7 +28,8 @@ import {
   Send,
   CheckCircle2,
   Check,
-  Clock
+  Clock,
+  Layers
 } from 'lucide-react';
 
 import { StatusBadge, STATUS_CLASSES } from '@/components/quotation/status-badge';
@@ -513,6 +514,12 @@ export default function QuotationsListPage() {
                   const totalCost = calculateQuotationInternalCost(q, services);
                   const netProfit = calculateQuotationNetProfit(q, services);
 
+                  const rangeInfo = getQuotationPriceRangeDisplay(q);
+                  const hasOptions = (q.variations && q.variations.length > 1) || false;
+                  const confirmedVar = q.status === 'confirmed' && q.selectedVariationId
+                    ? q.variations?.find((v) => v.id === q.selectedVariationId)
+                    : null;
+
                   return (
                     <tr
                       key={q.id}
@@ -552,23 +559,41 @@ export default function QuotationsListPage() {
                       </td>
 
                       {/* Events Summary */}
-                      <td className="px-5 py-4 max-w-[200px] truncate text-slate-700">
-                        <span className="font-medium">{eventsSummary}</span>
-                        <span className="block text-[10px] text-slate-400">
-                          {q.events.length} {q.events.length === 1 ? 'Event' : 'Events'}
-                        </span>
+                      <td className="px-5 py-4 max-w-[220px] text-slate-700">
+                        <span className="font-medium truncate block">{eventsSummary}</span>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-slate-400">
+                            {q.events.length} {q.events.length === 1 ? 'Event' : 'Events'}
+                          </span>
+                          {hasOptions && !confirmedVar && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 font-bold text-[9px]">
+                              <Layers className="w-2.5 h-2.5 text-amber-700" />
+                              <span>{q.variations?.length} Options</span>
+                            </span>
+                          )}
+                          {confirmedVar && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[9px]">
+                              <Check className="w-2.5 h-2.5 text-emerald-600 stroke-[3]" />
+                              <span>{confirmedVar.name}</span>
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Total Selling Price */}
                       <td className="px-5 py-4">
                         <span className="font-bold text-slate-900 text-sm block">
-                          {formatCurrency(q.payment.grandTotal)}
+                          {hasOptions && !confirmedVar ? rangeInfo.priceDisplay : formatCurrency(q.payment.grandTotal)}
                         </span>
-                        {q.payment.advanceReceived > 0 && (
+                        {hasOptions && !confirmedVar ? (
+                          <span className="text-[10px] text-amber-700 font-semibold block">
+                            Option Range
+                          </span>
+                        ) : q.payment.advanceReceived > 0 ? (
                           <span className="text-[10px] text-emerald-700 block">
                             Adv: {formatCurrency(q.payment.advanceReceived)}
                           </span>
-                        )}
+                        ) : null}
                       </td>
 
                       {/* Estimated Profit (Password Protected) */}
@@ -576,9 +601,11 @@ export default function QuotationsListPage() {
                         {isProfitUnlocked ? (
                           <>
                             <span className={`font-bold text-xs block ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-                              {formatCurrency(netProfit)}
+                              {hasOptions && !confirmedVar ? rangeInfo.profitDisplay : formatCurrency(netProfit)}
                             </span>
-                            <span className="text-[10px] text-slate-400 block">Internal Profit</span>
+                            <span className="text-[10px] text-slate-400 block">
+                              {hasOptions && !confirmedVar ? 'Est. Range' : 'Internal Profit'}
+                            </span>
                           </>
                         ) : (
                           <button

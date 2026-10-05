@@ -18,6 +18,7 @@ import { InclusionsPicker } from '@/components/quotation/inclusions-picker';
 import { PaymentSection } from '@/components/quotation/payment-section';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { QuotationActions } from '@/components/quotation/quotation-actions';
+import { QuotationVariationsBar } from '@/components/quotation/quotation-variations-bar';
 import { ArrowLeft, Eye, Edit3, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
@@ -170,9 +171,34 @@ function NewQuotationContent() {
       }),
     }));
 
+    // If quotation has variations, synchronize the active variation with current form values
+    let finalVariations = quotation.variations;
+    const activeVarId = quotation.selectedVariationId || (quotation.variations && quotation.variations[0]?.id);
+    if (finalVariations && finalVariations.length > 0 && activeVarId) {
+      finalVariations = finalVariations.map((v) => {
+        if (v.id === activeVarId) {
+          return {
+            ...v,
+            packageType: quotation.packageType,
+            events: servicesWithCosts,
+            inclusions: quotation.inclusions || [],
+            payment: quotation.payment,
+            termsAndConditions: quotation.termsAndConditions,
+            notes: quotation.notes,
+            additionalExpenses: quotation.additionalExpenses,
+            internalAnalysis: quotation.internalAnalysis,
+          };
+        }
+        return v;
+      });
+    }
+
     const toSave: Quotation = {
       ...quotation,
       events: servicesWithCosts,
+      variations: finalVariations,
+      hasVariations: (finalVariations && finalVariations.length > 1) || false,
+      selectedVariationId: activeVarId,
       workspaceId: quotation.workspaceId || activeWs,
       userId: activeUserId,
       createdByUserId: quotation.createdByUserId || activeUserId,
@@ -275,6 +301,13 @@ function NewQuotationContent() {
             onSave={handleSave}
             onDuplicate={handleDuplicate}
             onDelete={handleDelete}
+          />
+
+          {/* Package Variations & Options Toolbar */}
+          <QuotationVariationsBar
+            quotation={quotation}
+            onQuotationChange={setQuotation}
+            disabled={isSaving}
           />
 
           {/* Client Details Form with Interactive Booking Calendar */}

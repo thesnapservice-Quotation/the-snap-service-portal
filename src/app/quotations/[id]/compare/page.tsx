@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Quotation, AdditionalExpense, Service, SelectedService, CrewMemberCost, VideoEditingEventCost, AlbumItemCost } from '@/lib/types';
+import { Quotation, AdditionalExpense, Service, SelectedService, CrewMemberCost, VideoEditingEventCost, AlbumItemCost, QuotationVariation } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { formatCurrency, formatDate, computeDefaultVideoEditingCost, getDefaultAlbumUnitCost } from '@/lib/utils';
+import { formatCurrency, formatDate, computeDefaultVideoEditingCost, getDefaultAlbumUnitCost, mergeVariationIntoQuotation } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotationById, apiSaveQuotation } from '@/lib/api-client';
 import { sortEventsInSequence } from '@/components/quotation/quotation-preview';
@@ -358,23 +358,83 @@ export default function QuotationComparePage() {
     });
   };
 
+  // Handle switching variation in compare view
+  const handleSwitchVariation = (targetVar: QuotationVariation) => {
+    if (!quotation) return;
+    const activeVarId = quotation.selectedVariationId || quotation.variations?.[0]?.id;
+    if (targetVar.id === activeVarId) return;
+
+    // 1. Pack current analysis into the currently active variation
+    const currentAnalysis = {
+      totalInternalCost,
+      netProfit,
+      profitMargin,
+      additionalExpenses,
+      eventBreakdown: eventCosts,
+      videoEditingBreakdown: videoEditingCosts,
+      totalVideoEditingCost,
+      albumBreakdown: albumCosts,
+      totalAlbumCost,
+    };
+
+    const updatedVariations = (quotation.variations || []).map((v) => {
+      if (v.id === activeVarId) {
+        return {
+          ...v,
+          events: quotation.events,
+          additionalExpenses,
+          internalAnalysis: currentAnalysis,
+        };
+      }
+      return v;
+    });
+
+    // 2. Switch to target variation
+    const foundTarget = updatedVariations.find((v) => v.id === targetVar.id) || targetVar;
+    const merged = mergeVariationIntoQuotation(
+      { ...quotation, variations: updatedVariations },
+      foundTarget
+    );
+    const prepared = prepareQuotationData(merged, availableServices);
+    setQuotation(prepared);
+  };
+
   // Save changes to storage and cloud database
   const handleSaveAnalysis = async () => {
+    const currentAnalysis = {
+      totalInternalCost,
+      netProfit,
+      profitMargin,
+      additionalExpenses,
+      eventBreakdown: eventCosts,
+      videoEditingBreakdown: videoEditingCosts,
+      totalVideoEditingCost,
+      albumBreakdown: albumCosts,
+      totalAlbumCost,
+    };
+
+    let updatedVariations = quotation.variations;
+    const activeVarId = quotation.selectedVariationId || quotation.variations?.[0]?.id;
+    if (updatedVariations && updatedVariations.length > 0 && activeVarId) {
+      updatedVariations = updatedVariations.map((v) => {
+        if (v.id === activeVarId) {
+          return {
+            ...v,
+            events: quotation.events,
+            additionalExpenses,
+            internalAnalysis: currentAnalysis,
+          };
+        }
+        return v;
+      });
+    }
+
     const updatedQuotation: Quotation = {
       ...quotation,
       events: quotation.events,
       additionalExpenses,
-      internalAnalysis: {
-        totalInternalCost,
-        netProfit,
-        profitMargin,
-        additionalExpenses,
-        eventBreakdown: eventCosts,
-        videoEditingBreakdown: videoEditingCosts,
-        totalVideoEditingCost,
-        albumBreakdown: albumCosts,
-        totalAlbumCost,
-      },
+      variations: updatedVariations,
+      internalAnalysis: currentAnalysis,
       updatedAt: new Date().toISOString(),
     };
     storage.saveQuotationLocally(updatedQuotation);
@@ -441,6 +501,48 @@ export default function QuotationComparePage() {
           <Save className="w-4 h-4" /> Save Analysis
         </button>
       </div>
+
+      {/* Package Options Switcher for Internal Analysis */}
+      {quotation.variations && quotation.variations.length > 1 && (
+        <div className="bg-white p-4 rounded-2xl border-2 border-[#D4AF37] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#0D4F4F] text-[#D4AF37] flex items-center justify-center font-bold">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-serif font-bold text-sm text-[#0D4F4F]">
+                Package Variation Under Analysis
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Switch between package options to inspect and configure team/material costs for each option.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {quotation.variations.map((v) => {
+              const isActive = v.id === (quotation.selectedVariationId || quotation.variations![0].id);
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => handleSwitchVariation(v)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isActive
+                      ? 'bg-[#0D4F4F] text-[#D4AF37] shadow-sm'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  <span>{v.name}</span>
+                  <span className={`text-[10px] font-mono ${isActive ? 'text-white' : 'text-slate-500'}`}>
+                    ({formatCurrency(v.payment?.grandTotal || 0)})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {saveSuccessMsg && (
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold">
