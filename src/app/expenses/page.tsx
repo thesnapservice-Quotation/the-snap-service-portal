@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useExpenses } from '@/hooks/use-expenses';
 import { useQuotations } from '@/hooks/use-quotations';
+import { useServices } from '@/hooks/use-services';
 import { useAuth } from '@/hooks/use-auth';
 import { StudioExpense, ExpenseCategory, Quotation } from '@/lib/types';
 import { formatCurrency, formatDate, getTodayDateString, calculateQuotationInternalCost, calculateQuotationNetProfit } from '@/lib/utils';
@@ -165,6 +166,7 @@ const MANUAL_EXPENSE_CATEGORIES: ExpenseCategory[] = [
 export default function ExpensesPage() {
   const { expenses, loading, addExpense, updateExpense, deleteExpense, totalExpenses, totalTeamAdvances } = useExpenses();
   const { quotations } = useQuotations();
+  const { services } = useServices();
   const { users } = useAuth();
 
   // Navigation Tabs: 'all' (Combined Ledger), 'expenses_only' (Studio Expenses), 'team_ledger' (Team Advances)
@@ -195,7 +197,7 @@ export default function ExpensesPage() {
   // 1. AUTO-SYNCED EVENT PROFIT FROM CONFIRMED BOOKINGS
   // ----------------------------------------------------
   const getQuotationProfit = (q: Quotation): number => {
-    return Math.max(0, calculateQuotationNetProfit(q));
+    return Math.max(0, calculateQuotationNetProfit(q, services));
   };
 
   const getQuotationTotal = (q: Quotation): number => {
@@ -203,7 +205,7 @@ export default function ExpensesPage() {
   };
 
   const getQuotationExpenses = (q: Quotation): number => {
-    return calculateQuotationInternalCost(q);
+    return calculateQuotationInternalCost(q, services);
   };
 
   // Confirmed & Completed Quotations
@@ -237,7 +239,7 @@ export default function ExpensesPage() {
         updatedAt: q.updatedAt || new Date().toISOString(),
       };
     });
-  }, [confirmedQuotations]);
+  }, [confirmedQuotations, services]);
 
   // Combined Ledger Items (Income Profits + Manual Studio Expenses)
   const allLedgerItems = useMemo(() => {

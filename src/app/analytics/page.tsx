@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useExpenses } from '@/hooks/use-expenses';
+import { useServices } from '@/hooks/use-services';
 import { useProfitPrivacy } from '@/context/profit-privacy-context';
 import { formatCurrency, formatDate, calculateQuotationInternalCost, calculateQuotationNetProfit } from '@/lib/utils';
 import { Quotation } from '@/lib/types';
@@ -37,6 +38,7 @@ import Link from 'next/link';
 export default function StudioAnalyticsPage() {
   const { quotations, refreshQuotations } = useQuotations();
   const { expenses, totalExpenses, totalTeamAdvances } = useExpenses();
+  const { services } = useServices();
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,7 +60,7 @@ export default function StudioAnalyticsPage() {
   };
 
   const getEventExpenses = (q: Quotation): number => {
-    return calculateQuotationInternalCost(q);
+    return calculateQuotationInternalCost(q, services);
   };
 
   const getReceivedAmount = (q: Quotation): number => {
