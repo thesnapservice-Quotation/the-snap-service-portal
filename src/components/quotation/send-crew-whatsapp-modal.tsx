@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Quotation, EventItem } from '@/lib/types';
 import { useSettings } from '@/hooks/use-settings';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatEventTiming } from '@/lib/utils';
 import { normalizeWhatsAppPhone, generateWhatsAppIntentUrl } from '@/lib/whatsapp';
 import { 
   MessageSquare, 
@@ -129,7 +129,7 @@ export function SendCrewWhatsAppModal({
           const dayNum = evt.dayNumber || (quotation.events.findIndex((e) => e.id === evt.id) + 1) || (idx + 1);
           const dateStr = evt.eventDate ? formatDate(evt.eventDate) : 'Date TBD';
           const venue = evt.venue || venueName || 'Venue TBD';
-          const time = evt.timing || eventTiming || '07:00 PM';
+          const time = evt.timing ? formatEventTiming(evt.timing) : (eventTiming || '07:00 PM');
           const mapPin = evt.mapLink || mapLocation || '';
           
           let line = `Day ${dayNum}: ${evt.name}\n  Date: ${dateStr}\n  Time: ${time}\n  Venue: ${venue}`;
@@ -150,7 +150,7 @@ ${scheduleLines}`;
     const eventName = targetEvent ? targetEvent.name : 'Event';
     const eventDateStr = targetEvent?.eventDate ? formatDate(targetEvent.eventDate) : 'Date TBD';
     const venue = targetEvent?.venue || venueName || 'Venue TBD';
-    const time = targetEvent?.timing || eventTiming || '07:00 PM';
+    const time = targetEvent?.timing ? formatEventTiming(targetEvent.timing) : (eventTiming || '07:00 PM');
     const mapPin = targetEvent?.mapLink || mapLocation || '';
 
     let singleLine = `${eventName}\n  Date: ${eventDateStr}\n  Time: ${time}\n  Venue: ${venue}`;

@@ -68,6 +68,30 @@ export function formatDateTime(dateString?: string): string {
 }
 
 /**
+ * Format event timing string for elegant display on quotation cards and calendars.
+ * Converts shorthand like "Day", "Night", "Full day" into "Day Event", "Night Event", "Full Day".
+ */
+export function formatEventTiming(timing?: string): string {
+  if (!timing) return '';
+  const trimmed = timing.trim();
+  if (!trimmed) return '';
+
+  const lower = trimmed.toLowerCase();
+
+  if (lower === 'day' || lower === 'day event') {
+    return 'Day Event';
+  }
+  if (lower === 'night' || lower === 'night event') {
+    return 'Night Event';
+  }
+  if (lower === 'full day' || lower === 'fullday' || lower === 'full-day' || lower === 'full day event') {
+    return 'Full Day';
+  }
+
+  return trimmed;
+}
+
+/**
  * Extract sequence integer from Quotation Number (e.g. "SS-2026-105" -> 105)
  */
 export function extractQuotationSeq(quotationNumber?: string): number {

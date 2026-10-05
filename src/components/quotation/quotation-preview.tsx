@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Quotation, AppSettings, EventItem } from '@/lib/types';
-import { formatCurrency, formatDate, sortEventsInSequence, calculatePaymentMilestones } from '@/lib/utils';
+import { formatCurrency, formatDate, sortEventsInSequence, calculatePaymentMilestones, formatEventTiming } from '@/lib/utils';
 import { 
   User, 
   Calendar, 
@@ -380,15 +380,21 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
                       {evt.name || `Day ${idx + 1}`}
                     </h4>
 
-                    {evt.venue && (
+                    {evt.timing && (
                       <span className="text-[10px] sm:text-[10.5px] text-[#FAF9F6] font-semibold block mt-0.5 tracking-wider uppercase px-1">
-                        {evt.venue}
+                        {formatEventTiming(evt.timing)}
                       </span>
                     )}
 
                     {evt.guestCount !== undefined && evt.guestCount > 0 && (
                       <span className="text-[9.5px] sm:text-[10px] text-slate-300 font-medium block mt-0.5">
                         ({evt.guestCount} GUESTS)
+                      </span>
+                    )}
+
+                    {evt.venue && (
+                      <span className="text-[9px] sm:text-[9.5px] text-slate-200/90 font-medium block mt-0.5 tracking-wider uppercase px-1">
+                        {evt.venue}
                       </span>
                     )}
                   </div>

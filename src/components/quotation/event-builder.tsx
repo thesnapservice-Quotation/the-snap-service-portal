@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { EventItem, Service, SelectedService } from '@/lib/types';
 import { generateSecureId } from '@/lib/crypto';
-import { sortEventsInSequence } from '@/lib/utils';
+import { sortEventsInSequence, formatEventTiming } from '@/lib/utils';
 import { 
   Plus, 
   Trash2, 
@@ -226,7 +226,7 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                       <p className="text-[11px] text-slate-500">
                         {evt.services.length} {evt.services.length === 1 ? 'service' : 'services'}
                         {evt.venue ? ` • ${evt.venue}` : ''}
-                        {evt.timing ? ` • ${evt.timing}` : ''}
+                        {evt.timing ? ` • ${formatEventTiming(evt.timing)}` : ''}
                         {evt.guestCount ? ` • ${evt.guestCount} Guests` : ''}
                       </p>
                     </div>
@@ -320,12 +320,14 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
 
                       {/* Event Timing (Optional) */}
                       <div>
-                        <label className="block font-bold text-slate-700 mb-1.5 flex items-center gap-1.5 h-4">
-                          <Clock className="w-3.5 h-3.5 text-[#0D4F4F]" /> Event Timing (Optional)
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5 h-4">
+                          <label className="font-bold text-slate-700 flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-[#0D4F4F]" /> Event Timing (Optional)
+                          </label>
+                        </div>
                         <input
                           type="text"
-                          placeholder="e.g. 07:00 PM (Night)"
+                          placeholder="e.g. Night Event, Day Event, Full Day"
                           value={evt.timing || ''}
                           onChange={(e) =>
                             handleUpdateEvent(evt.id, {
@@ -334,6 +336,40 @@ export function EventBuilder({ events, availableServices, onChange }: EventBuild
                           }
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none text-xs"
                         />
+                        {/* Quick Presets for Day Event, Night Event, Full Day */}
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                          {[
+                            { label: 'Day Event', val: 'Day Event' },
+                            { label: 'Night Event', val: 'Night Event' },
+                            { label: 'Full Day', val: 'Full Day' },
+                          ].map((preset) => {
+                            const currentTiming = (evt.timing || '').trim().toLowerCase();
+                            const isSelected =
+                              currentTiming === preset.val.toLowerCase() ||
+                              (preset.val === 'Day Event' && currentTiming === 'day') ||
+                              (preset.val === 'Night Event' && currentTiming === 'night') ||
+                              (preset.val === 'Full Day' && (currentTiming === 'fullday' || currentTiming === 'full day'));
+
+                            return (
+                              <button
+                                key={preset.val}
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateEvent(evt.id, {
+                                    timing: isSelected ? undefined : preset.val,
+                                  })
+                                }
+                                className={`px-2 py-0.5 rounded text-[10.5px] font-semibold transition-all border cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#0D4F4F] text-white border-[#0D4F4F] shadow-2xs'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800'
+                                }`}
+                              >
+                                {isSelected ? `✓ ${preset.label}` : `+ ${preset.label}`}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       {/* Guest Count */}

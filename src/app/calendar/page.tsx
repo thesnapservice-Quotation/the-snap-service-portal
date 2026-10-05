@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, formatEventTiming } from '@/lib/utils';
 import { BookingCalendar } from '@/components/quotation/booking-calendar';
 import { SendCrewWhatsAppModal, CrewMemberDetail } from '@/components/quotation/send-crew-whatsapp-modal';
 import { Quotation, EventItem } from '@/lib/types';
@@ -373,7 +373,7 @@ export default function MasterCalendarPage() {
                             )}
                             {evt.timing && (
                               <span className="text-amber-800 font-semibold text-[10.5px] bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-0.5">
-                                <Clock className="w-2.5 h-2.5 text-amber-600" /> {evt.timing}
+                                <Clock className="w-2.5 h-2.5 text-amber-600" /> {formatEventTiming(evt.timing)}
                               </span>
                             )}
                           </span>
@@ -675,7 +675,7 @@ export default function MasterCalendarPage() {
                                 )}
                                 {evt.timing && (
                                   <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold text-xs flex items-center gap-1 border border-amber-200">
-                                    <Clock className="w-3 h-3 text-amber-600" /> {evt.timing}
+                                    <Clock className="w-3 h-3 text-amber-600" /> {formatEventTiming(evt.timing)}
                                   </span>
                                 )}
                               </div>
@@ -697,7 +697,7 @@ export default function MasterCalendarPage() {
                             {evt.timing && (
                               <div className="flex items-center gap-1.5">
                                 <Clock className="w-3.5 h-3.5 text-[#0D4F4F]" />
-                                <span className="font-semibold">{evt.timing}</span>
+                                <span className="font-semibold">{formatEventTiming(evt.timing)}</span>
                               </div>
                             )}
                             {evt.venue && (

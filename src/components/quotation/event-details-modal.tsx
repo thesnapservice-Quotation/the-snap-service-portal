@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Quotation, EventItem } from '@/lib/types';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, formatEventTiming } from '@/lib/utils';
 import { CrewMemberDetail } from '@/components/quotation/send-crew-whatsapp-modal';
 import { 
   Calendar as CalendarIcon, 
@@ -159,7 +159,7 @@ export function EventDetailsModal({
               <div>
                 <span className="text-[10px] text-slate-400 block font-semibold uppercase">Event Timing</span>
                 <span className="font-bold text-slate-900 block mt-0.5">
-                  {event.timing || '07:00 PM (Night Event)'}
+                  {event.timing ? formatEventTiming(event.timing) : 'Night Event'}
                 </span>
                 <span className="text-[10px] text-slate-500 block">Reporting: 06:30 PM (30 min before)</span>
               </div>
