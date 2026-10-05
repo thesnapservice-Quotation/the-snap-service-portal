@@ -90,7 +90,10 @@ export default function QuotationComparePage() {
     const existingVideoBreakdown = q.internalAnalysis?.videoEditingBreakdown || [];
     const initialVideoCosts: VideoEditingEventCost[] = updatedEvents.map((evt) => {
       const vQty = evt.services
-        .filter((s) => s.serviceName.toLowerCase().includes('video') || s.serviceName.toLowerCase().includes('videographer'))
+        .filter((s) => {
+          const name = s.serviceName.toLowerCase();
+          return name.includes('video') || name.includes('videographer') || name.includes('cinematograph');
+        })
         .reduce((sum, s) => sum + (s.quantity || 1), 0);
       const dQty = evt.services
         .filter((s) => s.serviceName.toLowerCase().includes('drone'))
@@ -384,6 +387,10 @@ export default function QuotationComparePage() {
     } catch (e) {
       console.error('Error syncing profit analysis to database', e);
       setSaveSuccessMsg('✅ Profit analysis saved locally!');
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('snap_quotation_updated'));
     }
 
     setTimeout(() => setSaveSuccessMsg(''), 3000);

@@ -154,6 +154,9 @@ export const storage = {
         updated = [quotation, ...all];
       }
       storage.setAllQuotations(updated);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('snap_quotation_updated'));
+      }
     } catch (e) {
       console.error('Error saving quotation locally', e);
     }

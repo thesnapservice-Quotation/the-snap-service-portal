@@ -137,6 +137,7 @@ function parseSupabaseRow(r: any): Quotation {
       paymentStatus,
     },
     termsAndConditions: base.termsAndConditions || [],
+    additionalExpenses: base.additionalExpenses || base.internalAnalysis?.additionalExpenses || [],
     internalAnalysis: base.internalAnalysis,
     securityPin: base.securityPin,
     publicLinkDate: pubDate,

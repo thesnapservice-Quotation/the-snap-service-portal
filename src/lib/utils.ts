@@ -267,7 +267,10 @@ export function calculateQuotationInternalCost(q: Quotation, srvs?: Service[]): 
   // 3. Day-by-Day Video Editing Cost
   const videoCost = q.internalAnalysis?.totalVideoEditingCost ?? (q.events || []).reduce((sum, evt) => {
     const vQty = (evt.services || [])
-      .filter((s) => s.serviceName.toLowerCase().includes('video') || s.serviceName.toLowerCase().includes('videographer'))
+      .filter((s) => {
+        const name = s.serviceName.toLowerCase();
+        return name.includes('video') || name.includes('videographer') || name.includes('cinematograph');
+      })
       .reduce((sSum, s) => sSum + (s.quantity || 1), 0);
     const dQty = (evt.services || [])
       .filter((s) => s.serviceName.toLowerCase().includes('drone'))
