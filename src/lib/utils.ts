@@ -130,6 +130,78 @@ export function sortQuotationsByNumber(quotes: Quotation[]): Quotation[] {
 }
 
 /**
+ * Sort wedding quotations for the Studio Calendar & Master Schedule:
+ * 1. Confirmed Upcoming Weddings (earliest upcoming date first)
+ * 2. Unconfirmed / Inquired Upcoming Weddings (earliest upcoming date first)
+ * 3. Dates Pending / TBD Weddings (newest quotation sequence first)
+ * 4. Past / Covered Weddings (dates have passed -> sent to the very bottom)
+ */
+export function sortCalendarQuotations(quotes: Quotation[]): Quotation[] {
+  const today = getTodayDateString();
+
+  return [...quotes].sort((a, b) => {
+    const getDates = (q: Quotation) => {
+      const dates = (q.events || [])
+        .map((e) => e.eventDate)
+        .filter((d): d is string => Boolean(d && d.trim().length > 0))
+        .sort();
+      return {
+        hasDates: dates.length > 0,
+        earliest: dates[0] || '',
+        latest: dates[dates.length - 1] || '',
+      };
+    };
+
+    const aInfo = getDates(a);
+    const bInfo = getDates(b);
+
+    const aIsConfirmed = a.status === 'confirmed';
+    const bIsConfirmed = b.status === 'confirmed';
+
+    const aIsPast = aInfo.hasDates && aInfo.latest < today;
+    const bIsPast = bInfo.hasDates && bInfo.latest < today;
+
+    const getRank = (info: { hasDates: boolean; earliest: string; latest: string }, isConfirmed: boolean, isPast: boolean) => {
+      if (info.hasDates && isPast) return 4;
+      if (!info.hasDates) return 3;
+      if (isConfirmed) return 1;
+      return 2;
+    };
+
+    const aRank = getRank(aInfo, aIsConfirmed, aIsPast);
+    const bRank = getRank(bInfo, bIsConfirmed, bIsPast);
+
+    if (aRank !== bRank) {
+      return aRank - bRank;
+    }
+
+    // Inside Rank 1 (Confirmed Upcoming) & Rank 2 (Unconfirmed Upcoming):
+    // Strict chronological date sequence (earliest event date ascending)
+    if (aRank === 1 || aRank === 2) {
+      const cmp = aInfo.earliest.localeCompare(bInfo.earliest);
+      if (cmp !== 0) return cmp;
+      return extractQuotationSeq(b.quotationNumber) - extractQuotationSeq(a.quotationNumber);
+    }
+
+    // Inside Rank 3 (Dates Pending / TBD):
+    // Sequence descending (newest quotation first)
+    if (aRank === 3) {
+      return extractQuotationSeq(b.quotationNumber) - extractQuotationSeq(a.quotationNumber);
+    }
+
+    // Inside Rank 4 (Past / Covered):
+    // Most recently covered events first, older ones below
+    if (aRank === 4) {
+      const cmp = bInfo.latest.localeCompare(aInfo.latest);
+      if (cmp !== 0) return cmp;
+      return extractQuotationSeq(b.quotationNumber) - extractQuotationSeq(a.quotationNumber);
+    }
+
+    return 0;
+  });
+}
+
+/**
  * Format today's date in YYYY-MM-DD for input[type="date"]
  */
 export function getTodayDateString(): string {

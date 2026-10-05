@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
-import { formatCurrency, formatDate, formatEventTiming } from '@/lib/utils';
+import { formatCurrency, formatDate, formatEventTiming, sortCalendarQuotations, getTodayDateString } from '@/lib/utils';
 import { BookingCalendar } from '@/components/quotation/booking-calendar';
 import { SendCrewWhatsAppModal, CrewMemberDetail } from '@/components/quotation/send-crew-whatsapp-modal';
 import { Quotation, EventItem } from '@/lib/types';
@@ -100,7 +100,7 @@ export default function MasterCalendarPage() {
 
   // Filter & Search Quotations
   const filteredQuotations = useMemo(() => {
-    return quotations.filter((q) => {
+    const list = quotations.filter((q) => {
       if (statusFilter !== 'all' && q.status !== statusFilter) {
         return false;
       }
@@ -132,6 +132,8 @@ export default function MasterCalendarPage() {
 
       return false;
     });
+
+    return sortCalendarQuotations(list);
   }, [quotations, search, statusFilter]);
 
   // Helper to open Crew WhatsApp Dialog
@@ -223,6 +225,7 @@ export default function MasterCalendarPage() {
 
       {/* Interactive Visual Month Calendar Grid */}
       <BookingCalendar
+        quotationsList={quotations}
         events={quotations[0]?.events || []}
         onSelectEventDate={() => {}}
       />
@@ -285,41 +288,80 @@ export default function MasterCalendarPage() {
             {filteredQuotations.map((q) => {
               const dateRangeStr = getWeddingDateRange(q.events);
               const isConfirmed = q.status === 'confirmed' || q.status === 'completed';
+              const today = getTodayDateString();
+              const validDates = q.events
+                .map((e) => e.eventDate)
+                .filter((d): d is string => Boolean(d && d.trim().length > 0))
+                .sort();
+              const hasDates = validDates.length > 0;
+              const isPast = hasDates && validDates[validDates.length - 1] < today;
 
               return (
                 <div
                   key={q.id}
                   onClick={() => setSelectedWeddingModalQuotation(q)}
-                  className="bg-white rounded-2xl border-2 border-[#E5E0D5] hover:border-[#D4AF37] transition-all shadow-sm hover:shadow-md overflow-hidden flex flex-col justify-between cursor-pointer group"
+                  className={`bg-white rounded-2xl border-2 transition-all shadow-sm hover:shadow-md overflow-hidden flex flex-col justify-between cursor-pointer group ${
+                    isPast
+                      ? 'border-slate-300 opacity-90 hover:opacity-100 hover:border-slate-400'
+                      : isConfirmed
+                      ? 'border-[#E5E0D5] hover:border-emerald-600'
+                      : 'border-[#E5E0D5] hover:border-[#D4AF37]'
+                  }`}
                 >
                   {/* Card Header: Large Bold Date Header + Status */}
-                  <div className="bg-gradient-to-r from-[#0D4F4F] to-[#093A3A] text-white p-4 flex items-center justify-between gap-2">
+                  <div
+                    className={`p-4 flex items-center justify-between gap-2 text-white transition-colors ${
+                      isPast
+                        ? 'bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900'
+                        : isConfirmed
+                        ? 'bg-gradient-to-r from-[#0D4F4F] via-[#0A4242] to-[#083333]'
+                        : 'bg-gradient-to-r from-[#1E293B] via-[#0F172A] to-[#020617]'
+                    }`}
+                  >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] font-bold shrink-0">
-                        <CalendarIcon className="w-5 h-5" />
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold shrink-0 ${
+                          isPast
+                            ? 'bg-slate-600/50 border border-slate-500 text-slate-300'
+                            : isConfirmed
+                            ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#D4AF37]'
+                            : 'bg-slate-700/60 border border-slate-600 text-slate-200'
+                        }`}
+                      >
+                        {isPast ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> : <CalendarIcon className="w-5 h-5" />}
                       </div>
                       <div>
                         <span className="font-serif font-bold text-base text-[#FAF9F6] block tracking-wide">
                           {dateRangeStr}
                         </span>
                         <span className="text-[10px] text-[#C3DFDF] uppercase tracking-widest font-semibold block">
-                          {q.events.length} Event Day{q.events.length > 1 ? 's' : ''} Scheduled
+                          {isPast
+                            ? `✓ ${q.events.length} Event Day${q.events.length > 1 ? 's' : ''} Completed / Past`
+                            : `${q.events.length} Event Day${q.events.length > 1 ? 's' : ''} Scheduled`}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span
-                        className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 ${
-                          isConfirmed
-                            ? 'bg-emerald-500 text-white border-emerald-400 shadow-xs'
-                            : q.status === 'not_confirmed'
-                            ? 'bg-red-500 text-white border-red-400'
-                            : 'bg-[#D4AF37] text-[#0D4F4F] border-white/40'
-                        }`}
-                      >
-                        {q.status === 'not_confirmed' ? 'Not Confirmed' : q.status}
-                      </span>
+                      {isPast ? (
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 bg-slate-600 text-white border-slate-500 shadow-2xs flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span>Event Covered</span>
+                        </span>
+                      ) : isConfirmed ? (
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 bg-emerald-500 text-white border-emerald-400 shadow-2xs flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-white" />
+                          <span>Confirmed</span>
+                        </span>
+                      ) : q.status === 'not_confirmed' ? (
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 bg-red-500 text-white border-red-400 shadow-2xs">
+                          Not Confirmed
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 bg-[#D4AF37] text-[#0D4F4F] border-white/40 shadow-2xs">
+                          {q.status}
+                        </span>
+                      )}
                     </div>
                   </div>
 
