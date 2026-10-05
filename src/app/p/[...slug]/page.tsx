@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Quotation, AppSettings } from '@/lib/types';
+import { Quotation, AppSettings, PaymentTransaction } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { apiFetchQuotationById, apiFetchPublicQuotation, apiSaveQuotation, apiFetchSettings } from '@/lib/api-client';
-import { decompactQuotationData, decodeQuotationData, formatCurrency, formatWhatsAppPhone, getQuotationSecurityPin, calculatePaymentMilestones } from '@/lib/utils';
+import { decompactQuotationData, decodeQuotationData, formatCurrency, formatWhatsAppPhone, getQuotationSecurityPin, calculatePaymentMilestones, getTodayDateString } from '@/lib/utils';
+import { generateSecureId } from '@/lib/crypto';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check, ShieldAlert, Wallet } from 'lucide-react';
 
@@ -135,11 +136,47 @@ function ShortClientPortalContent() {
   const handleStep1Confirm = async () => {
     if (!quotation) return;
     const proposed = Number(customAdvanceAmount) || Math.round((quotation.payment.grandTotal || 0) * 0.5);
+
+    // Synchronize to Payment Ledger transactions
+    const existingTx = quotation.payment?.transactions || [];
+    const portalTxIndex = existingTx.findIndex(
+      (t) => t.recordedBy === 'Client Portal (Online Confirmation)' || t.id.startsWith('tx-portal-')
+    );
+
+    const portalTx: PaymentTransaction = {
+      id: portalTxIndex >= 0 ? existingTx[portalTxIndex].id : `tx-portal-${quotation.id}-${generateSecureId('tx')}`,
+      date: getTodayDateString(),
+      amount: proposed,
+      method: 'bank_transfer',
+      notes: `Online Booking Confirmation Advance transferred by client (${quotation.client?.name || 'Client'}) via Studio Portal`,
+      recordedBy: 'Client Portal (Online Confirmation)',
+      createdAt: portalTxIndex >= 0 ? existingTx[portalTxIndex].createdAt : new Date().toISOString(),
+    };
+
+    const updatedTx = portalTxIndex >= 0
+      ? existingTx.map((t, idx) => (idx === portalTxIndex ? portalTx : t))
+      : [portalTx, ...existingTx];
+
+    const totalPaid = updatedTx.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const grandTotal = quotation.payment?.grandTotal || 0;
+    const balancePayable = Math.max(0, grandTotal - totalPaid);
+
+    let paymentStatus: 'unpaid' | 'partially_paid' | 'paid_in_full' = 'unpaid';
+    if (totalPaid >= grandTotal && grandTotal > 0) {
+      paymentStatus = 'paid_in_full';
+    } else if (totalPaid > 0) {
+      paymentStatus = 'partially_paid';
+    }
+
     const updated: Quotation = {
       ...quotation,
       status: 'confirmed',
       payment: {
         ...quotation.payment,
+        advanceReceived: totalPaid,
+        balancePayable: balancePayable,
+        transactions: updatedTx,
+        paymentStatus: paymentStatus,
         clientProposedAdvance: proposed,
       },
       updatedAt: new Date().toISOString(),

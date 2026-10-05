@@ -40,11 +40,39 @@ export const storage = {
       const parsed = JSON.parse(data);
       if (!Array.isArray(parsed)) return [];
       const deletedIds = storage.getDeletedIds();
-      return parsed.filter((q: Quotation) => {
-        const idMatch = q.id && deletedIds.has(q.id.toLowerCase());
-        const numMatch = q.quotationNumber && deletedIds.has(q.quotationNumber.toLowerCase());
-        return !idMatch && !numMatch;
-      });
+      return parsed
+        .filter((q: Quotation) => {
+          const idMatch = q.id && deletedIds.has(q.id.toLowerCase());
+          const numMatch = q.quotationNumber && deletedIds.has(q.quotationNumber.toLowerCase());
+          return !idMatch && !numMatch;
+        })
+        .map((q: Quotation) => {
+          if (!q.payment) return q;
+          const rawTx = q.payment.transactions || [];
+          const adv = Number(q.payment.advanceReceived) || Number(q.payment.clientProposedAdvance) || 0;
+          if (rawTx.length === 0 && adv > 0) {
+            const autoTx: PaymentTransaction = {
+              id: `tx-portal-${q.id}`,
+              date: q.client?.quotationDate || q.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+              amount: adv,
+              method: 'bank_transfer',
+              notes: 'Booking Confirmation Advance transferred via Studio Portal',
+              recordedBy: 'Client Portal (Online Confirmation)',
+              createdAt: q.createdAt || new Date().toISOString(),
+            };
+            return {
+              ...q,
+              payment: {
+                ...q.payment,
+                advanceReceived: adv,
+                balancePayable: Math.max(0, (q.payment.grandTotal || 0) - adv),
+                transactions: [autoTx],
+                paymentStatus: (adv >= (q.payment.grandTotal || 0) && (q.payment.grandTotal || 0) > 0) ? 'paid_in_full' : 'partially_paid',
+              },
+            };
+          }
+          return q;
+        });
     } catch (e) {
       console.error('Error reading quotations from localStorage', e);
       return [];

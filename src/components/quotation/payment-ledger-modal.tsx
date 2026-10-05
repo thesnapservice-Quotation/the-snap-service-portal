@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Quotation, PaymentTransaction, PaymentMethod } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { apiSaveQuotation } from '@/lib/api-client';
@@ -102,6 +102,34 @@ export function PaymentLedgerModal({
     }
     setTimeout(() => setSavingMsg(''), 2500);
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const existing = quotation.payment?.transactions || [];
+    if (existing.length > 0) {
+      setTransactions(existing);
+      return;
+    }
+
+    const fallbackAmt = Number(quotation.payment?.advanceReceived) || Number(quotation.payment?.clientProposedAdvance) || 0;
+    if (fallbackAmt > 0) {
+      const autoTx: PaymentTransaction = {
+        id: `tx-init-${quotation.id}`,
+        date: quotation.client?.quotationDate || quotation.createdAt?.split('T')[0] || getTodayDateString(),
+        amount: fallbackAmt,
+        method: 'bank_transfer',
+        notes: quotation.payment?.clientProposedAdvance
+          ? `Booking Confirmation Advance transferred by client (${quotation.client?.name || 'Client'}) via Studio Portal`
+          : `Booking Confirmation Advance`,
+        recordedBy: 'Client Portal (Online Confirmation)',
+        createdAt: quotation.createdAt || new Date().toISOString(),
+      };
+      setTransactions([autoTx]);
+      syncAndSave([autoTx]).catch(() => {});
+    } else {
+      setTransactions([]);
+    }
+  }, [quotation.id, isOpen]);
 
   // Add new payment
   const handleAddPayment = async (e: React.FormEvent) => {

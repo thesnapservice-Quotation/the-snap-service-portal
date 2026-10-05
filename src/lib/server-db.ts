@@ -69,6 +69,45 @@ function parseSupabaseRow(r: any): Quotation {
     (r.client?.quotationDate ? r.client.quotationDate.split('T')[0] : (r.created_at ? r.created_at.split('T')[0] : new Date().toISOString().split('T')[0]))
   ).trim();
 
+  const rawPayment = {
+    ...(base.payment || {}),
+    ...(r.payment || {}),
+  };
+
+  const rawTransactions: any[] =
+    (r.payment?.transactions && Array.isArray(r.payment.transactions) && r.payment.transactions.length > 0)
+      ? r.payment.transactions
+      : (base.payment?.transactions && Array.isArray(base.payment.transactions) && base.payment.transactions.length > 0)
+      ? base.payment.transactions
+      : [];
+
+  const effectiveAdvance = Number(rawPayment.advanceReceived) || Number(rawPayment.clientProposedAdvance) || 0;
+
+  // Auto-heal: If booking has an advance or clientProposedAdvance, but transactions array is empty,
+  // ensure the initial advance transaction exists in the ledger!
+  const finalTransactions = (rawTransactions.length === 0 && effectiveAdvance > 0)
+    ? [{
+        id: `tx-portal-${r.id || base.id}`,
+        date: (r.client?.quotationDate || base.client?.quotationDate || r.created_at || base.createdAt || new Date().toISOString()).split('T')[0],
+        amount: effectiveAdvance,
+        method: 'bank_transfer',
+        notes: `Online Booking Confirmation Advance transferred by client (${r.client?.name || base.client?.name || 'Client'}) via Studio Portal`,
+        recordedBy: 'Client Portal (Online Confirmation)',
+        createdAt: r.created_at || base.createdAt || new Date().toISOString(),
+      }]
+    : rawTransactions;
+
+  const totalPaid = finalTransactions.length > 0
+    ? finalTransactions.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
+    : effectiveAdvance;
+
+  const grandTotal = Number(rawPayment.grandTotal) || 0;
+  const balancePayable = Math.max(0, grandTotal - totalPaid);
+
+  let paymentStatus: 'unpaid' | 'partially_paid' | 'paid_in_full' = rawPayment.paymentStatus || 'unpaid';
+  if (totalPaid >= grandTotal && grandTotal > 0) paymentStatus = 'paid_in_full';
+  else if (totalPaid > 0) paymentStatus = 'partially_paid';
+
   return {
     id: r.id || base.id,
     quotationNumber: r.quotation_number || base.quotationNumber,
@@ -84,7 +123,16 @@ function parseSupabaseRow(r: any): Quotation {
     packageType: base.packageType || 'multi_event',
     events: r.events || base.events || [],
     inclusions: r.inclusions || base.inclusions || [],
-    payment: r.payment || base.payment || { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+    payment: {
+      ...rawPayment,
+      grandTotal,
+      advanceReceived: totalPaid,
+      advanceType: rawPayment.advanceType || 'fixed',
+      balancePayable,
+      transactions: finalTransactions,
+      clientProposedAdvance: rawPayment.clientProposedAdvance || (effectiveAdvance > 0 ? effectiveAdvance : undefined),
+      paymentStatus,
+    },
     termsAndConditions: base.termsAndConditions || [],
     internalAnalysis: base.internalAnalysis,
     securityPin: base.securityPin,
