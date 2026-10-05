@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
-import { formatCurrency, formatDate, formatEventTiming, sortCalendarQuotations, getTodayDateString } from '@/lib/utils';
+import { formatCurrency, formatDate, formatEventTiming, sortCalendarQuotations, getTodayDateString, isQuotationExpired } from '@/lib/utils';
 import { BookingCalendar } from '@/components/quotation/booking-calendar';
 import { SendCrewWhatsAppModal, CrewMemberDetail } from '@/components/quotation/send-crew-whatsapp-modal';
 import { Quotation, EventItem } from '@/lib/types';
@@ -49,37 +49,44 @@ export default function MasterCalendarPage() {
   const [selectedCrewMember, setSelectedCrewMember] = useState<CrewMemberDetail | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>(undefined);
 
-  // Aggregate stats across all quotations
-  const totalEventsCount = useMemo(() => {
-    return quotations.reduce((sum, q) => sum + (q.events?.length || 0), 0);
+  // Strictly active quotations (excluding any trash, deleted, or auto-expired)
+  const activeQuotations = useMemo(() => {
+    return quotations.filter(
+      (q) => q && q.status !== 'trash' && !q.isDeleted && !q.deletedAt && !isQuotationExpired(q)
+    );
   }, [quotations]);
 
+  // Aggregate stats across all active quotations
+  const totalEventsCount = useMemo(() => {
+    return activeQuotations.reduce((sum, q) => sum + (q.events?.length || 0), 0);
+  }, [activeQuotations]);
+
   const totalPhotographers = useMemo(() => {
-    return quotations.reduce((sum, q) => {
+    return activeQuotations.reduce((sum, q) => {
       return sum + q.events.reduce((eSum, evt) => {
         const pQty = evt.services.find((s) => s.serviceName.toLowerCase().includes('photo'))?.quantity || 0;
         return eSum + pQty;
       }, 0);
     }, 0);
-  }, [quotations]);
+  }, [activeQuotations]);
 
   const totalVideographers = useMemo(() => {
-    return quotations.reduce((sum, q) => {
+    return activeQuotations.reduce((sum, q) => {
       return sum + q.events.reduce((eSum, evt) => {
         const vQty = evt.services.find((s) => s.serviceName.toLowerCase().includes('video'))?.quantity || 0;
         return eSum + vQty;
       }, 0);
     }, 0);
-  }, [quotations]);
+  }, [activeQuotations]);
 
   const totalDrones = useMemo(() => {
-    return quotations.reduce((sum, q) => {
+    return activeQuotations.reduce((sum, q) => {
       return sum + q.events.reduce((eSum, evt) => {
         const dQty = evt.services.find((s) => s.serviceName.toLowerCase().includes('drone'))?.quantity || 0;
         return eSum + dQty;
       }, 0);
     }, 0);
-  }, [quotations]);
+  }, [activeQuotations]);
 
   // Compute big wedding date range string for a quotation
   const getWeddingDateRange = (events: EventItem[]): string => {
@@ -100,7 +107,7 @@ export default function MasterCalendarPage() {
 
   // Filter & Search Quotations
   const filteredQuotations = useMemo(() => {
-    const list = quotations.filter((q) => {
+    const list = activeQuotations.filter((q) => {
       if (statusFilter !== 'all' && q.status !== statusFilter) {
         return false;
       }
@@ -134,7 +141,7 @@ export default function MasterCalendarPage() {
     });
 
     return sortCalendarQuotations(list);
-  }, [quotations, search, statusFilter]);
+  }, [activeQuotations, search, statusFilter]);
 
   // Helper to open Crew WhatsApp Dialog
   const handleOpenCrewModal = (
@@ -225,8 +232,8 @@ export default function MasterCalendarPage() {
 
       {/* Interactive Visual Month Calendar Grid */}
       <BookingCalendar
-        quotationsList={quotations}
-        events={quotations[0]?.events || []}
+        quotationsList={activeQuotations}
+        events={activeQuotations[0]?.events || []}
         onSelectEventDate={() => {}}
       />
 

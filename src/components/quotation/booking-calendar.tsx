@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Quotation, EventItem } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { formatDate, formatEventTiming, formatWhatsAppPhone, formatCurrency } from '@/lib/utils';
+import { formatDate, formatEventTiming, formatWhatsAppPhone, formatCurrency, isQuotationExpired } from '@/lib/utils';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -74,9 +74,14 @@ export function BookingCalendar({
   // Fetch all existing quotations to compute booked dates map
   const bookedDatesMap = useMemo(() => {
     const map: Record<string, BookedDateInfo[]> = {};
-    const allQuotations = quotationsList && quotationsList.length > 0 ? quotationsList : storage.getQuotations();
+    const rawList = quotationsList && quotationsList.length > 0 ? quotationsList : storage.getQuotations();
 
-    allQuotations.forEach((q) => {
+    // STRICT: Exclude any quotations in Trash, deleted, or auto-expired
+    const activeQuotations = rawList.filter(
+      (q) => q && q.status !== 'trash' && !q.isDeleted && !q.deletedAt && !isQuotationExpired(q)
+    );
+
+    activeQuotations.forEach((q) => {
       // Ignore current quotation if editing
       if (currentQuotationId && q.id === currentQuotationId) return;
 
