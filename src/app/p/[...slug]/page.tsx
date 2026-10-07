@@ -54,6 +54,18 @@ function ShortClientPortalContent() {
     }
   };
 
+  // Lock background body scroll on mobile and desktop when modal is open
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (showConfirmModal) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [showConfirmModal]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -473,8 +485,13 @@ function ShortClientPortalContent() {
 
       {/* Confirmation & Payment Method Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full max-h-[92vh] sm:max-h-[85vh] flex flex-col shadow-2xl border-t sm:border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200">
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowConfirmModal(false);
+          }}
+        >
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full h-[88dvh] sm:h-auto sm:max-h-[85vh] flex flex-col shadow-2xl border-t sm:border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200">
             {/* Mobile Sheet Pull Handle */}
             <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2 mb-0 sm:hidden shrink-0" />
 
@@ -510,7 +527,10 @@ function ShortClientPortalContent() {
             </div>
 
             {/* Scrollable Modal Body */}
-            <div className="p-4 overflow-y-auto space-y-3 text-xs overscroll-contain">
+            <div 
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 pb-8 sm:pb-4 space-y-3 text-xs touch-pan-y"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               {/* Payment Method Switcher (Segmented Pill) */}
               <div className="bg-slate-100 p-1 rounded-xl grid grid-cols-2 gap-1">
                 <button
