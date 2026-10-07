@@ -9,7 +9,7 @@ import { formatCurrency, formatWhatsAppPhone, decodeQuotationData, getQuotationS
 import { generateSecureId } from '@/lib/crypto';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { ClientVariationSelector } from '@/components/portal/client-variation-selector';
-import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check, ShieldAlert, Wallet } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, Sparkles, MessageSquare, Building2, X, AlertCircle, ArrowRight, Copy, Check, ShieldAlert, Wallet, Banknote } from 'lucide-react';
 
 function ClientPortalContent() {
   const params = useParams();
@@ -41,6 +41,7 @@ function ClientPortalContent() {
   const [accessDenied, setAccessDenied] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'bank_transfer' | 'cash'>('bank_transfer');
   const [stepConfirmed, setStepConfirmed] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [customAdvanceAmount, setCustomAdvanceAmount] = useState<number | ''>('');
@@ -110,6 +111,11 @@ function ClientPortalContent() {
           setStepConfirmed(isAlreadyConfirmed);
           const initialAdv = q.payment.clientProposedAdvance || (q.payment.advanceReceived > 0 ? q.payment.advanceReceived : Math.round((q.payment.grandTotal || 0) * 0.5));
           setCustomAdvanceAmount(initialAdv);
+          const existingTx = q.payment?.transactions || [];
+          const portalTx = existingTx.find(t => t.recordedBy === 'Client Portal (Online Confirmation)' || t.id.startsWith('tx-portal-'));
+          if (portalTx?.method === 'cash') {
+            setPaymentMethod('cash');
+          }
         } else {
           setQuotation(null);
         }
@@ -139,6 +145,13 @@ function ClientPortalContent() {
     if (displayQuotation) {
       const initialAdv = displayQuotation.payment.clientProposedAdvance || (displayQuotation.payment.advanceReceived > 0 ? displayQuotation.payment.advanceReceived : Math.round((displayQuotation.payment.grandTotal || 0) * 0.5));
       setCustomAdvanceAmount(initialAdv);
+      const existingTx = displayQuotation.payment?.transactions || [];
+      const portalTx = existingTx.find(t => t.recordedBy === 'Client Portal (Online Confirmation)' || t.id.startsWith('tx-portal-'));
+      if (portalTx?.method === 'cash') {
+        setPaymentMethod('cash');
+      } else {
+        setPaymentMethod('bank_transfer');
+      }
     }
     setShowConfirmModal(true);
   };
@@ -154,12 +167,14 @@ function ClientPortalContent() {
       (t) => t.recordedBy === 'Client Portal (Online Confirmation)' || t.id.startsWith('tx-portal-')
     );
 
+    const paymentMethodLabel = paymentMethod === 'cash' ? 'Cash Payment' : 'Bank Transfer';
+
     const portalTx: PaymentTransaction = {
       id: portalTxIndex >= 0 ? existingTx[portalTxIndex].id : `tx-portal-${quotation.id}-${generateSecureId('tx')}`,
       date: getTodayDateString(),
       amount: proposed,
-      method: 'bank_transfer',
-      notes: `Online Booking Confirmation Advance transferred by client (${quotation.client?.name || 'Client'}) via Studio Portal`,
+      method: paymentMethod,
+      notes: `Online Booking Confirmation Advance via ${paymentMethodLabel} by client (${quotation.client?.name || 'Client'}) via Studio Portal`,
       recordedBy: 'Client Portal (Online Confirmation)',
       createdAt: portalTxIndex >= 0 ? existingTx[portalTxIndex].createdAt : new Date().toISOString(),
     };
@@ -290,7 +305,9 @@ function ClientPortalContent() {
   const proposedAdv = effectiveAdv > 0 ? effectiveAdv : portalMilestones.stage1Amount;
 
   const whatsappMessage = encodeURIComponent(
-    `Assalam-o-Alaikum! I have confirmed booking for Quotation #${displayQuotation.quotationNumber} (${displayQuotation.client.name})${displayQuotation.variations && displayQuotation.variations.length > 1 ? ` - ${activeVar?.name}` : ''}. Advance Amount: ${formatCurrency(proposedAdv)} (Bank Transfer / Cash). Here is my payment receipt screenshot!`
+    paymentMethod === 'cash'
+      ? `Assalam-o-Alaikum! I have confirmed my booking for Quotation #${displayQuotation.quotationNumber} (${displayQuotation.client.name})${displayQuotation.variations && displayQuotation.variations.length > 1 ? ` - ${activeVar?.name}` : ''}.\n\nPayment Mode: Cash Payment\nAdvance Amount: ${formatCurrency(proposedAdv)}\n\nPlease note my booking reservation.`
+      : `Assalam-o-Alaikum! I have confirmed booking for Quotation #${displayQuotation.quotationNumber} (${displayQuotation.client.name})${displayQuotation.variations && displayQuotation.variations.length > 1 ? ` - ${activeVar?.name}` : ''}.\n\nPayment Mode: Bank Transfer\nAdvance Amount: ${formatCurrency(proposedAdv)}\n\nHere is my payment receipt screenshot!`
   );
 
   const txList = displayQuotation.payment?.transactions || [];
@@ -437,21 +454,24 @@ function ClientPortalContent() {
         </div>
       </main>
 
-      {/* Confirmation & Bank Modal */}
+      {/* Confirmation & Payment Method Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full max-h-[88vh] flex flex-col shadow-2xl border border-[#D4AF37] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Sticky Modal Header */}
-            <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-[#0D4F4F]/10 text-[#0D4F4F]">
-                  <Building2 className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full max-h-[92vh] sm:max-h-[85vh] flex flex-col shadow-2xl border-t sm:border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200">
+            {/* Mobile Sheet Pull Handle */}
+            <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mt-2 mb-0 sm:hidden shrink-0" />
+
+            {/* Modal Header */}
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[#0D4F4F]/10 text-[#0D4F4F]">
+                  <ShieldCheck className="w-4 h-4 text-[#0D4F4F]" />
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-sm text-[#0D4F4F]">
-                    Lock Booking & Bank Transfer
+                    Lock Booking Confirmation
                   </h3>
-                  <p className="text-[9.5px] text-slate-500 font-medium">
+                  <p className="text-[10px] text-slate-500 font-medium">
                     Quotation #{displayQuotation.quotationNumber} • {displayQuotation.client.name}
                     {displayQuotation.variations && displayQuotation.variations.length > 1 && (
                       <span className="ml-1 text-[#D4AF37] font-bold">
@@ -465,217 +485,257 @@ function ClientPortalContent() {
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                 title="Close modal"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Scrollable Compact Body */}
-            <div className="p-3 sm:p-4 overflow-y-auto space-y-2.5 text-xs">
-              {/* 3-Stage Milestone Payment Schedule Box */}
-              <div className="bg-[#FAF9F6] p-2.5 rounded-xl border border-[#E5E0D5] space-y-1">
-                <div className="flex items-center justify-between text-[11px] font-bold text-[#0D4F4F] pb-1 border-b border-[#E5E0D5]">
-                  <span>Payment Plan & Milestone Schedule</span>
-                  <span>Amount (PKR)</span>
+            {/* Scrollable Modal Body */}
+            <div className="p-4 overflow-y-auto space-y-3 text-xs overscroll-contain">
+              {/* Payment Method Switcher (Segmented Pill) */}
+              <div className="bg-slate-100 p-1 rounded-xl grid grid-cols-2 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('bank_transfer')}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    paymentMethod === 'bank_transfer'
+                      ? 'bg-white text-[#0D4F4F] shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5 text-[#0D4F4F]" />
+                  <span>Bank Transfer</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('cash')}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    paymentMethod === 'cash'
+                      ? 'bg-white text-emerald-800 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Cash Payment</span>
+                </button>
+              </div>
+
+              {/* Milestone Schedule (Compact & Minimal) */}
+              <div className="bg-[#FAF9F6] p-3 rounded-xl border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60">
+                  <span className="text-[11px] font-bold text-slate-700">Payment Milestone Plan</span>
+                  <span className="text-[11px] font-extrabold text-[#0D4F4F]">
+                    Total: {formatCurrency(quotation.payment.grandTotal)}
+                  </span>
                 </div>
-                <div className="space-y-1 text-[11px]">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-3.5 h-3.5 rounded-full bg-[#0D4F4F] text-[#D4AF37] font-bold text-[8.5px] flex items-center justify-center">1</span>
-                      <span className="text-slate-700 font-medium">50% Advance to confirm booking</span>
-                    </div>
-                    <span className="font-bold text-[#0D4F4F]">
-                      {formatCurrency(portalMilestones.stage1Amount)}
-                    </span>
-                  </div>
 
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-3.5 h-3.5 rounded-full bg-[#0D4F4F] text-[#D4AF37] font-bold text-[8.5px] flex items-center justify-center">2</span>
-                      <span className="text-slate-700 font-medium">25% After event completion</span>
-                    </div>
-                    <span className="font-bold text-slate-800">
-                      {formatCurrency(portalMilestones.stage2Amount)}
-                    </span>
+                <div className="grid grid-cols-3 gap-1.5 text-[10.5px]">
+                  <div className="bg-white p-2 rounded-lg border border-slate-100 shadow-2xs text-center">
+                    <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Step 1 (50%)</span>
+                    <span className="font-bold text-[#0D4F4F] block mt-0.5">{formatCurrency(portalMilestones.stage1Amount)}</span>
+                    <span className="text-[8.5px] text-slate-500 block">On Booking</span>
                   </div>
-
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-3.5 h-3.5 rounded-full bg-[#0D4F4F] text-[#D4AF37] font-bold text-[8.5px] flex items-center justify-center">3</span>
-                      <span className="text-slate-700 font-medium">25% Before final delivery</span>
-                    </div>
-                    <span className="font-bold text-slate-800">
-                      {formatCurrency(portalMilestones.stage3Amount)}
-                    </span>
+                  <div className="bg-white p-2 rounded-lg border border-slate-100 shadow-2xs text-center">
+                    <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Step 2 (25%)</span>
+                    <span className="font-bold text-slate-700 block mt-0.5">{formatCurrency(portalMilestones.stage2Amount)}</span>
+                    <span className="text-[8.5px] text-slate-500 block">On Event Day</span>
                   </div>
-
-                  <div className="flex justify-between items-center pt-1 border-t border-dashed border-[#E5E0D5]">
-                    <span className="font-bold text-slate-900 text-xs">Total Package Amount:</span>
-                    <span className="text-sm font-serif font-extrabold text-[#0D4F4F]">
-                      {formatCurrency(quotation.payment.grandTotal)}
-                    </span>
+                  <div className="bg-white p-2 rounded-lg border border-slate-100 shadow-2xs text-center">
+                    <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Step 3 (25%)</span>
+                    <span className="font-bold text-slate-700 block mt-0.5">{formatCurrency(portalMilestones.stage3Amount)}</span>
+                    <span className="text-[8.5px] text-slate-500 block">Final Delivery</span>
                   </div>
                 </div>
               </div>
 
-              {/* Client Custom Advance Amount Input */}
-              <div className="bg-[#FAF9F6] p-2.5 rounded-xl border border-[#D4AF37] space-y-1 shadow-2xs">
+              {/* Advance Amount Input */}
+              <div className="bg-[#FAF9F6] p-3 rounded-xl border border-[#D4AF37]/50 space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-[#0D4F4F] flex items-center gap-1">
+                  <label className="text-[11px] font-bold text-[#0D4F4F] flex items-center gap-1.5">
                     <Wallet className="w-3.5 h-3.5 text-[#D4AF37]" />
-                    Advance Amount You Are Transferring (PKR)
+                    {paymentMethod === 'cash' ? 'Cash Advance to Deposit (PKR)' : 'Advance Amount to Transfer (PKR)'}
                   </label>
-                  <span className="text-[9px] text-slate-500 font-medium">Editable amount</span>
+                  <span className="text-[9px] text-slate-400 font-medium">Editable</span>
                 </div>
+
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1.5 font-bold text-xs text-[#0D4F4F]">Rs.</span>
+                  <span className="absolute left-3 top-2 font-bold text-xs text-[#0D4F4F]">Rs.</span>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="1000"
                     max={quotation.payment.grandTotal}
                     value={customAdvanceAmount}
                     onChange={(e) => setCustomAdvanceAmount(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full pl-8 pr-2.5 py-1 bg-white border border-[#D4AF37]/70 rounded-lg font-bold text-slate-900 text-sm focus:ring-1 focus:ring-[#0D4F4F] focus:border-[#0D4F4F] outline-hidden"
-                    placeholder="e.g. 50000"
+                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-900 text-sm focus:ring-1 focus:ring-[#0D4F4F] focus:border-[#0D4F4F] outline-hidden transition-all"
+                    placeholder="e.g. 35000"
                   />
                 </div>
+
                 <div className="flex items-center justify-between text-[9.5px] text-slate-500 font-medium pt-0.5">
                   <span>Standard 50%: {formatCurrency(Math.round(quotation.payment.grandTotal * 0.5))}</span>
                   <span>Remaining: {formatCurrency(Math.max(0, quotation.payment.grandTotal - (Number(customAdvanceAmount) || 0)))}</span>
                 </div>
               </div>
 
-              {/* Studio Official Bank Details */}
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1.5 text-[11px]">
-                <div className="flex items-center justify-between pb-1 border-b border-slate-200 text-slate-700 font-bold">
-                  <span>Official Studio Bank Account</span>
-                  <span className="text-[9.5px] text-[#0D4F4F] font-mono bg-[#D4AF37]/20 px-1.5 py-0.5 rounded-md">
-                    Verified
-                  </span>
-                </div>
+              {/* METHOD SPECIFIC CARDS */}
+              {paymentMethod === 'bank_transfer' ? (
+                /* Bank Account Details Card */
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-2 text-[11px]">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/70 text-slate-700 font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-[#0D4F4F]" /> Official Studio Bank Account
+                    </span>
+                    <span className="text-[9px] text-emerald-800 font-medium bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                      Verified
+                    </span>
+                  </div>
 
-                <div className="space-y-1">
-                  {(settings.bank.bank || settings.bank.branch) && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500">Bank Name:</span>
-                      <span className="font-bold text-slate-800">{[settings.bank.bank, settings.bank.branch].filter(Boolean).join(' — ')}</span>
-                    </div>
-                  )}
-
-                  {settings.bank.accountTitle && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500">Account Title:</span>
-                      <span className="font-bold text-slate-800">{settings.bank.accountTitle}</span>
-                    </div>
-                  )}
-
-                  {settings.bank.accountNumber && (
-                    <div className="flex justify-between items-center pt-0.5">
-                      <span className="text-slate-500">Account Number:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold font-mono text-slate-800 select-all">
-                          {settings.bank.accountNumber}
+                  <div className="space-y-1.5">
+                    {(settings.bank.bank || settings.bank.branch) && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Bank Name:</span>
+                        <span className="font-semibold text-slate-800 text-right">
+                          {[settings.bank.bank, settings.bank.branch].filter(Boolean).join(' — ')}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText(settings.bank.accountNumber, 'acc')}
-                          className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold transition-all flex items-center gap-1 border shadow-2xs ${
-                            copiedField === 'acc'
-                              ? 'bg-emerald-600 text-white border-emerald-600'
-                              : 'bg-[#0D4F4F]/10 text-[#0D4F4F] hover:bg-[#0D4F4F] hover:text-white border-[#0D4F4F]/30'
-                          }`}
-                        >
-                          {copiedField === 'acc' ? (
-                            <>
-                              <Check className="w-2.5 h-2.5 text-emerald-200" /> Copied!
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-2.5 h-2.5" /> Copy
-                            </>
-                          )}
-                        </button>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {settings.bank.iban && (
-                    <div className="flex justify-between items-center pt-0.5">
-                      <span className="text-slate-500">IBAN:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold font-mono text-[10.5px] text-slate-800 select-all">
-                          {settings.bank.iban}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText(settings.bank.iban || '', 'iban')}
-                          className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold transition-all flex items-center gap-1 border shadow-2xs ${
-                            copiedField === 'iban'
-                              ? 'bg-emerald-600 text-white border-emerald-600'
-                              : 'bg-[#0D4F4F]/10 text-[#0D4F4F] hover:bg-[#0D4F4F] hover:text-white border-[#0D4F4F]/30'
-                          }`}
-                        >
-                          {copiedField === 'iban' ? (
-                            <>
-                              <Check className="w-2.5 h-2.5 text-emerald-200" /> Copied!
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-2.5 h-2.5" /> Copy
-                            </>
-                          )}
-                        </button>
+                    {settings.bank.accountTitle && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Account Title:</span>
+                        <span className="font-semibold text-slate-800">{settings.bank.accountTitle}</span>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+                    )}
 
-              {/* Instruction Warning */}
-              <div className="p-2 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-[10.5px] space-y-0.5 leading-tight">
-                <div className="font-bold flex items-center gap-1 text-amber-950">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>INSTRUCTION: CONFIRMATION & PAYMENT PROCESS</span>
+                    {settings.bank.accountNumber && (
+                      <div className="flex justify-between items-center pt-0.5">
+                        <span className="text-slate-500">Account Number:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold font-mono text-slate-800 select-all">
+                            {settings.bank.accountNumber}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(settings.bank.accountNumber, 'acc')}
+                            className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold transition-all flex items-center gap-1 border shadow-2xs cursor-pointer ${
+                              copiedField === 'acc'
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-white text-[#0D4F4F] hover:bg-[#0D4F4F] hover:text-white border-slate-200'
+                            }`}
+                          >
+                            {copiedField === 'acc' ? (
+                              <>
+                                <Check className="w-2.5 h-2.5 text-white" /> Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-2.5 h-2.5" /> Copy
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {settings.bank.iban && (
+                      <div className="flex justify-between items-center pt-0.5">
+                        <span className="text-slate-500">IBAN:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold font-mono text-[10px] text-slate-800 select-all">
+                            {settings.bank.iban}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(settings.bank.iban || '', 'iban')}
+                            className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold transition-all flex items-center gap-1 border shadow-2xs cursor-pointer ${
+                              copiedField === 'iban'
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-white text-[#0D4F4F] hover:bg-[#0D4F4F] hover:text-white border-slate-200'
+                            }`}
+                          >
+                            {copiedField === 'iban' ? (
+                              <>
+                                <Check className="w-2.5 h-2.5 text-white" /> Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-2.5 h-2.5" /> Copy
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[10px] leading-tight text-amber-900">
-                  1. Click <span className="font-bold text-[#0D4F4F]">&quot;Yes, Confirm & Lock My Booking Now&quot;</span>. 2. Transfer advance to bank above & click <span className="font-bold text-emerald-800">&quot;Send Payment Screenshot on WhatsApp&quot;</span>.
+              ) : (
+                /* Cash Payment Info Card */
+                <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-200/80 space-y-1.5 text-[11px]">
+                  <div className="flex items-center justify-between pb-1 border-b border-emerald-200/60 text-emerald-950 font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <Banknote className="w-4 h-4 text-emerald-700" /> Cash Payment (In-Person / Office)
+                    </span>
+                    <span className="text-[9px] text-emerald-800 font-medium bg-emerald-100 px-2 py-0.5 rounded-full">
+                      Direct Pay
+                    </span>
+                  </div>
+
+                  <p className="text-[10.5px] leading-relaxed text-emerald-900">
+                    You can pay the cash advance in-person at our studio office or handover to our authorized team representative.
+                  </p>
+                  <p className="text-[10px] font-medium text-emerald-800">
+                    💡 Clicking confirm will immediately lock & reserve your event dates in our studio booking calendar.
+                  </p>
+                </div>
+              )}
+
+              {/* Minimal Instruction Helper */}
+              <div className="px-3 py-2 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-900 text-[10.5px] flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <p className="leading-tight text-[10px]">
+                  {paymentMethod === 'bank_transfer'
+                    ? '1. Confirm your booking below. 2. Transfer advance & send screenshot on WhatsApp.'
+                    : '1. Confirm your cash booking below. 2. Notify studio via WhatsApp to coordinate visit.'}
                 </p>
               </div>
 
-              {/* Sequential Action Buttons */}
-              <div className="space-y-2 pt-0.5">
-                {/* BUTTON 1 */}
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-1 pb-1">
                 {!stepConfirmed ? (
                   <button
                     onClick={handleStep1Confirm}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#0D4F4F] to-[#093A3A] text-[#D4AF37] font-bold text-xs shadow-md hover:brightness-110 transition-all flex items-center justify-center gap-1.5 border border-[#D4AF37]/50"
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-[#0D4F4F] to-[#093A3A] text-[#D4AF37] font-bold text-xs shadow-md hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-[#D4AF37]/40 cursor-pointer"
                   >
-                    <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" /> Yes, Confirm & Lock My Booking Now
+                    <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
+                    {paymentMethod === 'cash' ? 'Confirm Booking via Cash Payment' : 'Yes, Confirm & Lock My Booking Now'}
                   </button>
                 ) : (
-                  <div className="w-full py-2.5 rounded-xl bg-emerald-800 text-white font-bold text-xs text-center shadow-xs flex items-center justify-center gap-1.5">
+                  <div className="w-full py-3 rounded-xl bg-emerald-800 text-white font-bold text-xs text-center shadow-xs flex items-center justify-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" /> ✅ Booking Date Locked!
                   </div>
                 )}
 
-                {/* BUTTON 2 */}
                 {stepConfirmed ? (
                   <a
                     href={`https://wa.me/${formattedWhatsApp}?text=${whatsappMessage}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-md hover:bg-emerald-700 transition-all flex items-center justify-center gap-1.5 animate-pulse border border-emerald-400"
+                    className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-md hover:bg-emerald-700 active:scale-[0.99] transition-all flex items-center justify-center gap-2 animate-pulse border border-emerald-400"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" /> Send Payment Screenshot on WhatsApp ({businessPhone})
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    {paymentMethod === 'cash'
+                      ? `Notify Studio on WhatsApp (${businessPhone})`
+                      : `Send Payment Screenshot on WhatsApp (${businessPhone})`}
                   </a>
                 ) : (
                   <button
                     disabled
-                    className="w-full py-2.5 rounded-xl bg-slate-200 text-slate-400 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 font-medium text-xs cursor-not-allowed flex items-center justify-center gap-1.5"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" /> Send Payment Screenshot on WhatsApp ({businessPhone})
+                    <MessageSquare className="w-3.5 h-3.5" /> Step 2: Share Confirmation on WhatsApp
                   </button>
                 )}
               </div>
