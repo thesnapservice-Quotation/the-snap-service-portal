@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Quotation, AppSettings, EventItem } from '@/lib/types';
-import { formatCurrency, formatDate, sortEventsInSequence, calculatePaymentMilestones, formatEventTiming } from '@/lib/utils';
+import { formatCurrency, formatDate, sortEventsInSequence, calculatePaymentMilestones, formatEventTiming, formatQuotationEventsDateRange } from '@/lib/utils';
 import { 
   User, 
   Calendar, 
@@ -260,6 +260,9 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
       : 'WEDDING PACKAGE'
   );
 
+  // Dynamic event date(s) formatted cleanly from the current active package events
+  const displayEventDates = formatQuotationEventsDateRange(sortedEvents, client.eventDates);
+
   return (
     <div className="w-full flex justify-center py-1 sm:py-2 px-0 sm:px-1">
       {/* Minimalistic Capturable Container with Rounded Edges (rounded-3xl) */}
@@ -351,7 +354,7 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
                   EVENT DATE(S):
                 </span>
                 <span className="font-extrabold text-[10.5px] sm:text-xs text-[#0D4F4F] block leading-tight break-words">
-                  {client.eventDates || 'As Discussed'}
+                  {displayEventDates}
                 </span>
               </div>
             </div>

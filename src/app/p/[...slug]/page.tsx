@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { Quotation, AppSettings, PaymentTransaction, QuotationVariation } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { apiFetchQuotationById, apiFetchPublicQuotation, apiSaveQuotation, apiFetchSettings } from '@/lib/api-client';
-import { decompactQuotationData, decodeQuotationData, formatCurrency, formatWhatsAppPhone, getQuotationSecurityPin, calculatePaymentMilestones, getTodayDateString, isQuotationExpired, mergeVariationIntoQuotation } from '@/lib/utils';
+import { decompactQuotationData, decodeQuotationData, formatCurrency, formatWhatsAppPhone, getQuotationSecurityPin, calculatePaymentMilestones, getTodayDateString, isQuotationExpired, mergeVariationIntoQuotation, formatQuotationEventsDateRange } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
 import { QuotationPreview } from '@/components/quotation/quotation-preview';
 import { ClientVariationSelector } from '@/components/portal/client-variation-selector';
@@ -215,8 +215,17 @@ function ShortClientPortalContent() {
       });
     }
 
+    const confirmedDates = formatQuotationEventsDateRange(
+      currentActiveQuote.events,
+      currentActiveQuote.client?.eventDates || quotation.client?.eventDates
+    );
+
     const updated: Quotation = {
       ...currentActiveQuote,
+      client: {
+        ...currentActiveQuote.client,
+        eventDates: confirmedDates,
+      },
       status: 'confirmed',
       selectedVariationId: activeVariationId,
       hasVariations: quotation.hasVariations,

@@ -409,6 +409,54 @@ export function getQuotationEventDates(q: Quotation): string[] {
 }
 
 /**
+ * Format events into a clean, concise date display string.
+ * - Single event or all events on same date: "9 Oct 2026"
+ * - Multi-day events: "9 Oct 2026 - 10 Oct 2026"
+ * - Intelligent fallback to client's manual eventDates string
+ */
+export function formatQuotationEventsDateRange(
+  events?: EventItem[],
+  fallbackString?: string
+): string {
+  const evts = events || [];
+  const validDates = evts
+    .map((e) => (e.eventDate ? e.eventDate.trim() : ''))
+    .filter((d) => d.length >= 8);
+
+  // 1. If individual events have dates configured, format directly from events
+  if (validDates.length > 0) {
+    const sortedUniqueDates = Array.from(new Set(validDates)).sort();
+    if (sortedUniqueDates.length === 1) {
+      return formatDate(sortedUniqueDates[0]);
+    }
+    const first = formatDate(sortedUniqueDates[0]);
+    const last = formatDate(sortedUniqueDates[sortedUniqueDates.length - 1]);
+    return `${first} - ${last}`;
+  }
+
+  // 2. If no event dates on items, check fallbackString
+  if (fallbackString && fallbackString.trim().length > 0) {
+    const trimmed = fallbackString.trim();
+    // If single event package and fallback string contains a range separator (e.g. "9 Oct 2026 - 10 Oct 2026")
+    if (evts.length === 1 && /[-–—]|\bto\b/i.test(trimmed)) {
+      const parts = trimmed.split(/\s*[-–—]\s*|\s+to\s+/i);
+      if (parts.length > 0) {
+        let firstPart = parts[0].trim();
+        // If first part is missing year (e.g. "9 Oct" from "9 Oct - 10 Oct 2026"), borrow year from the end
+        const yearMatch = trimmed.match(/\b(20\d{2})\b/);
+        if (yearMatch && !firstPart.includes(yearMatch[1])) {
+          firstPart = `${firstPart} ${yearMatch[1]}`;
+        }
+        return firstPart;
+      }
+    }
+    return trimmed;
+  }
+
+  return 'As Discussed';
+}
+
+/**
  * Check if an unconfirmed quotation has expired and should automatically move to Trash.
  *
  * Strict Rules:
@@ -905,8 +953,18 @@ export function mergeVariationIntoQuotation(
     clientProposedAdvance: v.payment?.clientProposedAdvance || q.payment?.clientProposedAdvance || (effectiveAdvance > 0 ? effectiveAdvance : undefined),
   };
 
+  const variationEvents = v.events || [];
+  const dynamicEventDates = formatQuotationEventsDateRange(
+    variationEvents,
+    q.client?.eventDates
+  );
+
   return {
     ...q,
+    client: {
+      ...q.client,
+      eventDates: dynamicEventDates,
+    },
     hasVariations: currentVariations.length > 1,
     selectedVariationId: v.id,
     variations: currentVariations,
