@@ -101,7 +101,7 @@ function ClientPortalContent() {
       }
 
       // If quotation is in Trash, soft-deleted, or expired -> client MUST see "Quotation Not Found"
-      if (q && (q.status === 'trash' || q.isDeleted || q.deletedAt || isQuotationExpired(q))) {
+      if (q && (q.status === 'trash' || q.isDeleted || isQuotationExpired(q))) {
         q = null;
       }
 

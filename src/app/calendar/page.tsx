@@ -52,7 +52,7 @@ export default function MasterCalendarPage() {
   // Strictly active quotations (excluding any trash, deleted, or auto-expired)
   const activeQuotations = useMemo(() => {
     return quotations.filter(
-      (q) => q && q.status !== 'trash' && !q.isDeleted && !q.deletedAt && !isQuotationExpired(q)
+      (q) => q && q.status !== 'trash' && !q.isDeleted && !isQuotationExpired(q)
     );
   }, [quotations]);
 

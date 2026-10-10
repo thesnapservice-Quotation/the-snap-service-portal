@@ -260,11 +260,18 @@ export function useQuotations() {
     const target = allQuotations.find((q) => q.id === id || q.quotationNumber === id) || storage.getQuotationById(id);
     if (!target) return null;
 
-    const targetStatus = (target.previousStatus as QuotationStatus) || 'sent';
+    const hasAdvance = (target.payment?.transactions?.length || 0) > 0 || (Number(target.payment?.advanceReceived) || 0) > 0;
+    const hasAcceptedVar = Boolean(target.variations && target.variations.some(v => v.isAccepted));
+    let targetStatus = (target.previousStatus as QuotationStatus) || 'sent';
+    if (hasAdvance || hasAcceptedVar) {
+      targetStatus = 'confirmed';
+    } else if (targetStatus === 'trash') {
+      targetStatus = 'sent';
+    }
 
     const updatedQuotation: Quotation = {
       ...target,
-      status: targetStatus === 'trash' ? 'sent' : targetStatus,
+      status: targetStatus,
       isDeleted: false,
       deletedAt: undefined,
       autoExpired: false,

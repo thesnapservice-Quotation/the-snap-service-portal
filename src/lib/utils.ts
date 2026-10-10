@@ -477,15 +477,24 @@ export function isQuotationExpired(q: Quotation, todayStr?: string): boolean {
     return false;
   }
 
+  // Rule 1b: Bookings with verified transactions or advance received are confirmed bookings and 100% immune
+  const totalPaid = (q.payment?.transactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  if (totalPaid > 0 || (Number(q.payment?.advanceReceived) || 0) > 0) {
+    return false;
+  }
+  if (q.variations && q.variations.some((v) => v.isAccepted || (v.payment?.transactions?.length || 0) > 0 || (Number(v.payment?.advanceReceived) || 0) > 0)) {
+    return false;
+  }
+
   // Rule 2: Already trashed or deleted
   if (q.status === 'trash' || q.isDeleted) {
     return false;
   }
 
-  // Rule 3: Grace period after manual restoration from trash (4 hours)
+  // Rule 3: Grace period after manual restoration from trash (7 days)
   if (q.restoredAt) {
     const restoredTime = new Date(q.restoredAt).getTime();
-    if (!isNaN(restoredTime) && Date.now() - restoredTime < 4 * 60 * 60 * 1000) {
+    if (!isNaN(restoredTime) && Date.now() - restoredTime < 7 * 24 * 60 * 60 * 1000) {
       return false;
     }
   }

@@ -100,12 +100,23 @@ export default function QuotationDetailPage() {
   };
 
   const handleRestore = async () => {
-    const restoredStatus = (quotation.previousStatus as Quotation['status']) || 'sent';
+    const hasAdvance = (quotation.payment?.transactions?.length || 0) > 0 || (Number(quotation.payment?.advanceReceived) || 0) > 0;
+    const hasAcceptedVar = Boolean(quotation.variations && quotation.variations.some(v => v.isAccepted));
+    let restoredStatus = (quotation.previousStatus as Quotation['status']) || 'sent';
+    if (hasAdvance || hasAcceptedVar) {
+      restoredStatus = 'confirmed';
+    } else if (restoredStatus === 'trash') {
+      restoredStatus = 'sent';
+    }
+
     const updated: Quotation = {
       ...quotation,
-      status: restoredStatus === 'trash' ? 'sent' : restoredStatus,
+      status: restoredStatus,
       isDeleted: false,
       deletedAt: undefined,
+      autoExpired: false,
+      autoExpiredReason: undefined,
+      restoredAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     storage.saveQuotation(updated);

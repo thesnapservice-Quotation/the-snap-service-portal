@@ -115,12 +115,12 @@ function parseSupabaseRow(r: any): Quotation {
     userId: creatorId,
     createdByUserId: creatorId,
     updatedByUserId: base.updatedByUserId || r.updated_by_user_id || creatorId,
-    status: r.status || base.status || 'sent',
+    status: (r.status === 'trash' || base.status === 'trash') ? 'trash' : (r.status || base.status || 'sent'),
     previousStatus: base.previousStatus,
-    isDeleted: base.isDeleted || r.status === 'trash' || base.status === 'trash' || false,
-    deletedAt: base.deletedAt,
-    autoExpired: base.autoExpired || false,
-    autoExpiredReason: base.autoExpiredReason,
+    isDeleted: (r.status === 'trash' || base.status === 'trash') ? true : (base.isDeleted === true && !base.restoredAt),
+    deletedAt: (r.status === 'trash' || base.status === 'trash' || (base.isDeleted === true && !base.restoredAt)) ? (base.deletedAt || r.deleted_at || undefined) : undefined,
+    autoExpired: (r.status === 'trash' || base.status === 'trash') ? (base.autoExpired || false) : false,
+    autoExpiredReason: (r.status === 'trash' || base.status === 'trash') ? base.autoExpiredReason : undefined,
     restoredAt: base.restoredAt,
     client: r.client || base.client || { name: '', phone: '', quotationDate: '', eventDates: '' },
     packageType: base.packageType || 'multi_event',
@@ -327,7 +327,7 @@ export async function getPublicQuotationFromDb(
 
   for (const q of all) {
     // If quotation is in Trash / deleted -> strictly NOT accessible by client (Quotation Not Found)
-    if (q.status === 'trash' || q.isDeleted || q.deletedAt) continue;
+    if (q.status === 'trash' || q.isDeleted) continue;
 
     const candidateNum = (q.quotationNumber || q.id || '').trim().toUpperCase();
     if (candidateNum !== cleanQNum) continue;
@@ -378,21 +378,49 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
     }
   }
 
+  const isTrashing = exactStatus === 'trash' || quotation.isDeleted === true;
+
+  // Protect variations & transactions from being inadvertently wiped by partial updates
+  const finalHasVariations = quotation.hasVariations !== undefined
+    ? quotation.hasVariations
+    : (existingRecord?.hasVariations ?? (existingRecord?.variations && existingRecord.variations.length > 1) ?? false);
+
+  const finalVariations = (quotation.variations && Array.isArray(quotation.variations) && quotation.variations.length > 0)
+    ? quotation.variations
+    : (existingRecord?.variations || undefined);
+
+  const finalSelectedVarId = quotation.selectedVariationId || existingRecord?.selectedVariationId;
+
+  const incomingTx = quotation.payment?.transactions;
+  const existingTx = existingRecord?.payment?.transactions || [];
+  const finalTx = (incomingTx && Array.isArray(incomingTx) && incomingTx.length > 0)
+    ? incomingTx
+    : existingTx;
+
   const toSave: Quotation = {
     ...quotation,
     workspaceId: wsId,
     userId: authorId,
     createdByUserId: authorId,
     updatedByUserId: quotation.updatedByUserId || authorId,
-    status: exactStatus,
-    previousStatus: quotation.previousStatus !== undefined ? quotation.previousStatus : existingRecord?.previousStatus,
-    isDeleted: quotation.isDeleted !== undefined ? quotation.isDeleted : (exactStatus === 'trash' || existingRecord?.isDeleted || false),
-    deletedAt: quotation.deletedAt !== undefined ? quotation.deletedAt : (exactStatus === 'trash' ? (existingRecord?.deletedAt || now) : existingRecord?.deletedAt),
-    autoExpired: quotation.autoExpired !== undefined ? quotation.autoExpired : existingRecord?.autoExpired,
-    autoExpiredReason: quotation.autoExpiredReason !== undefined ? quotation.autoExpiredReason : existingRecord?.autoExpiredReason,
+    status: isTrashing ? 'trash' : exactStatus,
+    previousStatus: quotation.previousStatus !== undefined
+      ? quotation.previousStatus
+      : (isTrashing ? (existingRecord?.status !== 'trash' ? existingRecord?.status : 'sent') : existingRecord?.previousStatus),
+    isDeleted: isTrashing,
+    deletedAt: isTrashing ? (quotation.deletedAt || existingRecord?.deletedAt || now) : undefined,
+    autoExpired: isTrashing ? (quotation.autoExpired !== undefined ? quotation.autoExpired : (existingRecord?.autoExpired || false)) : false,
+    autoExpiredReason: isTrashing ? (quotation.autoExpiredReason || existingRecord?.autoExpiredReason) : undefined,
     restoredAt: quotation.restoredAt !== undefined ? quotation.restoredAt : existingRecord?.restoredAt,
     publicLinkDate: finalPublicLinkDate,
     deliverableStatus: quotation.deliverableStatus !== undefined ? quotation.deliverableStatus : existingRecord?.deliverableStatus,
+    hasVariations: finalHasVariations,
+    selectedVariationId: finalSelectedVarId,
+    variations: finalVariations,
+    payment: {
+      ...(quotation.payment || {}),
+      transactions: finalTx,
+    },
     updatedAt: now,
     createdAt: quotation.createdAt || existingRecord?.createdAt || now,
   };

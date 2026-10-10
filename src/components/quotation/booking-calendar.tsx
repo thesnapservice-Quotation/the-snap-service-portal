@@ -78,7 +78,7 @@ export function BookingCalendar({
 
     // STRICT: Exclude any quotations in Trash, deleted, or auto-expired
     const activeQuotations = rawList.filter(
-      (q) => q && q.status !== 'trash' && !q.isDeleted && !q.deletedAt && !isQuotationExpired(q)
+      (q) => q && q.status !== 'trash' && !q.isDeleted && !isQuotationExpired(q)
     );
 
     activeQuotations.forEach((q) => {
