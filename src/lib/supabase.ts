@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const rawUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
-const SUPABASE_URL = (rawUrl.startsWith('http') ? rawUrl : 'https://lwsmgogcxngolukwqnjj.supabase.co').replace(/\/$/, '');
+const SUPABASE_URL = (rawUrl.startsWith('http') ? rawUrl : 'https://kwrliixcdmjyuurjucrc.supabase.co').replace(/\/$/, '');
 
 const rawKey = (
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
