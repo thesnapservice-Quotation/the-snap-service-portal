@@ -11,6 +11,12 @@ import { getQuotationSecurityPin, sortQuotationsByNumber, isQuotationExpired } f
  * Guarantees permanent persistence with 0 data loss across all devices and serverless restarts.
  */
 
+// Strict Server-Side Security Guard:
+// Prevent server-db logic and SUPABASE_SERVICE_ROLE_KEY from ever being invoked in browser/client environments.
+if (typeof window !== 'undefined') {
+  throw new Error('Security Violation: server-db module can only be executed in a server-side environment.');
+}
+
 const rawDbUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
 const SUPABASE_URL = (rawDbUrl.startsWith('http') ? rawDbUrl : 'https://kwrliixcdmjyuurjucrc.supabase.co').replace(/\/$/, '');
 const rawDbKey = (
