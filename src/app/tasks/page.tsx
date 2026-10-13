@@ -111,6 +111,7 @@ export default function TasksPage() {
   const [formPriority, setFormPriority] = useState<TaskPriority>('medium');
   const [formFollowUpDateTime, setFormFollowUpDateTime] = useState('');
   const [formReminders, setFormReminders] = useState<TaskReminderItem[]>([]);
+  const [showReminders, setShowReminders] = useState(false);
   const [formNotes, setFormNotes] = useState('');
 
   // Form State for Waiting / Follow-up modal
@@ -191,28 +192,16 @@ export default function TasksPage() {
     setFormPriority('medium');
     setFormFollowUpDateTime('');
 
-    // Standard Automatic Default Checkpoints for Every Task:
-    // 1. Midway Progress Check (50% of task duration)
-    // 2. 1 Hour Before Deadline
-    // 3. At Deadline / End Time
+    // Standard clean default reminder (1 Hour Before Deadline)
     const defaultReminders: TaskReminderItem[] = [
       {
-        id: `rem-mid-${Date.now()}-1`,
-        timing: 'halfway',
-        reminderDateTime: calculateReminderTimestamp(startIso, deadlineIso, 'halfway'),
-      },
-      {
-        id: `rem-1h-${Date.now()}-2`,
+        id: `rem-1h-${Date.now()}`,
         timing: '1_hour_before_deadline',
         reminderDateTime: calculateReminderTimestamp(startIso, deadlineIso, '1_hour_before_deadline'),
       },
-      {
-        id: `rem-end-${Date.now()}-3`,
-        timing: 'at_deadline',
-        reminderDateTime: calculateReminderTimestamp(startIso, deadlineIso, 'at_deadline'),
-      },
     ];
     setFormReminders(defaultReminders);
+    setShowReminders(false);
     setFormNotes('');
     setShowCreateModal(true);
   };
@@ -246,6 +235,7 @@ export default function TasksPage() {
       setFormReminders([]);
     }
 
+    setShowReminders(false);
     setFormNotes(task.notes || '');
     setShowCreateModal(true);
   };
@@ -965,101 +955,77 @@ export default function TasksPage() {
       {/* MODAL 1: CREATE / EDIT TASK */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-xl border border-slate-200 space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-200 space-y-3.5 my-auto max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-slate-100 text-[#0D4F4F]">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-xl bg-slate-100 text-[#0D4F4F]">
                   <ListTodo className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-sm sm:text-base text-slate-900">
-                    {editingTask ? 'Edit Task' : 'New Operation Task'}
+                    {editingTask ? 'Edit Task' : 'New Task'}
                   </h3>
-                  <p className="text-[11px] text-slate-500 font-normal">
-                    Schedule start times, deadlines, and multi-reminder push alerts
-                  </p>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Quick Templates (Only when creating new task) */}
-            {!editingTask && (
-              <div className="space-y-2 bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
-                  <span className="text-[10.5px] font-semibold text-slate-600 flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3 text-[#D4AF37]" /> Quick Templates:
-                  </span>
-                  <div className="flex items-center gap-1.5 w-full sm:w-auto">
+            <form onSubmit={handleSaveTask} className="space-y-3 text-xs">
+              {/* Task Title + Quick Template dropdown inline */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-700">Task Title *</label>
+                  {!editingTask && (
                     <select
-                      value={templateCategory}
+                      value=""
                       onChange={(e) => {
-                        const newCat = e.target.value as TaskCategory;
-                        setTemplateCategory(newCat);
-                        setFormCategory(newCat);
+                        if (e.target.value) {
+                          handleSelectTemplate(formCategory, e.target.value);
+                        }
                       }}
-                      className="px-2 py-0.5 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 focus:outline-none"
+                      className="text-[11px] font-medium text-slate-500 bg-slate-100 hover:bg-slate-200/80 rounded-lg px-2 py-0.5 border border-transparent focus:border-slate-300 focus:outline-none cursor-pointer transition-colors"
                     >
-                      {(Object.keys(TASK_CATEGORIES_CONFIG) as TaskCategory[]).map((catKey) => (
-                        <option key={catKey} value={catKey}>
-                          {TASK_CATEGORIES_CONFIG[catKey].label}
-                        </option>
+                      <option value="" disabled>⚡ Quick Template...</option>
+                      {Object.entries(TASK_CATEGORIES_CONFIG).map(([catKey, config]) => (
+                        <optgroup key={catKey} label={config.label}>
+                          {config.templates.map((tpl) => (
+                            <option key={tpl} value={tpl}>{tpl}</option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
-                  </div>
+                  )}
                 </div>
-
-                {/* Templates List */}
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {TASK_CATEGORIES_CONFIG[templateCategory].templates.map((tpl) => (
-                    <button
-                      key={tpl}
-                      type="button"
-                      onClick={() => handleSelectTemplate(templateCategory, tpl)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-normal border transition-all text-left flex items-center gap-1.5 cursor-pointer ${
-                        formTitle === tpl
-                          ? 'bg-slate-900 text-white border-slate-900'
-                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span>{tpl}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveTask} className="space-y-3.5 text-xs">
-              {/* Task Title */}
-              <div className="space-y-1">
-                <label className="block font-medium text-slate-700">Task Title *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Follow up with Photographer for upcoming event..."
+                  placeholder="e.g. Follow up with photographer for upcoming event..."
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-normal focus:bg-white focus:border-slate-400 focus:outline-none transition-colors"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-normal text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0D4F4F] focus:outline-none transition-colors"
                 />
               </div>
 
               {/* Category & Priority Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Category */}
+              <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <label className="block font-medium text-slate-700">Category</label>
+                  <label className="block text-[11px] font-medium text-slate-600">Category</label>
                   <select
                     value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value as TaskCategory)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-normal text-slate-800 focus:bg-white focus:outline-none"
+                    onChange={(e) => {
+                      const cat = e.target.value as TaskCategory;
+                      setFormCategory(cat);
+                      setTemplateCategory(cat);
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-normal text-slate-800 focus:bg-white focus:outline-none"
                   >
                     {(Object.keys(TASK_CATEGORIES_CONFIG) as TaskCategory[]).map((catKey) => (
                       <option key={catKey} value={catKey}>
@@ -1069,13 +1035,12 @@ export default function TasksPage() {
                   </select>
                 </div>
 
-                {/* Priority */}
                 <div className="space-y-1">
-                  <label className="block font-medium text-slate-700">Priority Level</label>
+                  <label className="block text-[11px] font-medium text-slate-600">Priority</label>
                   <select
                     value={formPriority}
                     onChange={(e) => setFormPriority(e.target.value as TaskPriority)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:bg-white focus:outline-none"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none"
                   >
                     <option value="low">Low Priority</option>
                     <option value="medium">Medium Priority</option>
@@ -1085,33 +1050,31 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              {/* Assigned User & Linked Event */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Assigned To */}
+              {/* Assignee & Linked Event */}
+              <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <label className="block font-medium text-slate-700">Assign To Team Member</label>
+                  <label className="block text-[11px] font-medium text-slate-600">Assign To</label>
                   <select
                     value={formAssignedUserId}
                     onChange={(e) => setFormAssignedUserId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-normal text-slate-800 focus:bg-white focus:outline-none"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-normal text-slate-800 focus:bg-white focus:outline-none truncate"
                   >
                     {users.map((u) => (
                       <option key={u.id} value={u.id}>
-                        {u.name} ({u.role === 'super_admin' ? '👑 Super Admin' : u.role === 'task_manager' ? '🎯 Task Manager' : '👤 Standard User'})
+                        {u.name} {u.role === 'super_admin' ? '(Admin)' : ''}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Linked Quotation / Event */}
                 <div className="space-y-1">
-                  <label className="block font-medium text-slate-700">Link Event (Optional)</label>
+                  <label className="block text-[11px] font-medium text-slate-600">Link Event (Optional)</label>
                   <select
                     value={formQuotationId}
                     onChange={(e) => setFormQuotationId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-normal text-slate-800 focus:bg-white focus:outline-none"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-normal text-slate-800 focus:bg-white focus:outline-none truncate"
                   >
-                    <option value="">None (General Studio Task)</option>
+                    <option value="">None (General Task)</option>
                     {quotations
                       .filter((q) => q.status === 'confirmed' || q.status === 'completed')
                       .map((q) => (
@@ -1124,167 +1087,130 @@ export default function TasksPage() {
               </div>
 
               {/* Start Time & Deadline Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <DateTimePicker
-                  label="Start Date & Time"
-                  value={formStartDateTime}
-                  onChange={(val) => handleStartDateTimeChange(val)}
-                  required
-                />
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">Start Time</label>
+                  <DateTimePicker
+                    value={formStartDateTime}
+                    onChange={(val) => handleStartDateTimeChange(val)}
+                    required
+                  />
+                </div>
 
-                <DateTimePicker
-                  label="Deadline"
-                  value={formDeadlineDateTime}
-                  onChange={(val) => handleDeadlineDateTimeChange(val)}
-                  required
-                />
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">Deadline *</label>
+                  <DateTimePicker
+                    value={formDeadlineDateTime}
+                    onChange={(val) => handleDeadlineDateTimeChange(val)}
+                    required
+                  />
+                </div>
               </div>
 
-              {/* Push Notification Reminders Container */}
-              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200 space-y-3">
-                {/* Header matching user's image */}
-                <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+              {/* Push Notification Reminders Collapsible Bar */}
+              <div className="rounded-xl border border-slate-200/90 bg-slate-50/60 overflow-hidden transition-all">
+                <button
+                  type="button"
+                  onClick={() => setShowReminders(!showReminders)}
+                  className="w-full px-3 py-2 flex items-center justify-between text-xs hover:bg-slate-100/70 transition-colors cursor-pointer"
+                >
                   <div className="flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-[#0D4F4F]" />
-                    <label className="font-bold text-slate-800 text-xs tracking-tight">
-                      Push Notification Reminder
-                    </label>
+                    <Bell className="w-3.5 h-3.5 text-[#0D4F4F]" />
+                    <span className="font-semibold text-slate-700">Push Reminders</span>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-200/80 text-slate-600">
+                      {formReminders.length}
+                    </span>
                   </div>
+                  <span className="text-[11px] font-medium text-[#0D4F4F] flex items-center gap-1">
+                    {showReminders ? 'Hide ▲' : 'Customize ▾'}
+                  </span>
+                </button>
 
-                  {/* Top + Add Button */}
-                  <button
-                    type="button"
-                    onClick={() => addReminderPreset('15_min_before_start')}
-                    className="px-2.5 py-1 rounded-lg bg-[#0D4F4F] text-[#D4AF37] hover:bg-[#093A3A] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-xs shrink-0"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Add Reminder</span>
-                  </button>
-                </div>
+                {showReminders && (
+                  <div className="p-3 border-t border-slate-200/80 bg-white space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10.5px] text-slate-500">
+                        Delivered to assigned user's mobile &amp; laptop
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => addReminderPreset('1_hour_before_deadline')}
+                        className="text-[11px] font-semibold text-[#0D4F4F] hover:underline flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" /> Add Reminder
+                      </button>
+                    </div>
 
-                <div className="text-[10.5px] text-slate-500 font-medium -mt-1">
-                  Delivered to assigned user's phone &amp; laptop
-                </div>
-
-                {/* Reminder Boxes List */}
-                {formReminders.length === 0 ? (
-                  <div className="p-3 bg-white rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                    No reminder boxes. Click <strong>+ Add Reminder</strong> to set an alert.
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {formReminders.map((rem, idx) => {
-                      const isSent = !!rem.sentAt;
-                      return (
-                        <div
-                          key={rem.id}
-                          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
-                        >
-                          {/* Left Box: Dropdown Selector */}
-                          <div className="flex-1 min-w-0">
-                            <select
-                              value={rem.timing}
-                              onChange={(e) => updateReminderItem(rem.id, { timing: e.target.value as TaskReminderTiming })}
-                              className="w-full px-3.5 py-2.5 bg-white border border-slate-300 hover:border-slate-400 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D4F4F] transition-colors cursor-pointer"
-                            >
-                              <optgroup label="⚡ Start Time Reminders">
-                                <option value="15_min_before_start">⚡ 15 Minutes Before Start</option>
-                                <option value="30_min_before_start">⌛ 30 Minutes Before Start</option>
-                                <option value="1_hour_before_start">🕒 1 Hour Before Start</option>
-                                <option value="at_start">🔔 At Start Time</option>
-                              </optgroup>
-                              <optgroup label="⏰ Deadline & End Time Reminders">
-                                <option value="1_hour_before_deadline">⏰ 1 Hour Before Deadline</option>
-                                <option value="30_min_before_deadline">🚨 30 Mins Before Deadline</option>
-                                <option value="2_hours_before_deadline">⏳ 2 Hours Before Deadline</option>
-                                <option value="at_deadline">🏁 At Deadline / Task End Time</option>
-                              </optgroup>
-                              <optgroup label="⏱️ Progress Checkpoints">
-                                <option value="halfway">⏱️ Midway / Halfway Progress Check</option>
-                              </optgroup>
-                              <optgroup label="📅 Custom">
-                                <option value="custom">📅 Custom Date &amp; Time...</option>
-                              </optgroup>
-                            </select>
-                          </div>
-
-                          {/* Right Box: Scheduled Time Display OR Custom DateTimePicker */}
-                          <div className="flex-1 min-w-0 flex items-center gap-2">
-                            {rem.timing === 'custom' ? (
-                              <div className="w-full">
-                                <DateTimePicker
-                                  value={rem.reminderDateTime}
-                                  onChange={(val) => updateReminderItem(rem.id, { reminderDateTime: val })}
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-600 flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-slate-400 shrink-0" />
-                                <span className="truncate">
-                                  Scheduled for: <strong className="font-semibold text-slate-700">{formatTaskDateTime(rem.reminderDateTime)}</strong>
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Row Actions (+ and Delete) */}
-                            <div className="flex items-center gap-1 shrink-0">
-                              {/* In-row + button */}
-                              <button
-                                type="button"
-                                onClick={() => addReminderPreset('15_min_before_start')}
-                                className="p-2 rounded-xl bg-slate-100 hover:bg-[#0D4F4F] hover:text-[#D4AF37] text-slate-600 transition-all cursor-pointer"
-                                title="Add another reminder box"
+                    {formReminders.length === 0 ? (
+                      <div className="p-2.5 text-center text-[11px] text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                        No reminders set. Click <strong className="text-slate-600">+ Add Reminder</strong>.
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {formReminders.map((rem) => {
+                          const isSent = !!rem.sentAt;
+                          return (
+                            <div key={rem.id} className="flex items-center gap-2">
+                              <select
+                                value={rem.timing}
+                                onChange={(e) => updateReminderItem(rem.id, { timing: e.target.value as TaskReminderTiming })}
+                                className="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:bg-white focus:outline-none truncate"
                               >
-                                <Plus className="w-4 h-4" />
-                              </button>
+                                <option value="15_min_before_start">⚡ 15m Before Start</option>
+                                <option value="30_min_before_start">⌛ 30m Before Start</option>
+                                <option value="1_hour_before_start">🕒 1h Before Start</option>
+                                <option value="at_start">🔔 At Start Time</option>
+                                <option value="halfway">⏱ Midway Progress</option>
+                                <option value="2_hours_before_deadline">⏳ 2h Before Deadline</option>
+                                <option value="1_hour_before_deadline">⏰ 1h Before Deadline</option>
+                                <option value="30_min_before_deadline">🚨 30m Before Deadline</option>
+                                <option value="at_deadline">🏁 At Deadline</option>
+                                <option value="custom">📅 Custom Date &amp; Time...</option>
+                              </select>
 
-                              {/* Delete button (if more than 1 or not sent) */}
-                              {formReminders.length > 1 && !isSent && (
+                              {rem.timing === 'custom' ? (
+                                <div className="flex-1">
+                                  <DateTimePicker
+                                    value={rem.reminderDateTime}
+                                    onChange={(val) => updateReminderItem(rem.id, { reminderDateTime: val })}
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-[11px] font-mono text-slate-600 bg-slate-100 px-2 py-1.5 rounded-lg shrink-0">
+                                  {formatTaskDateTime(rem.reminderDateTime)}
+                                </span>
+                              )}
+
+                              {isSent ? (
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Sent</span>
+                              ) : (
                                 <button
                                   type="button"
                                   onClick={() => removeReminderItem(rem.id)}
-                                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
-                                  title="Delete this reminder box"
+                                  className="p-1 text-slate-400 hover:text-red-500 rounded transition-colors cursor-pointer shrink-0"
+                                  title="Delete reminder"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               )}
-
-                              {isSent && (
-                                <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold">
-                                  Sent ✓
-                                </span>
-                              )}
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
-
-                {/* Bottom + Add Another Reminder Box Button */}
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => addReminderPreset('15_min_before_start')}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 border-2 border-dashed border-[#0D4F4F]/40 hover:border-[#0D4F4F] text-[#0D4F4F] text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
-                  >
-                    <Plus className="w-4 h-4 text-[#D4AF37]" />
-                    <span>+ Add Another Reminder Box</span>
-                  </button>
-                </div>
               </div>
 
               {/* Notes */}
               <div className="space-y-1">
-                <label className="block font-medium text-slate-700">Instructions & Notes</label>
+                <label className="block text-[11px] font-medium text-slate-600">Instructions &amp; Notes (Optional)</label>
                 <textarea
                   rows={2}
                   placeholder="Add specific instructions or notes..."
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-normal focus:bg-white focus:border-slate-400 focus:outline-none transition-colors"
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-normal text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0D4F4F] focus:outline-none transition-colors resize-none"
                 />
               </div>
 
@@ -1293,18 +1219,18 @@ export default function TasksPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingTask}
-                  className={`px-5 py-2 rounded-xl bg-[#0D4F4F] hover:bg-[#093A3A] text-white font-medium shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-4 py-1.5 rounded-xl bg-[#0D4F4F] hover:bg-[#093A3A] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${
                     isSavingTask ? 'opacity-60 cursor-not-allowed' : ''
                   }`}
                 >
-                  <Save className="w-4 h-4 text-[#D4AF37]" />
+                  <Save className="w-3.5 h-3.5 text-[#D4AF37]" />
                   <span>{isSavingTask ? 'Saving...' : editingTask ? 'Save Changes' : 'Create Task'}</span>
                 </button>
               </div>
