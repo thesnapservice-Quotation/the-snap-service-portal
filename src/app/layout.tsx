@@ -21,6 +21,7 @@ export default function RootLayout({
       <head>
         <title>The Snap Service — Wedding Studio Operating System</title>
         <meta name="description" content="Official luxury wedding photography quotation studio, booking schedule, and deliverables tracker." />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0D4F4F" />
         <meta name="mobile-web-app-capable" content="yes" />
