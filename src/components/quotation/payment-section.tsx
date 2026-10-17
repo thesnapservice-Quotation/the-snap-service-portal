@@ -13,10 +13,10 @@ interface PaymentSectionProps {
 
 export function PaymentSection({ payment, grandTotal, onChange }: PaymentSectionProps) {
   const handleAdvanceTypeChange = (type: 'fixed' | 'percentage') => {
-    let newAdvance = payment.advanceReceived;
     const percentage = payment.advancePercentage || 50;
-
-    if (type === 'percentage') {
+    // Do NOT auto-set advanceReceived if it was 0!
+    let newAdvance = Number(payment.advanceReceived) || 0;
+    if (newAdvance > 0 && type === 'percentage') {
       newAdvance = Math.round((grandTotal * percentage) / 100);
     }
 
@@ -34,11 +34,12 @@ export function PaymentSection({ payment, grandTotal, onChange }: PaymentSection
 
   const handleAdvanceValueChange = (val: number) => {
     let advanceAmt = val;
-    let percentage = payment.advancePercentage;
+    let percentage = payment.advancePercentage || 50;
 
     if (payment.advanceType === 'percentage') {
       percentage = val;
-      advanceAmt = Math.round((grandTotal * val) / 100);
+      // Only set advanceReceived if val > 0 and previously received > 0, otherwise it's just the policy percentage
+      advanceAmt = (Number(payment.advanceReceived) > 0 || val > 0) ? Math.round((grandTotal * val) / 100) : 0;
     }
 
     const balance = Math.max(0, grandTotal - advanceAmt);

@@ -87,21 +87,10 @@ function parseSupabaseRow(r: any): Quotation {
       ? base.payment.transactions
       : [];
 
-  const effectiveAdvance = Number(rawPayment.advanceReceived) || Number(rawPayment.clientProposedAdvance) || 0;
+  const effectiveAdvance = Number(rawPayment.advanceReceived) || 0;
 
-  // Auto-heal: If booking has an advance or clientProposedAdvance, but transactions array is empty,
-  // ensure the initial advance transaction exists in the ledger!
-  const finalTransactions = (rawTransactions.length === 0 && effectiveAdvance > 0)
-    ? [{
-        id: `tx-portal-${r.id || base.id}`,
-        date: (r.client?.quotationDate || base.client?.quotationDate || r.created_at || base.createdAt || new Date().toISOString()).split('T')[0],
-        amount: effectiveAdvance,
-        method: 'bank_transfer',
-        notes: `Online Booking Confirmation Advance transferred by client (${r.client?.name || base.client?.name || 'Client'}) via Studio Portal`,
-        recordedBy: 'Client Portal (Online Confirmation)',
-        createdAt: r.created_at || base.createdAt || new Date().toISOString(),
-      }]
-    : rawTransactions;
+  // Real transactions only: Never synthesize unverified transactions automatically!
+  const finalTransactions = rawTransactions;
 
   const totalPaid = finalTransactions.length > 0
     ? finalTransactions.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)

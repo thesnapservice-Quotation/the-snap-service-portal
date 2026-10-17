@@ -367,6 +367,14 @@ export function useQuotations() {
       status: 'draft',
       isDeleted: false,
       deletedAt: undefined,
+      payment: {
+        ...target.payment,
+        advanceReceived: 0,
+        transactions: [],
+        clientProposedAdvance: undefined,
+        balancePayable: target.payment?.grandTotal || 0,
+        paymentStatus: 'unpaid',
+      },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

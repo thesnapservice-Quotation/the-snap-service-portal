@@ -118,7 +118,7 @@ function NewQuotationContent() {
     }
   }, [editId]);
 
-  // Keep grand total and balance calculated automatically whenever events, inclusions, or payment settings change
+  // Keep grand total and balance calculated automatically whenever events or inclusions change
   useEffect(() => {
     const eventsSum = quotation.events.reduce((sum, e) => sum + (e.price || 0), 0);
     const extrasSum = (quotation.inclusions || [])
@@ -127,10 +127,8 @@ function NewQuotationContent() {
     
     const total = eventsSum + extrasSum;
     
-    let advanceAmt = quotation.payment.advanceReceived;
-    if (quotation.payment.advanceType === 'percentage' && quotation.payment.advancePercentage) {
-      advanceAmt = Math.round((total * quotation.payment.advancePercentage) / 100);
-    }
+    // Only deduct advance if it has actually been received; do not fabricate advance from percentage!
+    const advanceAmt = Number(quotation.payment?.advanceReceived) || 0;
     const balance = Math.max(0, total - advanceAmt);
 
     setQuotation((prev) => ({
@@ -142,7 +140,7 @@ function NewQuotationContent() {
         balancePayable: balance,
       },
     }));
-  }, [quotation.events, quotation.inclusions, quotation.payment.advanceType, quotation.payment.advancePercentage]);
+  }, [quotation.events, quotation.inclusions]);
 
   const handleSave = async (status?: QuotationStatus) => {
     if (isSaving) return;
