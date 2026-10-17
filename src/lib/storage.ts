@@ -478,14 +478,37 @@ export const storage = {
     if (totalPaid >= grandTotal && grandTotal > 0) status = 'paid_in_full';
     else if (totalPaid > 0) status = 'partially_paid';
 
+    let updatedVariations = q.variations;
+    if (updatedVariations && updatedVariations.length > 0) {
+      updatedVariations = updatedVariations.map((v) => {
+        const isTarget = v.id === q.selectedVariationId || v.isAccepted;
+        if (!isTarget) return v;
+        const vGrandTotal = Number(v.payment?.grandTotal) || grandTotal;
+        return {
+          ...v,
+          payment: {
+            ...v.payment,
+            grandTotal: vGrandTotal,
+            advanceReceived: totalPaid,
+            balancePayable: Math.max(0, vGrandTotal - totalPaid),
+            transactions: updatedTx,
+            paymentStatus: status,
+            clientProposedAdvance: totalPaid === 0 ? 0 : v.payment?.clientProposedAdvance,
+          },
+        };
+      });
+    }
+
     const updatedQuotation: Quotation = {
       ...q,
+      variations: updatedVariations,
       payment: {
         ...q.payment,
         advanceReceived: totalPaid,
         balancePayable: balance,
         transactions: updatedTx,
         paymentStatus: status,
+        clientProposedAdvance: totalPaid === 0 ? 0 : q.payment?.clientProposedAdvance,
       },
       updatedAt: new Date().toISOString(),
     };
@@ -512,14 +535,37 @@ export const storage = {
     if (totalPaid >= grandTotal && grandTotal > 0) status = 'paid_in_full';
     else if (totalPaid > 0) status = 'partially_paid';
 
+    let updatedVariations = q.variations;
+    if (updatedVariations && updatedVariations.length > 0) {
+      updatedVariations = updatedVariations.map((v) => {
+        const isTarget = v.id === q.selectedVariationId || v.isAccepted;
+        if (!isTarget) return v;
+        const vGrandTotal = Number(v.payment?.grandTotal) || grandTotal;
+        return {
+          ...v,
+          payment: {
+            ...v.payment,
+            grandTotal: vGrandTotal,
+            advanceReceived: totalPaid,
+            balancePayable: Math.max(0, vGrandTotal - totalPaid),
+            transactions: updatedTx,
+            paymentStatus: status,
+            clientProposedAdvance: totalPaid === 0 ? 0 : v.payment?.clientProposedAdvance,
+          },
+        };
+      });
+    }
+
     const updatedQuotation: Quotation = {
       ...q,
+      variations: updatedVariations,
       payment: {
         ...q.payment,
         advanceReceived: totalPaid,
         balancePayable: balance,
         transactions: updatedTx,
         paymentStatus: status,
+        clientProposedAdvance: totalPaid === 0 ? 0 : q.payment?.clientProposedAdvance,
       },
       updatedAt: new Date().toISOString(),
     };
@@ -542,14 +588,37 @@ export const storage = {
     if (totalPaid >= grandTotal && grandTotal > 0) status = 'paid_in_full';
     else if (totalPaid > 0) status = 'partially_paid';
 
+    let updatedVariations = q.variations;
+    if (updatedVariations && updatedVariations.length > 0) {
+      updatedVariations = updatedVariations.map((v) => {
+        const isTarget = v.id === q.selectedVariationId || v.isAccepted;
+        if (!isTarget) return v;
+        const vGrandTotal = Number(v.payment?.grandTotal) || grandTotal;
+        return {
+          ...v,
+          payment: {
+            ...v.payment,
+            grandTotal: vGrandTotal,
+            advanceReceived: totalPaid,
+            balancePayable: Math.max(0, vGrandTotal - totalPaid),
+            transactions: updatedTx,
+            paymentStatus: status,
+            clientProposedAdvance: totalPaid === 0 ? 0 : v.payment?.clientProposedAdvance,
+          },
+        };
+      });
+    }
+
     const updatedQuotation: Quotation = {
       ...q,
+      variations: updatedVariations,
       payment: {
         ...q.payment,
         advanceReceived: totalPaid,
         balancePayable: balance,
         transactions: updatedTx,
         paymentStatus: status,
+        clientProposedAdvance: totalPaid === 0 ? 0 : q.payment?.clientProposedAdvance,
       },
       updatedAt: new Date().toISOString(),
     };

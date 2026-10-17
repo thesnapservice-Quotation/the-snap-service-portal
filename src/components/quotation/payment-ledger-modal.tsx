@@ -76,14 +76,38 @@ export function PaymentLedgerModal({
     if (calcPaid >= grandTotal && grandTotal > 0) status = 'paid_in_full';
     else if (calcPaid > 0) status = 'partially_paid';
 
+    let updatedVariations = quotation.variations;
+    if (updatedVariations && updatedVariations.length > 0) {
+      updatedVariations = updatedVariations.map((v) => {
+        const isTarget = v.id === quotation.selectedVariationId || v.isAccepted;
+        if (!isTarget) return v;
+        const vGrandTotal = Number(v.payment?.grandTotal) || grandTotal;
+        const vBalance = Math.max(0, vGrandTotal - calcPaid);
+        return {
+          ...v,
+          payment: {
+            ...v.payment,
+            grandTotal: vGrandTotal,
+            advanceReceived: calcPaid,
+            balancePayable: vBalance,
+            transactions: newTxList,
+            paymentStatus: status,
+            clientProposedAdvance: calcPaid === 0 ? 0 : v.payment?.clientProposedAdvance,
+          },
+        };
+      });
+    }
+
     const updated: Quotation = {
       ...quotation,
+      variations: updatedVariations,
       payment: {
         ...quotation.payment,
         advanceReceived: calcPaid,
         balancePayable: calcBalance,
         transactions: newTxList,
         paymentStatus: status,
+        clientProposedAdvance: calcPaid === 0 ? 0 : quotation.payment?.clientProposedAdvance,
       },
       updatedAt: new Date().toISOString(),
     };
@@ -106,30 +130,8 @@ export function PaymentLedgerModal({
   useEffect(() => {
     if (!isOpen) return;
     const existing = quotation.payment?.transactions || [];
-    if (existing.length > 0) {
-      setTransactions(existing);
-      return;
-    }
-
-    const fallbackAmt = Number(quotation.payment?.advanceReceived) || Number(quotation.payment?.clientProposedAdvance) || 0;
-    if (fallbackAmt > 0) {
-      const autoTx: PaymentTransaction = {
-        id: `tx-init-${quotation.id}`,
-        date: quotation.client?.quotationDate || quotation.createdAt?.split('T')[0] || getTodayDateString(),
-        amount: fallbackAmt,
-        method: 'bank_transfer',
-        notes: quotation.payment?.clientProposedAdvance
-          ? `Booking Confirmation Advance transferred by client (${quotation.client?.name || 'Client'}) via Studio Portal`
-          : `Booking Confirmation Advance`,
-        recordedBy: 'Client Portal (Online Confirmation)',
-        createdAt: quotation.createdAt || new Date().toISOString(),
-      };
-      setTransactions([autoTx]);
-      syncAndSave([autoTx]).catch(() => {});
-    } else {
-      setTransactions([]);
-    }
-  }, [quotation.id, isOpen]);
+    setTransactions(existing);
+  }, [quotation.id, isOpen, quotation.payment?.transactions]);
 
   // Add new payment
   const handleAddPayment = async (e: React.FormEvent) => {

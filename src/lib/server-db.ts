@@ -80,21 +80,23 @@ function parseSupabaseRow(r: any): Quotation {
     ...(r.payment || {}),
   };
 
-  const rawTransactions: any[] =
-    (r.payment?.transactions && Array.isArray(r.payment.transactions) && r.payment.transactions.length > 0)
+  const rawTransactions: any[] | undefined =
+    (r.payment?.transactions && Array.isArray(r.payment.transactions))
       ? r.payment.transactions
-      : (base.payment?.transactions && Array.isArray(base.payment.transactions) && base.payment.transactions.length > 0)
+      : (base.payment?.transactions && Array.isArray(base.payment.transactions))
       ? base.payment.transactions
-      : [];
+      : undefined;
 
-  const effectiveAdvance = Number(rawPayment.advanceReceived) || 0;
+  const rawAdvance = Number(rawPayment.advanceReceived) || 0;
 
-  // Real transactions only: Never synthesize unverified transactions automatically!
-  const finalTransactions = rawTransactions;
+  // Real transactions are the single source of truth:
+  // If transactions array was explicitly defined (even if empty []), use it directly!
+  // Only for legacy records where transactions was never defined (undefined) do we fall back to rawAdvance.
+  const finalTransactions = rawTransactions !== undefined ? rawTransactions : [];
 
-  const totalPaid = finalTransactions.length > 0
+  const totalPaid = rawTransactions !== undefined
     ? finalTransactions.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0)
-    : effectiveAdvance;
+    : rawAdvance;
 
   const grandTotal = Number(rawPayment.grandTotal) || 0;
   const balancePayable = Math.max(0, grandTotal - totalPaid);
@@ -128,7 +130,7 @@ function parseSupabaseRow(r: any): Quotation {
       advanceType: rawPayment.advanceType || 'fixed',
       balancePayable,
       transactions: finalTransactions,
-      clientProposedAdvance: rawPayment.clientProposedAdvance || (effectiveAdvance > 0 ? effectiveAdvance : undefined),
+      clientProposedAdvance: totalPaid === 0 && finalTransactions.length === 0 ? undefined : rawPayment.clientProposedAdvance,
       paymentStatus,
     },
     termsAndConditions: base.termsAndConditions || [],
@@ -146,14 +148,16 @@ function parseSupabaseRow(r: any): Quotation {
       const effectiveSelId = r.selected_variation_id || r.selectedVariationId || base.selectedVariationId || rawVars[0]?.id;
       return rawVars.map((v: any) => {
         const isTarget = v.id === effectiveSelId || v.isAccepted;
-        const vTx = (v.payment?.transactions && Array.isArray(v.payment.transactions) && v.payment.transactions.length > 0)
+        const vTx = (v.payment?.transactions && Array.isArray(v.payment.transactions))
           ? v.payment.transactions
-          : isTarget && finalTransactions.length > 0
+          : isTarget
           ? finalTransactions
           : [];
         const vTotalPaid = vTx.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
-        const vGrandTotal = Number(v.payment?.grandTotal) || 0;
-        const vAdvance = vTotalPaid > 0 ? vTotalPaid : (Number(v.payment?.advanceReceived) || (isTarget ? effectiveAdvance : 0));
+        const vGrandTotal = Number(v.payment?.grandTotal) || grandTotal;
+        const vAdvance = (Array.isArray(v.payment?.transactions) || isTarget)
+          ? vTotalPaid
+          : (Number(v.payment?.advanceReceived) || 0);
         const vBalance = Math.max(0, vGrandTotal - vAdvance);
         let vPStatus = v.payment?.paymentStatus || (isTarget ? paymentStatus : 'unpaid');
         if (vAdvance >= vGrandTotal && vGrandTotal > 0) vPStatus = 'paid_in_full';
@@ -168,6 +172,7 @@ function parseSupabaseRow(r: any): Quotation {
             balancePayable: vBalance,
             transactions: vTx,
             paymentStatus: vPStatus,
+            clientProposedAdvance: vAdvance === 0 && vTx.length === 0 ? undefined : v.payment?.clientProposedAdvance,
           },
         };
       });
@@ -388,9 +393,16 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
 
   const incomingTx = quotation.payment?.transactions;
   const existingTx = existingRecord?.payment?.transactions || [];
-  const finalTx = (incomingTx && Array.isArray(incomingTx) && incomingTx.length > 0)
+  const finalTx = Array.isArray(incomingTx)
     ? incomingTx
     : existingTx;
+
+  const finalPaid = finalTx.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+  const finalGrandTotal = Number(quotation.payment?.grandTotal ?? existingRecord?.payment?.grandTotal) || 0;
+  const finalBalance = Math.max(0, finalGrandTotal - finalPaid);
+  let finalPaymentStatus: 'unpaid' | 'partially_paid' | 'paid_in_full' = 'unpaid';
+  if (finalPaid >= finalGrandTotal && finalGrandTotal > 0) finalPaymentStatus = 'paid_in_full';
+  else if (finalPaid > 0) finalPaymentStatus = 'partially_paid';
 
   const toSave: Quotation = {
     ...quotation,
@@ -414,7 +426,14 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
     variations: finalVariations,
     payment: {
       ...(quotation.payment || {}),
+      grandTotal: finalGrandTotal,
+      advanceReceived: finalPaid,
+      balancePayable: finalBalance,
       transactions: finalTx,
+      paymentStatus: finalPaymentStatus,
+      clientProposedAdvance: (finalPaid === 0 && finalTx.length === 0)
+        ? 0
+        : (quotation.payment?.clientProposedAdvance ?? existingRecord?.payment?.clientProposedAdvance),
     },
     updatedAt: now,
     createdAt: quotation.createdAt || existingRecord?.createdAt || now,

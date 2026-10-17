@@ -556,7 +556,7 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
         {(() => {
           const effectiveTransactions = (payment.transactions && payment.transactions.length > 0)
             ? payment.transactions
-            : payment.advanceReceived > 0
+            : (payment.advanceReceived > 0 && !Array.isArray(payment.transactions))
             ? [{
                 id: `tx-adv-${quotation.id}`,
                 date: (quotation.client?.quotationDate || quotation.createdAt || new Date().toISOString()).split('T')[0],
