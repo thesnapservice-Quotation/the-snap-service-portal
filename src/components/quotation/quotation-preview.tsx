@@ -455,15 +455,30 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
 
         {/* GRAND TOTAL BANNER BAR (Rounded Edges) */}
         <div className="my-2.5 sm:my-3 relative z-10">
-          {/* Subtle Compact Discount Line (No separate box, No % symbol) */}
+          {/* SPECIAL DISCOUNT SEPARATE COMPACT BOX (No % symbol, elegant luxury card) */}
           {payment.discount && payment.discount > 0 ? (
-            <div className="flex items-center justify-between px-2 py-0.5 mb-1 text-[11px] sm:text-xs text-slate-600 font-medium">
-              <span>
-                Package Total: <span className="line-through text-slate-400 font-semibold">{formatCurrency(payment.subtotal || (payment.grandTotal + payment.discount))}</span>
-              </span>
-              <span className="text-emerald-700 font-bold">
-                Discount: -{formatCurrency(payment.discount)}
-              </span>
+            <div className="mb-2 bg-gradient-to-r from-emerald-50/90 via-white to-emerald-50/90 rounded-xl sm:rounded-2xl border border-emerald-300/80 p-2 sm:p-2.5 shadow-2xs flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FAF9F6]" />
+                </div>
+                <div>
+                  <span className="text-[8.5px] sm:text-[9.5px] text-emerald-800 font-bold uppercase tracking-wider block">
+                    SPECIAL DISCOUNT
+                  </span>
+                  <span className="text-[11px] sm:text-xs text-slate-500 font-medium">
+                    Package Total: <span className="line-through font-semibold text-slate-400">{formatCurrency(payment.subtotal || (payment.grandTotal + payment.discount))}</span>
+                  </span>
+                </div>
+              </div>
+              <div className="text-right pr-1 sm:pr-2">
+                <span className="text-[8px] sm:text-[8.5px] text-emerald-700 font-bold uppercase tracking-wider block">
+                  YOU SAVE
+                </span>
+                <span className="font-serif font-bold text-sm sm:text-lg text-emerald-700 tracking-tight">
+                  - {formatCurrency(payment.discount)}
+                </span>
+              </div>
             </div>
           ) : null}
 
