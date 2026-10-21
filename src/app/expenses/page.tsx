@@ -6,7 +6,7 @@ import { useQuotations } from '@/hooks/use-quotations';
 import { useServices } from '@/hooks/use-services';
 import { useAuth } from '@/hooks/use-auth';
 import { StudioExpense, ExpenseCategory, Quotation } from '@/lib/types';
-import { formatCurrency, formatDate, getTodayDateString, calculateQuotationInternalCost, calculateQuotationNetProfit } from '@/lib/utils';
+import { formatCurrency, formatDate, getTodayDateString, calculateQuotationInternalCost, calculateQuotationNetProfit, getQuotationCostBreakdown } from '@/lib/utils';
 import { 
   Receipt, 
   Plus, 
@@ -195,32 +195,13 @@ export default function ExpensesPage() {
 
   // ----------------------------------------------------
   // 1. AUTO-SYNCED REALIZED EVENT PROFIT FROM CONFIRMED BOOKINGS
+  // (According to Compare Quotation Profit: Event Coverage main expenses are cleared first;
+  //  Album & Video Editing deliverables are conducted at the final stage)
   // ----------------------------------------------------
-  const getQuotationTotal = (q: Quotation): number => {
-    return q.payment?.grandTotal || (q.events || []).reduce((sum, e) => sum + (Number(e.price) || 0), 0);
-  };
-
-  const getQuotationExpenses = (q: Quotation): number => {
-    return calculateQuotationInternalCost(q, services);
-  };
-
   const getQuotationPaid = (q: Quotation): number => {
     const txTotal = (q.payment?.transactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     if (txTotal > 0) return txTotal;
     return Number(q.payment?.advanceReceived) || 0;
-  };
-
-  // Full contract projected profit upon 100% client payment
-  const getQuotationProjectedProfit = (q: Quotation): number => {
-    return Math.max(0, calculateQuotationNetProfit(q, services));
-  };
-
-  // Realized Profit = Only what is received AFTER all event expenses are covered!
-  // Formula: Math.max(0, paidAmount - eventExpenses)
-  const getQuotationRealizedProfit = (q: Quotation): number => {
-    const paid = getQuotationPaid(q);
-    const expenses = getQuotationExpenses(q);
-    return Math.max(0, paid - expenses);
   };
 
   // Confirmed & Completed Quotations
@@ -231,17 +212,24 @@ export default function ExpensesPage() {
   // Event Profit Inflow entries for Combined Studio Ledger
   const eventProfitEntries: StudioExpense[] = useMemo(() => {
     return confirmedQuotations.map((q) => {
-      const pkgTotal = getQuotationTotal(q);
-      const expTotal = getQuotationExpenses(q);
+      const breakdown = getQuotationCostBreakdown(q, services);
       const paid = getQuotationPaid(q);
-      const realizedProfit = getQuotationRealizedProfit(q);
       const dateStr = q.client?.quotationDate || q.createdAt?.split('T')[0] || getTodayDateString();
-      const isBreakEven = paid >= expTotal;
-      const remainingCost = Math.max(0, expTotal - paid);
 
-      const statusNote = isBreakEven
-        ? `Paid: ${formatCurrency(paid)} (Expenses Cleared: ${formatCurrency(expTotal)} • Asal Profit: ${formatCurrency(realizedProfit)})`
-        : `Paid: ${formatCurrency(paid)} (Covering Costs: ${formatCurrency(remainingCost)} left to clear expenses of ${formatCurrency(expTotal)})`;
+      // Stage 1: Event Coverage Main Expenses (Shooting crew services + travel/logistics)
+      const coverageCost = breakdown.eventCoverageCost;
+      const isCoverageCleared = paid >= coverageCost;
+      const coverageRemaining = Math.max(0, coverageCost - paid);
+
+      // Realized Profit = Amount received after Event Coverage Main Expenses are cleared
+      // Capped at total net profit according to Compare Quotation Profit
+      const realizedProfit = isCoverageCleared
+        ? Math.min(breakdown.netProfit, paid - coverageCost)
+        : 0;
+
+      const statusNote = isCoverageCleared
+        ? `Paid: ${formatCurrency(paid)} (Coverage Expenses: ${formatCurrency(coverageCost)} Cleared • Asal Profit: ${formatCurrency(realizedProfit)})`
+        : `Paid: ${formatCurrency(paid)} (Covering Event Costs: ${formatCurrency(coverageRemaining)} left to clear shoot expenses of ${formatCurrency(coverageCost)})`;
 
       return {
         id: `auto-profit-${q.id}`,
@@ -255,7 +243,7 @@ export default function ExpensesPage() {
         date: dateStr,
         personName: q.client?.name ? `${q.client.name}` : 'Confirmed Client',
         paymentMethod: 'bank_transfer',
-        description: `Event Profit: ${q.client?.name || 'Client'} (${q.quotationNumber || 'SS-2026'}) — Package: ${formatCurrency(pkgTotal)} − Costs: ${formatCurrency(expTotal)} • ${statusNote}`,
+        description: `Event Profit: ${q.client?.name || 'Client'} (${q.quotationNumber || 'SS-2026'}) — Package: ${formatCurrency(breakdown.sellingPrice)} − Coverage Costs: ${formatCurrency(coverageCost)} • ${statusNote}`,
         reference: q.quotationNumber,
         createdAt: q.createdAt || new Date().toISOString(),
         updatedAt: q.updatedAt || new Date().toISOString(),
@@ -270,16 +258,16 @@ export default function ExpensesPage() {
   }, [eventProfitEntries, expenses]);
 
   // ----------------------------------------------------
-  // 2. FINANCIAL RECONCILIATION TOTALS (AFTER EXPENSES DEDUCTION)
+  // 2. FINANCIAL RECONCILIATION TOTALS (AFTER EVENT EXPENSES DEDUCTION)
   // ----------------------------------------------------
-  // 1. Total Realized Event Profit (Only profit after event expenses are covered)
+  // 1. Total Realized Event Profit (Only profit after event coverage expenses are covered)
   const totalEventProfit = useMemo(() => {
     return eventProfitEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }, [eventProfitEntries]);
 
   // 2. Total Projected Event Profit (When 100% of all client packages are paid)
   const projectedTotalProfit = useMemo(() => {
-    return confirmedQuotations.reduce((sum, q) => sum + getQuotationProjectedProfit(q), 0);
+    return confirmedQuotations.reduce((sum, q) => sum + getQuotationCostBreakdown(q, services).netProfit, 0);
   }, [confirmedQuotations, services]);
 
   // 3. Total Studio Expenses (Operating expenses: Rent, Ads, Electricity, Salaries)

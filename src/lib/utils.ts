@@ -350,6 +350,115 @@ export function calculateQuotationInternalCost(q: Quotation, srvs?: Service[]): 
   return servicesCost + videoCost + albumCost + additionalCost;
 }
 
+export interface QuotationCostBreakdown {
+  eventCoverageCost: number; // Shooting crew services + travel/logistics
+  deliverablesCost: number;   // Video editing + Album printing
+  totalInternalCost: number;  // eventCoverageCost + deliverablesCost
+  netProfit: number;          // sellingPrice - totalInternalCost
+  sellingPrice: number;       // grandTotal
+}
+
+/**
+ * 2-Stage Cost & Profit Breakdown according to Compare Quotation Profit:
+ * Stage 1: Event Coverage Main Expenses (Shoot day crew services + travel/logistics)
+ * Stage 2: Deliverables Expenses (Album printing + Video editing, conducted at final stage)
+ */
+export function getQuotationCostBreakdown(q: Quotation, srvs?: Service[]): QuotationCostBreakdown {
+  if (!q) {
+    return {
+      eventCoverageCost: 0,
+      deliverablesCost: 0,
+      totalInternalCost: 0,
+      netProfit: 0,
+      sellingPrice: 0,
+    };
+  }
+
+  const srvsList = getStoredServicesFallback(srvs);
+  const currentEvents = q.events || [];
+
+  const isAnalysisValid = Boolean(
+    q.internalAnalysis?.totalInternalCost !== undefined &&
+    q.internalAnalysis.totalInternalCost > 0
+  );
+
+  // 1. Services / Shooting Team Crew Cost
+  let servicesCost = 0;
+  if (isAnalysisValid && q.internalAnalysis?.eventBreakdown && q.internalAnalysis.eventBreakdown.length > 0) {
+    servicesCost = q.internalAnalysis.eventBreakdown.reduce((sum, e) => sum + (Number(e.internalCost) || 0), 0);
+  } else {
+    servicesCost = currentEvents.reduce((eSum, evt) => {
+      return eSum + (evt.services || []).reduce((sSum, s) => {
+        if (s.crewBreakdown && s.crewBreakdown.length > 0) {
+          return sSum + s.crewBreakdown.reduce((cSum, c) => cSum + (Number(c.cost) || 0), 0);
+        }
+        const matched = srvsList.find(
+          (srv) => (s.serviceId && srv.id === s.serviceId) || (s.serviceName && srv.name.toLowerCase() === s.serviceName.toLowerCase())
+        );
+        const unitCost = s.internalCostPerUnit !== undefined && s.internalCostPerUnit !== null
+          ? s.internalCostPerUnit
+          : (matched?.defaultInternalCost ?? 5000);
+        return sSum + (s.quantity || 1) * unitCost;
+      }, 0);
+    }, 0);
+  }
+
+  // 2. Day-by-Day Video Editing Cost
+  const existingVideoBreakdown = isAnalysisValid ? (q.internalAnalysis?.videoEditingBreakdown || []) : [];
+  const videoCost = currentEvents.reduce((sum, evt) => {
+    const existing = existingVideoBreakdown.find((v) => v.eventId === evt.id);
+    if (existing && existing.cost !== undefined) {
+      return sum + existing.cost;
+    }
+    const vQty = (evt.services || [])
+      .filter((s) => {
+        const name = s.serviceName.toLowerCase();
+        return name.includes('video') || name.includes('videographer') || name.includes('cinematograph');
+      })
+      .reduce((sSum, s) => sSum + (s.quantity || 1), 0);
+    const dQty = (evt.services || [])
+      .filter((s) => s.serviceName.toLowerCase().includes('drone'))
+      .reduce((sSum, s) => sSum + (s.quantity || 1), 0);
+    return sum + computeDefaultVideoEditingCost(vQty, dQty).cost;
+  }, 0);
+
+  // 3. Album Printing Cost
+  const existingAlbumBreakdown = isAnalysisValid ? (q.internalAnalysis?.albumBreakdown || []) : [];
+  const albumCost = (q.inclusions || [])
+    .filter((i) => i.included && (i.name.toLowerCase().includes('album') || i.name.toLowerCase().includes('book')))
+    .reduce((sum, inc) => {
+      const existing = existingAlbumBreakdown.find((a) => a.id === inc.id);
+      if (existing && existing.totalCost !== undefined) {
+        return sum + existing.totalCost;
+      }
+      const qty = inc.quantity || 1;
+      const unitCost = existing?.unitCost ?? getDefaultAlbumUnitCost(inc.name, srvsList);
+      return sum + qty * unitCost;
+    }, 0);
+
+  // 4. Additional Non-Service Expenses
+  const rawAdditional = q.additionalExpenses || q.internalAnalysis?.additionalExpenses || [];
+  const cleanAdditional = rawAdditional.filter(
+    (e) => !(e.id === 'exp-1' && e.description === 'Transport & Logistics' && e.amount === 3000)
+  );
+  const additionalCost = cleanAdditional.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+
+  const eventCoverageCost = servicesCost + additionalCost;
+  const deliverablesCost = videoCost + albumCost;
+  const totalInternalCost = eventCoverageCost + deliverablesCost;
+
+  const sellingPrice = q.payment?.grandTotal || currentEvents.reduce((sum, e) => sum + (Number(e.price) || 0), 0);
+  const netProfit = Math.max(0, sellingPrice - totalInternalCost);
+
+  return {
+    eventCoverageCost,
+    deliverablesCost,
+    totalInternalCost,
+    netProfit,
+    sellingPrice,
+  };
+}
+
 /**
  * Universal Single Source of Truth for Quotation Net Profit:
  * Selling Price - Total Internal Cost
