@@ -48,7 +48,7 @@ const CATEGORY_CONFIG: Record<
   { label: string; icon: React.ElementType; color: string; bg: string; border: string }
 > = {
   event_profit: {
-    label: 'Client Payment (Inflow)',
+    label: 'Event Profit (Income)',
     icon: TrendingUp,
     color: 'text-emerald-800',
     bg: 'bg-emerald-50',
@@ -194,12 +194,8 @@ export default function ExpensesPage() {
   const [selectedPersonForDetail, setSelectedPersonForDetail] = useState<string | null>(null);
 
   // ----------------------------------------------------
-  // 1. AUTO-SYNCED EVENT PROFIT FROM CONFIRMED BOOKINGS
+  // 1. AUTO-SYNCED REALIZED EVENT PROFIT FROM CONFIRMED BOOKINGS
   // ----------------------------------------------------
-  const getQuotationProfit = (q: Quotation): number => {
-    return Math.max(0, calculateQuotationNetProfit(q, services));
-  };
-
   const getQuotationTotal = (q: Quotation): number => {
     return q.payment?.grandTotal || (q.events || []).reduce((sum, e) => sum + (Number(e.price) || 0), 0);
   };
@@ -208,103 +204,94 @@ export default function ExpensesPage() {
     return calculateQuotationInternalCost(q, services);
   };
 
+  const getQuotationPaid = (q: Quotation): number => {
+    const txTotal = (q.payment?.transactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    if (txTotal > 0) return txTotal;
+    return Number(q.payment?.advanceReceived) || 0;
+  };
+
+  // Full contract projected profit upon 100% client payment
+  const getQuotationProjectedProfit = (q: Quotation): number => {
+    return Math.max(0, calculateQuotationNetProfit(q, services));
+  };
+
+  // Realized Profit = Only what is received AFTER all event expenses are covered!
+  // Formula: Math.max(0, paidAmount - eventExpenses)
+  const getQuotationRealizedProfit = (q: Quotation): number => {
+    const paid = getQuotationPaid(q);
+    const expenses = getQuotationExpenses(q);
+    return Math.max(0, paid - expenses);
+  };
+
   // Confirmed & Completed Quotations
   const confirmedQuotations = useMemo(() => {
     return quotations.filter((q) => q.status === 'confirmed' || q.status === 'completed');
   }, [quotations]);
 
-  // ----------------------------------------------------
-  // 1. AUTO-SYNCED CLIENT CASH PAYMENTS FROM CONFIRMED BOOKINGS
-  // ----------------------------------------------------
-  // Actual Client Payments Inflow Entries (from Live Payment Ledgers of confirmed bookings)
-  const clientPaymentEntries: StudioExpense[] = useMemo(() => {
-    const entries: StudioExpense[] = [];
-
-    confirmedQuotations.forEach((q) => {
+  // Event Profit Inflow entries for Combined Studio Ledger
+  const eventProfitEntries: StudioExpense[] = useMemo(() => {
+    return confirmedQuotations.map((q) => {
       const pkgTotal = getQuotationTotal(q);
-      const clientName = q.client?.name || 'Client';
-      const quoteNum = q.quotationNumber || 'SS-2026';
-      const transactions = Array.isArray(q.payment?.transactions) ? q.payment.transactions : [];
+      const expTotal = getQuotationExpenses(q);
+      const paid = getQuotationPaid(q);
+      const realizedProfit = getQuotationRealizedProfit(q);
+      const dateStr = q.client?.quotationDate || q.createdAt?.split('T')[0] || getTodayDateString();
+      const isBreakEven = paid >= expTotal;
+      const remainingCost = Math.max(0, expTotal - paid);
 
-      if (transactions.length > 0) {
-        // Individual live payment transactions from quotation ledger
-        transactions.forEach((tx, idx) => {
-          const amt = Number(tx.amount) || 0;
-          if (amt <= 0) return;
+      const statusNote = isBreakEven
+        ? `Paid: ${formatCurrency(paid)} (Expenses Cleared: ${formatCurrency(expTotal)} • Asal Profit: ${formatCurrency(realizedProfit)})`
+        : `Paid: ${formatCurrency(paid)} (Covering Costs: ${formatCurrency(remainingCost)} left to clear expenses of ${formatCurrency(expTotal)})`;
 
-          entries.push({
-            id: `client-tx-${q.id}-${tx.id || idx}`,
-            workspaceId: q.workspaceId || 'ws_user-super-admin',
-            amount: amt,
-            category: 'event_profit' as ExpenseCategory,
-            type: 'income',
-            quotationId: q.id,
-            quotationNumber: quoteNum,
-            clientName: clientName,
-            date: tx.date || q.client?.quotationDate || q.createdAt?.split('T')[0] || getTodayDateString(),
-            personName: clientName,
-            paymentMethod: tx.method || 'bank_transfer',
-            description: `Payment Received: ${clientName} (${quoteNum}) — ${tx.notes || 'Client Payment'} • Package: ${formatCurrency(pkgTotal)}`,
-            reference: quoteNum,
-            createdAt: tx.createdAt || q.createdAt || new Date().toISOString(),
-            updatedAt: q.updatedAt || new Date().toISOString(),
-          });
-        });
-      } else if (Number(q.payment?.advanceReceived) > 0) {
-        // Fallback for quotation with advanceReceived but no transactions array
-        const amt = Number(q.payment.advanceReceived);
-        entries.push({
-          id: `client-advance-${q.id}`,
-          workspaceId: q.workspaceId || 'ws_user-super-admin',
-          amount: amt,
-          category: 'event_profit' as ExpenseCategory,
-          type: 'income',
-          quotationId: q.id,
-          quotationNumber: quoteNum,
-          clientName: clientName,
-          date: q.client?.quotationDate || q.createdAt?.split('T')[0] || getTodayDateString(),
-          personName: clientName,
-          paymentMethod: 'bank_transfer',
-          description: `Advance Payment Received: ${clientName} (${quoteNum}) • Package: ${formatCurrency(pkgTotal)}`,
-          reference: quoteNum,
-          createdAt: q.createdAt || new Date().toISOString(),
-          updatedAt: q.updatedAt || new Date().toISOString(),
-        });
-      }
+      return {
+        id: `auto-profit-${q.id}`,
+        workspaceId: q.workspaceId || 'ws_user-super-admin',
+        amount: realizedProfit,
+        category: 'event_profit' as ExpenseCategory,
+        type: 'income',
+        quotationId: q.id,
+        quotationNumber: q.quotationNumber,
+        clientName: q.client?.name,
+        date: dateStr,
+        personName: q.client?.name ? `${q.client.name}` : 'Confirmed Client',
+        paymentMethod: 'bank_transfer',
+        description: `Event Profit: ${q.client?.name || 'Client'} (${q.quotationNumber || 'SS-2026'}) — Package: ${formatCurrency(pkgTotal)} − Costs: ${formatCurrency(expTotal)} • ${statusNote}`,
+        reference: q.quotationNumber,
+        createdAt: q.createdAt || new Date().toISOString(),
+        updatedAt: q.updatedAt || new Date().toISOString(),
+      };
     });
-
-    return entries;
   }, [confirmedQuotations, services]);
 
-  // Combined Ledger Items (Client Inflow Payments + Manual Studio Expenses)
+  // Combined Ledger Items (Realized Event Profits + Manual Studio Expenses)
   const allLedgerItems = useMemo(() => {
-    const combined = [...clientPaymentEntries, ...expenses];
+    const combined = [...eventProfitEntries, ...expenses];
     return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [clientPaymentEntries, expenses]);
+  }, [eventProfitEntries, expenses]);
 
   // ----------------------------------------------------
-  // 2. FINANCIAL RECONCILIATION TOTALS (OPTION 2: EXPECTED VS REAL CASH)
+  // 2. FINANCIAL RECONCILIATION TOTALS (AFTER EXPENSES DEDUCTION)
   // ----------------------------------------------------
-  // 1. Total Booked Profit (Projected Net Profit upon 100% payment collection)
-  const totalBookedProfit = useMemo(() => {
-    return confirmedQuotations.reduce((sum, q) => sum + getQuotationProfit(q), 0);
+  // 1. Total Realized Event Profit (Only profit after event expenses are covered)
+  const totalEventProfit = useMemo(() => {
+    return eventProfitEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }, [eventProfitEntries]);
+
+  // 2. Total Projected Event Profit (When 100% of all client packages are paid)
+  const projectedTotalProfit = useMemo(() => {
+    return confirmedQuotations.reduce((sum, q) => sum + getQuotationProjectedProfit(q), 0);
   }, [confirmedQuotations, services]);
 
-  // 2. Total Client Cash Collected (Real Inflow Received)
-  const totalCashCollected = useMemo(() => {
-    return clientPaymentEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  }, [clientPaymentEntries]);
-
-  // 3. Total Studio Expenses (Operating expenses + advances)
+  // 3. Total Studio Expenses (Operating expenses: Rent, Ads, Electricity, Salaries)
   const totalStudioExpenses = useMemo(() => {
     return expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }, [expenses]);
 
-  // 4. Studio Real Cash Balance = Actual Cash Inflow − Total Studio Expenses
-  const studioCashBalance = totalCashCollected - totalStudioExpenses;
+  // 4. Studio Remaining Balance = Total Realized Event Profit − Total Studio Expenses
+  const studioRemainingBalance = totalEventProfit - totalStudioExpenses;
 
-  // 5. Projected Final Balance = Total Booked Profit − Total Studio Expenses
-  const projectedFinalBalance = totalBookedProfit - totalStudioExpenses;
+  // 5. Projected Remaining Balance = Total Projected Event Profit − Total Studio Expenses
+  const projectedRemainingBalance = projectedTotalProfit - totalStudioExpenses;
 
   // ----------------------------------------------------
   // 3. FILTERING
@@ -532,95 +519,78 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* 5 Financial Key Metrics (Option 2: Expected Booked Profit vs Real In-Hand Cash) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        {/* 1. Booked Total Profit (Projected from confirmed bookings) */}
-        <div className="bg-white p-3.5 rounded-2xl border-2 border-indigo-200 shadow-xs space-y-2 flex flex-col justify-between">
+      {/* 4 Financial Key Metrics (Realized Profit after event expenses are covered) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Total Event Profit (Realized after deducting Event Expenses) */}
+        <div className="bg-white p-4 rounded-2xl border-2 border-emerald-200 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold text-indigo-900 uppercase tracking-wider">Booked Total Profit</span>
-            <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold text-[9px] border border-indigo-200">
-              Projected
+            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Total Event Profit</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="font-serif font-extrabold text-xl sm:text-2xl text-emerald-700">
+            {formatCurrency(totalEventProfit)}
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-slate-500">
+            <span>⚡ Realized after event expenses</span>
+            <span className="text-emerald-700 font-bold" title="Total expected profit upon 100% client payment">
+              Projected: {formatCurrency(projectedTotalProfit)}
             </span>
           </div>
-          <div className="font-serif font-extrabold text-lg sm:text-xl text-indigo-700">
-            {formatCurrency(totalBookedProfit)}
-          </div>
-          <span className="text-[9.5px] text-slate-500 block leading-tight">
-            ⚡ Expected upon full client recovery ({confirmedQuotations.length} bookings)
-          </span>
         </div>
 
-        {/* 2. Client Cash Inflow Received (Real Money In-Hand from Clients) */}
-        <div className="bg-white p-3.5 rounded-2xl border-2 border-emerald-200 shadow-xs space-y-2 flex flex-col justify-between">
+        {/* 2. Total Studio Expenses */}
+        <div className="bg-white p-4 rounded-2xl border-2 border-rose-200 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold text-emerald-800 uppercase tracking-wider">Cash Inflow Received</span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[9px] border border-emerald-200">
-              Real Inflow
-            </span>
+            <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider">Total Studio Expenses</span>
+            <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+              <ArrowUpRight className="w-4 h-4" />
+            </div>
           </div>
-          <div className="font-serif font-extrabold text-lg sm:text-xl text-emerald-700">
-            {formatCurrency(totalCashCollected)}
-          </div>
-          <span className="text-[9.5px] text-emerald-600 block leading-tight">
-            Actual payments received in payment ledger
-          </span>
-        </div>
-
-        {/* 3. Total Studio Expenses */}
-        <div className="bg-white p-3.5 rounded-2xl border-2 border-rose-200 shadow-xs space-y-2 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold text-rose-800 uppercase tracking-wider">Studio Expenses</span>
-            <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-bold text-[9px] border border-rose-200">
-              Outflow
-            </span>
-          </div>
-          <div className="font-serif font-extrabold text-lg sm:text-xl text-rose-600">
+          <div className="font-serif font-extrabold text-xl sm:text-2xl text-rose-600">
             {formatCurrency(totalStudioExpenses)}
           </div>
-          <span className="text-[9.5px] text-slate-400 block leading-tight">
-            {expenses.length} recorded operating expenses
-          </span>
+          <span className="text-[10px] text-slate-400 block">{expenses.length} recorded operating expenses</span>
         </div>
 
-        {/* 4. Studio Real Cash Balance (In-Hand Cash minus Expenses) */}
-        <div className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-3.5 rounded-2xl border-2 border-[#D4AF37] shadow-md space-y-2 relative overflow-hidden flex flex-col justify-between">
+        {/* 3. Studio Remaining Balance */}
+        <div className="bg-gradient-to-br from-[#0D4F4F] to-[#093A3A] text-white p-4 rounded-2xl border-2 border-[#D4AF37] shadow-md space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between relative z-10">
-            <span className="text-[10.5px] font-bold text-[#D4AF37] uppercase tracking-wider">Studio Cash Balance</span>
-            <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] border ${
-              studioCashBalance >= 0 
+            <span className="text-[11px] font-bold text-[#D4AF37] uppercase tracking-wider">Studio Remaining Balance</span>
+            <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${
+              studioRemainingBalance >= 0 
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30' 
                 : 'bg-rose-500/20 text-rose-300 border-rose-400/30'
             }`}>
-              {studioCashBalance >= 0 ? 'Cash In Hand' : 'Deficit'}
+              {studioRemainingBalance >= 0 ? 'Net Surplus' : 'Net Deficit'}
             </span>
           </div>
-          <div className={`font-serif font-extrabold text-lg sm:text-xl tracking-tight relative z-10 ${
-            studioCashBalance >= 0 ? 'text-emerald-300' : 'text-rose-300'
+          <div className={`font-serif font-extrabold text-xl sm:text-2xl tracking-tight relative z-10 ${
+            studioRemainingBalance >= 0 ? 'text-emerald-300' : 'text-rose-300'
           }`}>
-            {formatCurrency(studioCashBalance)}
+            {formatCurrency(studioRemainingBalance)}
           </div>
-          <div className="flex items-center justify-between text-[9px] text-teal-200 relative z-10 leading-tight">
-            <span>Cash Inflow − Expenses</span>
-            <span className="text-[#D4AF37] font-semibold" title="Projected final profit after all clients pay">
-              Projected: {formatCurrency(projectedFinalBalance)}
+          <div className="flex items-center justify-between text-[10px] text-teal-200 relative z-10">
+            <span>Event Profit − Studio Expenses</span>
+            <span className="text-[#D4AF37] font-semibold" title="Projected balance upon full client payment">
+              Proj. Balance: {formatCurrency(projectedRemainingBalance)}
             </span>
           </div>
         </div>
 
-        {/* 5. Active Team Advances */}
-        <div className="bg-white p-3.5 rounded-2xl border-2 border-amber-200 shadow-xs space-y-2 bg-amber-50/30 flex flex-col justify-between">
+        {/* 4. Active Team Advances */}
+        <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-xs space-y-2 bg-amber-50/30">
           <div className="flex items-center justify-between">
-            <span className="text-[10.5px] font-bold text-amber-800 uppercase tracking-wider">Team Advances</span>
-            <div className="w-5 h-5 rounded-md bg-amber-100 text-amber-700 flex items-center justify-center">
-              <UserCheck className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Team Advances Given</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+              <UserCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="font-serif font-extrabold text-lg sm:text-xl text-amber-700">
+          <div className="font-serif font-extrabold text-xl sm:text-2xl text-amber-700">
             {formatCurrency(totalTeamAdvances)}
           </div>
-          <span className="text-[9.5px] text-amber-600 block leading-tight">
-            Advances disbursed to crew
-          </span>
+          <span className="text-[10px] text-amber-600 block">Total advances disbursed to crew</span>
         </div>
       </div>
 
@@ -816,9 +786,15 @@ export default function ExpensesPage() {
                       {/* Amount: Inflow (+) / Outflow (-) */}
                       <td className="p-3 text-right whitespace-nowrap font-mono">
                         {isIncome ? (
-                          <span className="font-serif font-extrabold text-emerald-700 text-sm">
-                            +{formatCurrency(item.amount)}
-                          </span>
+                          item.amount > 0 ? (
+                            <span className="font-serif font-extrabold text-emerald-700 text-sm">
+                              +{formatCurrency(item.amount)}
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-amber-700 text-xs bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                              Rs. 0 (Covering Costs)
+                            </span>
+                          )
                         ) : (
                           <span className="font-serif font-bold text-rose-600 text-sm">
                             -{formatCurrency(item.amount)}
