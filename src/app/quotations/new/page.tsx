@@ -93,6 +93,10 @@ function NewQuotationContent() {
       events: initialEvents,
       inclusions: defaultIncList.length > 0 ? defaultIncList : [],
       payment: {
+        subtotal: 45000,
+        discount: 0,
+        discountType: 'fixed',
+        discountPercentage: 0,
         grandTotal: 45000,
         advanceReceived: 0,
         advanceType: 'fixed',
@@ -125,7 +129,16 @@ function NewQuotationContent() {
       .filter((inc) => inc.included && inc.price !== undefined && inc.price > 0)
       .reduce((sum, inc) => sum + (inc.price || 0) * (inc.quantity || 1), 0);
     
-    const total = eventsSum + extrasSum;
+    const subtotal = eventsSum + extrasSum;
+    const discountType = quotation.payment?.discountType || 'fixed';
+    let discountAmt = 0;
+    if (discountType === 'percentage') {
+      const pct = quotation.payment?.discountPercentage || 0;
+      discountAmt = Math.round((subtotal * pct) / 100);
+    } else {
+      discountAmt = Math.min(subtotal, Number(quotation.payment?.discount) || 0);
+    }
+    const total = Math.max(0, subtotal - discountAmt);
     
     // Only deduct advance if it has actually been received; do not fabricate advance from percentage!
     const advanceAmt = Number(quotation.payment?.advanceReceived) || 0;
@@ -135,6 +148,8 @@ function NewQuotationContent() {
       ...prev,
       payment: {
         ...prev.payment,
+        subtotal,
+        discount: discountAmt,
         grandTotal: total,
         advanceReceived: advanceAmt,
         balancePayable: balance,
@@ -350,6 +365,13 @@ function NewQuotationContent() {
           {/* Payment Breakdown */}
           <PaymentSection
             payment={quotation.payment}
+            subtotal={
+              quotation.payment.subtotal ??
+              (quotation.events.reduce((sum, e) => sum + (e.price || 0), 0) +
+                (quotation.inclusions || [])
+                  .filter((inc) => inc.included && inc.price)
+                  .reduce((sum, inc) => sum + (inc.price || 0) * (inc.quantity || 1), 0))
+            }
             grandTotal={quotation.payment.grandTotal}
             onChange={(payment) => setQuotation((prev) => ({ ...prev, payment }))}
           />

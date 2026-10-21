@@ -102,7 +102,11 @@ export interface PaymentTransaction {
 }
 
 export interface PaymentDetails {
-  grandTotal: number; // Sum of all event prices
+  subtotal?: number; // Base total before discount (Events + Inclusions)
+  discount?: number; // Total discount amount in PKR
+  discountType?: 'fixed' | 'percentage';
+  discountPercentage?: number;
+  grandTotal: number; // Final payable amount after discount
   advanceReceived: number;
   advanceType: 'fixed' | 'percentage';
   advancePercentage?: number;

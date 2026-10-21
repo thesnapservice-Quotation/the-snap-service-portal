@@ -125,6 +125,10 @@ function parseSupabaseRow(r: any): Quotation {
     inclusions: r.inclusions || base.inclusions || [],
     payment: {
       ...rawPayment,
+      subtotal: rawPayment.subtotal,
+      discount: rawPayment.discount,
+      discountType: rawPayment.discountType,
+      discountPercentage: rawPayment.discountPercentage,
       grandTotal,
       advanceReceived: totalPaid,
       advanceType: rawPayment.advanceType || 'fixed',
@@ -167,6 +171,10 @@ function parseSupabaseRow(r: any): Quotation {
           ...v,
           payment: {
             ...(v.payment || {}),
+            subtotal: v.payment?.subtotal,
+            discount: v.payment?.discount,
+            discountType: v.payment?.discountType,
+            discountPercentage: v.payment?.discountPercentage,
             grandTotal: vGrandTotal,
             advanceReceived: vAdvance,
             balancePayable: vBalance,
@@ -426,6 +434,10 @@ export async function saveQuotationToDb(quotation: Quotation): Promise<Quotation
     variations: finalVariations,
     payment: {
       ...(quotation.payment || {}),
+      subtotal: quotation.payment?.subtotal ?? existingRecord?.payment?.subtotal,
+      discount: quotation.payment?.discount !== undefined ? quotation.payment.discount : existingRecord?.payment?.discount,
+      discountType: quotation.payment?.discountType ?? existingRecord?.payment?.discountType,
+      discountPercentage: quotation.payment?.discountPercentage ?? existingRecord?.payment?.discountPercentage,
       grandTotal: finalGrandTotal,
       advanceReceived: finalPaid,
       balancePayable: finalBalance,

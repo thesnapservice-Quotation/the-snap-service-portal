@@ -623,6 +623,11 @@ function ClientPortalContent() {
                       </span>
                       <span className="text-[10px] text-slate-500 font-normal">
                         Total: {formatCurrency(quotation.payment.grandTotal)}
+                        {quotation.payment.discount && quotation.payment.discount > 0 ? (
+                          <span className="text-emerald-700 font-bold ml-1">
+                            (Saved {formatCurrency(quotation.payment.discount)})
+                          </span>
+                        ) : null}
                       </span>
                     </div>
 

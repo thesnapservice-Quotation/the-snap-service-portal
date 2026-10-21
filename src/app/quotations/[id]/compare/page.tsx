@@ -564,7 +564,11 @@ export default function QuotationComparePage() {
             <span className="font-serif font-bold text-2xl text-slate-900">
               {formatCurrency(clientPrice)}
             </span>
-            <span className="text-[10px] text-slate-400 block mt-0.5">Quotated Package Price</span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">
+              {quotation.payment.discount && quotation.payment.discount > 0
+                ? `Net Price (${formatCurrency(quotation.payment.discount)} Discount Applied)`
+                : 'Quotated Package Price'}
+            </span>
           </div>
         </div>
 
@@ -1076,6 +1080,11 @@ export default function QuotationComparePage() {
           <div>
             <span className="text-xs uppercase tracking-widest text-slate-300 block">Total Client Selling Price</span>
             <span className="font-serif font-bold text-2xl text-white">{formatCurrency(clientPrice)}</span>
+            {quotation.payment.discount && quotation.payment.discount > 0 ? (
+              <span className="text-[10.5px] text-emerald-300 block font-medium">
+                Includes -{formatCurrency(quotation.payment.discount)} Discount
+              </span>
+            ) : null}
           </div>
 
           <div>

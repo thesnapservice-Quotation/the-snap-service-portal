@@ -118,13 +118,20 @@ export function ClientVariationSelector({
                 >
                   Total Package Investment:
                 </span>
-                <span
-                  className={`font-serif font-bold text-base sm:text-lg ${
-                    isSelected ? 'text-[#D4AF37]' : 'text-[#0D4F4F]'
-                  }`}
-                >
-                  {formatCurrency(price)}
-                </span>
+                <div className="text-right">
+                  {v.payment?.discount && v.payment.discount > 0 && (
+                    <span className={`text-[10.5px] line-through block font-semibold ${isSelected ? 'text-[#C3DFDF]' : 'text-slate-400'}`}>
+                      {formatCurrency(v.payment.subtotal || (price + v.payment.discount))}
+                    </span>
+                  )}
+                  <span
+                    className={`font-serif font-bold text-base sm:text-lg ${
+                      isSelected ? 'text-[#D4AF37]' : 'text-[#0D4F4F]'
+                    }`}
+                  >
+                    {formatCurrency(price)}
+                  </span>
+                </div>
               </div>
             </div>
           );

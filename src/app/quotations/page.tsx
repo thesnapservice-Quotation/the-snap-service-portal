@@ -589,11 +589,20 @@ export default function QuotationsListPage() {
                           <span className="text-[10px] text-amber-700 font-semibold block">
                             Option Range
                           </span>
-                        ) : q.payment.advanceReceived > 0 ? (
-                          <span className="text-[10px] text-emerald-700 block">
-                            Adv: {formatCurrency(q.payment.advanceReceived)}
-                          </span>
-                        ) : null}
+                        ) : (
+                          <div className="space-y-0.5">
+                            {q.payment.discount && q.payment.discount > 0 ? (
+                              <span className="text-[10px] text-emerald-700 font-semibold block">
+                                Disc: -{formatCurrency(q.payment.discount)}
+                              </span>
+                            ) : null}
+                            {q.payment.advanceReceived > 0 ? (
+                              <span className="text-[10px] text-blue-700 block">
+                                Adv: {formatCurrency(q.payment.advanceReceived)}
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
                       </td>
 
                       {/* Estimated Profit (Password Protected) */}
