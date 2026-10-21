@@ -320,7 +320,6 @@ export function PaymentSection({ payment, subtotal: propSubtotal, grandTotal: pr
               </span>
               <span className="font-mono text-xs">
                 - {formatCurrency(discountAmt)}
-                {payment.discountPercentage ? ` (${payment.discountPercentage}%)` : ''}
               </span>
             </div>
           )}

@@ -455,24 +455,15 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
 
         {/* GRAND TOTAL BANNER BAR (Rounded Edges) */}
         <div className="my-2.5 sm:my-3 relative z-10">
-          {/* SPECIAL DISCOUNT / SUB-TOTAL STRIP (Only shown when discount > 0) */}
+          {/* Subtle Compact Discount Line (No separate box, No % symbol) */}
           {payment.discount && payment.discount > 0 ? (
-            <div className="mb-2 bg-gradient-to-r from-emerald-50 via-[#FAF9F6] to-emerald-50 p-2 sm:p-2.5 rounded-xl border border-emerald-200 shadow-2xs flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-emerald-700 text-white font-bold text-[9.5px] uppercase tracking-wider flex items-center gap-1 shadow-2xs">
-                  <span>🎁 Special Discount</span>
-                </span>
-                <span className="text-slate-600 font-medium text-[11px] sm:text-xs">
-                  Package Base Total: <span className="line-through text-slate-500 font-semibold">{formatCurrency(payment.subtotal || (payment.grandTotal + payment.discount))}</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-600 font-medium text-[11px]">Special Savings:</span>
-                <span className="font-serif font-extrabold text-xs sm:text-sm text-emerald-800">
-                  - {formatCurrency(payment.discount)}
-                  {payment.discountPercentage ? ` (${payment.discountPercentage}%)` : ''}
-                </span>
-              </div>
+            <div className="flex items-center justify-between px-2 py-0.5 mb-1 text-[11px] sm:text-xs text-slate-600 font-medium">
+              <span>
+                Package Total: <span className="line-through text-slate-400 font-semibold">{formatCurrency(payment.subtotal || (payment.grandTotal + payment.discount))}</span>
+              </span>
+              <span className="text-emerald-700 font-bold">
+                Discount: -{formatCurrency(payment.discount)}
+              </span>
             </div>
           ) : null}
 
@@ -482,13 +473,8 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
               GRAND TOTAL
             </div>
             {/* Right Gold Amount */}
-            <div className="w-1/2 text-right pr-3 sm:pr-6 py-1.5 sm:py-2 flex flex-col items-end justify-center">
-              {payment.discount && payment.discount > 0 && (
-                <span className="text-[10px] sm:text-[11px] text-[#0D4F4F] font-bold line-through opacity-80 leading-tight">
-                  {formatCurrency(payment.subtotal || (payment.grandTotal + payment.discount))}
-                </span>
-              )}
-              <span className="font-serif font-extrabold text-lg sm:text-2xl text-white tracking-tight leading-tight">
+            <div className="w-1/2 text-right pr-3 sm:pr-6 py-1.5 sm:py-2">
+              <span className="font-serif font-extrabold text-lg sm:text-2xl text-white tracking-tight">
                 {formatCurrency(payment.grandTotal)}
               </span>
             </div>
