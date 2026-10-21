@@ -36,7 +36,7 @@ import {
 
 export default function DashboardPage() {
   const { quotations, loading } = useQuotations();
-  const { tasks, toggleTaskComplete } = useTasks();
+  const { tasks, loading: tasksLoading, toggleTaskComplete } = useTasks();
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
 
   // Metrics calculations
@@ -410,7 +410,10 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <div className="py-8 text-center text-xs text-slate-400">Loading recent quotations...</div>
+          <div className="py-8 text-center text-xs text-slate-400 space-y-2">
+            <div className="inline-block w-5 h-5 border-2 border-[#0D4F4F] border-t-transparent rounded-full animate-spin mb-2" />
+            <p>Loading recent quotations...</p>
+          </div>
         ) : recentQuotations.length === 0 ? (
           <div className="py-8 text-center text-xs text-slate-400">
             No quotations found. Click &quot;New Quotation&quot; above to create one.

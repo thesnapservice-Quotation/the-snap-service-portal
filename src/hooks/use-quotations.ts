@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Quotation, QuotationStatus } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { generateSecureId } from '@/lib/crypto';
@@ -25,6 +25,8 @@ function matchesWorkspace(q: Quotation, targetWs: string): boolean {
 }
 
 export function useQuotations() {
+  const isInitialMount = useRef(true);
+  const [loading, setLoading] = useState(true);
   const [allQuotations, setAllQuotations] = useState<Quotation[]>(() => {
     if (typeof window === 'undefined') return [];
     const local = storage.getQuotations();
@@ -45,16 +47,20 @@ export function useQuotations() {
     return sortQuotationsByNumber(list);
   }, [allQuotations]);
 
-  const [loading, setLoading] = useState(false);
-
-  const refreshQuotations = useCallback(async () => {
+  const refreshQuotations = useCallback(async (isSilent = false) => {
     const user = storage.getCurrentUser();
     if (!user || !user.id) {
       setAllQuotations([]);
+      setLoading(false);
+      isInitialMount.current = false;
       return;
     }
 
     const targetWs = resolveUserWs(user);
+
+    if (!isSilent && isInitialMount.current) {
+      setLoading(true);
+    }
 
     try {
       // 1. Direct query to Central Production Database scoped strictly by workspaceId
@@ -112,20 +118,26 @@ export function useQuotations() {
         }
       }
     } catch {
-      // Keep existing state on network error
+      // Keep existing state or local fallback on network error
+      const local = storage.getQuotations();
+      const filtered = local.filter((q) => matchesWorkspace(q, targetWs));
+      if (filtered.length > 0) {
+        setAllQuotations(sortQuotationsByNumber(filtered));
+      }
     } finally {
+      isInitialMount.current = false;
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    refreshQuotations();
+    refreshQuotations(false);
 
-    const handleUpdate = () => refreshQuotations();
+    const handleUpdate = () => refreshQuotations(true);
 
     // Auto-poll database every 5 seconds for real-time cross-device sync between MacBook and Phone
     const interval = setInterval(() => {
-      refreshQuotations();
+      refreshQuotations(true);
     }, 5000);
 
     if (typeof window !== 'undefined') {

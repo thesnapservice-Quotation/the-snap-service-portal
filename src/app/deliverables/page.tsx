@@ -119,7 +119,7 @@ Thank you for choosing The Snap Service.`;
 }
 
 export default function DeliverablesPage() {
-  const { quotations, saveQuotation } = useQuotations();
+  const { quotations, loading, saveQuotation } = useQuotations();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [localDeliverableStatus, setLocalDeliverableStatus] = useState<Record<string, DeliverableStatus>>({});
@@ -282,7 +282,12 @@ export default function DeliverablesPage() {
 
       {/* Deliverables List */}
       <div className="space-y-4">
-        {filteredQuotations.length === 0 ? (
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 text-xs space-y-2">
+            <div className="inline-block w-5 h-5 border-2 border-[#0D4F4F] border-t-transparent rounded-full animate-spin mb-2" />
+            <p>Loading confirmed event deliverables...</p>
+          </div>
+        ) : filteredQuotations.length === 0 ? (
           <div className="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center text-slate-400 text-xs">
             {confirmedQuotations.length === 0
               ? 'No confirmed event bookings found yet. Once an event is confirmed in Quotations, it will appear here automatically.'

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { TaskItem, TaskCategory, TaskPriority, TaskHistoryEntry } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { generateSecureId } from '@/lib/crypto';
@@ -82,18 +82,21 @@ export function useTasks() {
     [isSuperAdmin, targetWs, currentUserId]
   );
 
+  const isInitialMount = useRef(true);
+  const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
     const local = storage.getTasks();
     if (local.length > 0) {
       return local.filter(isTaskAccessible);
     }
-    return isSuperAdmin ? INITIAL_SEED_TASKS : [];
+    return [];
   });
-  const [loading, setLoading] = useState(false);
 
-  const syncTasks = useCallback(async () => {
+  const syncTasks = useCallback(async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent && isInitialMount.current) {
+        setLoading(true);
+      }
       const cloudTasks = await apiFetchTasks(targetWs);
       if (Array.isArray(cloudTasks)) {
         storage.setAllTasks(cloudTasks);
@@ -102,17 +105,22 @@ export function useTasks() {
       }
     } catch (e) {
       console.error('Error syncing tasks with cloud:', e);
+      const local = storage.getTasks();
+      if (local.length > 0) {
+        setTasks(local.filter(isTaskAccessible));
+      }
     } finally {
+      isInitialMount.current = false;
       setLoading(false);
     }
   }, [targetWs, isTaskAccessible]);
 
   useEffect(() => {
-    syncTasks();
+    syncTasks(false);
 
     // 8-second live sync interval across all active devices
     const interval = setInterval(() => {
-      syncTasks();
+      syncTasks(true);
     }, 8000);
 
     const handleStorage = () => {
@@ -121,14 +129,18 @@ export function useTasks() {
       setTasks(filtered);
     };
 
+    const handleUserSwitch = () => {
+      syncTasks(true);
+    };
+
     window.addEventListener('snap_tasks_updated', handleStorage);
     window.addEventListener('storage', handleStorage);
-    window.addEventListener('snap_user_switched', syncTasks);
+    window.addEventListener('snap_user_switched', handleUserSwitch);
     return () => {
       clearInterval(interval);
       window.removeEventListener('snap_tasks_updated', handleStorage);
       window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('snap_user_switched', syncTasks);
+      window.removeEventListener('snap_user_switched', handleUserSwitch);
     };
   }, [syncTasks, isTaskAccessible]);
 

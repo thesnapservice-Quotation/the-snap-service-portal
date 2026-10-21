@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { StudioExpense, ExpenseCategory } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { apiFetchExpenses, apiSaveExpense, apiDeleteExpense } from '@/lib/api-client';
@@ -9,35 +9,50 @@ import { generateSecureId } from '@/lib/crypto';
 
 export function useExpenses() {
   const { currentUser } = useAuth();
-  const [expenses, setExpenses] = useState<StudioExpense[]>([]);
+  const [expenses, setExpenses] = useState<StudioExpense[]>(() => {
+    if (typeof window === 'undefined') return [];
+    return storage.getExpenses();
+  });
   const [loading, setLoading] = useState(true);
+  const isInitialMount = useRef(true);
 
   const activeWorkspace = currentUser?.workspaceId || (currentUser?.id ? `ws_${currentUser.id}` : 'ws_user-super-admin');
 
-  // Load from local storage immediately, then sync with cloud
-  const refreshExpenses = useCallback(async () => {
+  // Load from cloud as authoritative; fallback to local storage only if offline/error
+  const refreshExpenses = useCallback(async (isSilent = false) => {
+    if (!isSilent && isInitialMount.current) {
+      setLoading(true);
+    }
     try {
-      const local = storage.getExpenses();
-      setExpenses(local);
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const local = storage.getExpenses();
+        setExpenses(local);
+        return;
+      }
 
       const cloud = await apiFetchExpenses(activeWorkspace);
       if (Array.isArray(cloud)) {
         storage.setAllExpenses(cloud);
         setExpenses(cloud);
+      } else {
+        const local = storage.getExpenses();
+        setExpenses(local);
       }
     } catch (e) {
       console.error('Error refreshing expenses:', e);
+      const local = storage.getExpenses();
+      setExpenses(local);
     } finally {
+      isInitialMount.current = false;
       setLoading(false);
     }
   }, [activeWorkspace]);
 
   useEffect(() => {
-    refreshExpenses();
+    refreshExpenses(false);
 
     const handleLocalUpdate = () => {
-      const fresh = storage.getExpenses();
-      setExpenses(fresh);
+      refreshExpenses(true);
     };
 
     window.addEventListener('snap_expenses_updated', handleLocalUpdate);

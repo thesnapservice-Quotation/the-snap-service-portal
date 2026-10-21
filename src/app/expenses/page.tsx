@@ -165,7 +165,8 @@ const MANUAL_EXPENSE_CATEGORIES: ExpenseCategory[] = [
 
 export default function ExpensesPage() {
   const { expenses, loading, addExpense, updateExpense, deleteExpense, totalExpenses, totalTeamAdvances } = useExpenses();
-  const { quotations } = useQuotations();
+  const { quotations, loading: quotationsLoading } = useQuotations();
+  const isSyncing = loading || quotationsLoading;
   const { services } = useServices();
   const { users } = useAuth();
 
@@ -517,13 +518,17 @@ export default function ExpensesPage() {
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="font-serif font-extrabold text-xl sm:text-2xl text-emerald-700">
-            {formatCurrency(totalEventProfit)}
-          </div>
+          {isSyncing ? (
+            <div className="h-7 w-28 bg-emerald-100/70 rounded-lg animate-pulse my-1" />
+          ) : (
+            <div className="font-serif font-extrabold text-xl sm:text-2xl text-emerald-700">
+              {formatCurrency(totalEventProfit)}
+            </div>
+          )}
           <div className="flex items-center justify-between text-[10px] text-slate-500">
             <span>⚡ Realized after event expenses</span>
             <span className="text-emerald-700 font-bold" title="Total expected profit upon 100% client payment">
-              Projected: {formatCurrency(projectedTotalProfit)}
+              Projected: {isSyncing ? '...' : formatCurrency(projectedTotalProfit)}
             </span>
           </div>
         </div>
@@ -536,10 +541,14 @@ export default function ExpensesPage() {
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="font-serif font-extrabold text-xl sm:text-2xl text-rose-600">
-            {formatCurrency(totalStudioExpenses)}
-          </div>
-          <span className="text-[10px] text-slate-400 block">{expenses.length} recorded operating expenses</span>
+          {isSyncing ? (
+            <div className="h-7 w-24 bg-rose-100/70 rounded-lg animate-pulse my-1" />
+          ) : (
+            <div className="font-serif font-extrabold text-xl sm:text-2xl text-rose-600">
+              {formatCurrency(totalStudioExpenses)}
+            </div>
+          )}
+          <span className="text-[10px] text-slate-400 block">{isSyncing ? 'Checking...' : `${expenses.length} recorded operating expenses`}</span>
         </div>
 
         {/* 3. Studio Remaining Balance */}
@@ -551,18 +560,22 @@ export default function ExpensesPage() {
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30' 
                 : 'bg-rose-500/20 text-rose-300 border-rose-400/30'
             }`}>
-              {studioRemainingBalance >= 0 ? 'Net Surplus' : 'Net Deficit'}
+              {isSyncing ? 'Syncing...' : (studioRemainingBalance >= 0 ? 'Net Surplus' : 'Net Deficit')}
             </span>
           </div>
-          <div className={`font-serif font-extrabold text-xl sm:text-2xl tracking-tight relative z-10 ${
-            studioRemainingBalance >= 0 ? 'text-emerald-300' : 'text-rose-300'
-          }`}>
-            {formatCurrency(studioRemainingBalance)}
-          </div>
+          {isSyncing ? (
+            <div className="h-8 w-36 bg-emerald-800/50 rounded-lg animate-pulse my-1 relative z-10" />
+          ) : (
+            <div className={`font-serif font-extrabold text-xl sm:text-2xl tracking-tight relative z-10 ${
+              studioRemainingBalance >= 0 ? 'text-emerald-300' : 'text-rose-300'
+            }`}>
+              {formatCurrency(studioRemainingBalance)}
+            </div>
+          )}
           <div className="flex items-center justify-between text-[10px] text-teal-200 relative z-10">
             <span>Event Profit − Studio Expenses</span>
             <span className="text-[#D4AF37] font-semibold" title="Projected balance upon full client payment">
-              Proj. Balance: {formatCurrency(projectedRemainingBalance)}
+              Proj. Balance: {isSyncing ? '...' : formatCurrency(projectedRemainingBalance)}
             </span>
           </div>
         </div>
@@ -575,9 +588,13 @@ export default function ExpensesPage() {
               <UserCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="font-serif font-extrabold text-xl sm:text-2xl text-amber-700">
-            {formatCurrency(totalTeamAdvances)}
-          </div>
+          {isSyncing ? (
+            <div className="h-7 w-24 bg-amber-100/70 rounded-lg animate-pulse my-1" />
+          ) : (
+            <div className="font-serif font-extrabold text-xl sm:text-2xl text-amber-700">
+              {formatCurrency(totalTeamAdvances)}
+            </div>
+          )}
           <span className="text-[10px] text-amber-600 block">Total advances disbursed to crew</span>
         </div>
       </div>
@@ -832,7 +849,12 @@ export default function ExpensesPage() {
             </table>
           </div>
 
-          {filteredLedgerItems.length === 0 && (
+          {isSyncing ? (
+            <div className="text-center py-12 text-slate-400 text-xs">
+              <div className="inline-block w-5 h-5 border-2 border-[#0D4F4F] border-t-transparent rounded-full animate-spin mb-2" />
+              <p>Loading ledger entries...</p>
+            </div>
+          ) : filteredLedgerItems.length === 0 ? (
             <div className="text-center py-12">
               <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-2" />
               <h3 className="font-bold text-slate-700 text-sm">No ledger entries found</h3>
@@ -840,7 +862,7 @@ export default function ExpensesPage() {
                 {searchQuery ? 'Try changing your search keywords or date filter.' : 'Record a studio operating expense or confirm a quotation to generate event profits.'}
               </p>
             </div>
-          )}
+          ) : null}
         </div>
       )}
 

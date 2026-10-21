@@ -480,7 +480,10 @@ export default function QuotationsListPage() {
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="text-center py-12 text-slate-400 text-xs">Loading quotations...</div>
+          <div className="text-center py-12 text-slate-400 text-xs space-y-2">
+            <div className="inline-block w-5 h-5 border-2 border-[#0D4F4F] border-t-transparent rounded-full animate-spin mb-2" />
+            <p>Loading quotations...</p>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 space-y-3">
             {isTrashView ? (

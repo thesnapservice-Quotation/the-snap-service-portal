@@ -70,7 +70,7 @@ function formatLocalDatetimeInput(d: Date = new Date()): string {
 }
 
 export default function TasksPage() {
-  const { tasks, createTask, updateTask, toggleTaskComplete, setTaskWaiting, deleteTask, refreshTasks } = useTasks();
+  const { tasks, loading, createTask, updateTask, toggleTaskComplete, setTaskWaiting, deleteTask, refreshTasks } = useTasks();
   const { currentUser, users, isSuperAdmin, isTaskManager } = useAuth();
   const { quotations } = useQuotations();
   const {
@@ -768,7 +768,12 @@ export default function TasksPage() {
 
       {/* MINIMAL TASK LIST / CARDS */}
       <div className="space-y-2.5">
-        {filteredTasks.length === 0 ? (
+        {loading ? (
+          <div className="bg-white rounded-2xl p-10 text-center border border-slate-200 space-y-2.5">
+            <div className="inline-block w-5 h-5 border-2 border-[#0D4F4F] border-t-transparent rounded-full animate-spin mb-1" />
+            <p className="text-xs text-slate-400">Loading studio tasks...</p>
+          </div>
+        ) : filteredTasks.length === 0 ? (
           <div className="bg-white rounded-2xl p-10 text-center border border-dashed border-slate-200 space-y-2.5">
             <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
               <ListTodo className="w-5 h-5" />

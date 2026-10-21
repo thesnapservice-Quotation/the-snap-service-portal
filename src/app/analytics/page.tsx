@@ -36,8 +36,9 @@ import {
 import Link from 'next/link';
 
 export default function StudioAnalyticsPage() {
-  const { quotations, refreshQuotations } = useQuotations();
-  const { expenses, totalExpenses, totalTeamAdvances } = useExpenses();
+  const { quotations, loading: quotationsLoading, refreshQuotations } = useQuotations();
+  const { expenses, loading: expensesLoading, totalExpenses, totalTeamAdvances } = useExpenses();
+  const isSyncing = quotationsLoading || expensesLoading;
   const { services } = useServices();
   const { isProfitUnlocked, openUnlockModal, lockProfit } = useProfitPrivacy();
 
@@ -481,7 +482,14 @@ export default function StudioAnalyticsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {filteredQuotationsList.length === 0 ? (
+              {isSyncing ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                    <div className="inline-block w-5 h-5 border-2 border-[#0D4F4F] border-t-transparent rounded-full animate-spin mb-1" />
+                    <p>Loading analytics data...</p>
+                  </td>
+                </tr>
+              ) : filteredQuotationsList.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-slate-400 italic">
                     No confirmed bookings found matching the search criteria.

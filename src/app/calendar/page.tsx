@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 export default function MasterCalendarPage() {
-  const { quotations } = useQuotations();
+  const { quotations, loading } = useQuotations();
   const { settings } = useSettings();
 
   const [search, setSearch] = useState('');
@@ -284,7 +284,12 @@ export default function MasterCalendarPage() {
         </div>
 
         {/* Unified Wedding Cards Grid */}
-        {filteredQuotations.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-16 space-y-3">
+            <div className="inline-block w-6 h-6 border-2 border-[#0D4F4F] border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-slate-400 text-xs">Loading scheduled weddings...</p>
+          </div>
+        ) : filteredQuotations.length === 0 ? (
           <div className="text-center py-16 space-y-3">
             <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto" />
             <p className="text-slate-600 font-bold text-sm">No scheduled weddings found</p>
