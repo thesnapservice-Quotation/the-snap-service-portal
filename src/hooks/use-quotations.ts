@@ -135,10 +135,12 @@ export function useQuotations() {
 
     const handleUpdate = () => refreshQuotations(true);
 
-    // Auto-poll database every 5 seconds for real-time cross-device sync between MacBook and Phone
+    // Safe visibility-aware sync: Only refresh when tab is visible
     const interval = setInterval(() => {
-      refreshQuotations(true);
-    }, 5000);
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        refreshQuotations(true);
+      }
+    }, 30000);
 
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', handleUpdate);
@@ -155,46 +157,6 @@ export function useQuotations() {
       }
     };
   }, [refreshQuotations]);
-
-  // Auto-expire unconfirmed quotations whose event dates are due or past into Trash
-  useEffect(() => {
-    if (typeof window === 'undefined' || loading) return;
-
-    const unexpiredTrashCandidates = allQuotations.filter(
-      (q) => q.status !== 'trash' && !q.isDeleted && isQuotationExpired(q)
-    );
-
-    if (unexpiredTrashCandidates.length === 0) return;
-
-    const timer = setTimeout(async () => {
-      let anyUpdated = false;
-      for (const item of unexpiredTrashCandidates) {
-        const previous = item.status !== 'trash' ? item.status : (item.previousStatus || 'sent');
-        const updated: Quotation = {
-          ...item,
-          previousStatus: previous,
-          status: 'trash',
-          isDeleted: true,
-          autoExpired: true,
-          autoExpiredReason: 'Event date arrived/passed without client confirmation',
-          deletedAt: item.deletedAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        storage.saveQuotationLocally(updated);
-        try {
-          await apiSaveQuotation(updated);
-        } catch {}
-        anyUpdated = true;
-      }
-
-      if (anyUpdated) {
-        window.dispatchEvent(new Event('snap_quotation_updated'));
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [allQuotations, loading]);
 
   const saveQuotation = async (quotation: Quotation): Promise<Quotation> => {
     const user = storage.getCurrentUser();

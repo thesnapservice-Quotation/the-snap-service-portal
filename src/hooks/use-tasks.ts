@@ -118,10 +118,12 @@ export function useTasks() {
   useEffect(() => {
     syncTasks(false);
 
-    // 8-second live sync interval across all active devices
+    // Safe visibility-aware sync: Only refresh when tab is visible
     const interval = setInterval(() => {
-      syncTasks(true);
-    }, 8000);
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        syncTasks(true);
+      }
+    }, 30000);
 
     const handleStorage = () => {
       const all = storage.getTasks();
