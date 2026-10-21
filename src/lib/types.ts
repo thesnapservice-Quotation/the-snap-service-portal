@@ -106,6 +106,7 @@ export interface PaymentDetails {
   discount?: number; // Total discount amount in PKR
   discountType?: 'fixed' | 'percentage';
   discountPercentage?: number;
+  specialNote?: string; // Optional custom note shown directly under Grand Total (e.g. "Note: Travelling & stay included")
   grandTotal: number; // Final payable amount after discount
   advanceReceived: number;
   advanceType: 'fixed' | 'percentage';

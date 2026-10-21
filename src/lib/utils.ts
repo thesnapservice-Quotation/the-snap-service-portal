@@ -804,7 +804,11 @@ export function generateWhatsAppShareUrl(quotation: Quotation, originUrl?: strin
     ? `Package Total: ${formatCurrency(baseSubtotal)}\nSpecial Discount: -${formatCurrency(quotation.payment?.discount)}\nFinal Grand Total: ${formatCurrency(quotation.payment?.grandTotal)}`
     : `Grand Total: ${formatCurrency(quotation.payment?.grandTotal)}`;
 
-  const message = `THE SNAP SERVICE\n\nAssalam-o-Alaikum ${quotation.client?.name || 'Valued Client'},\nHere is your official wedding quotation (#${quotation.quotationNumber || 'SS-2026'}).\n\nEvents Covered: ${eventNames || 'Wedding Package'}\nEvent Dates: ${quotation.client?.eventDates || 'As Discussed'}\n${pricingSnippet}\nAdvance Paid: ${formatCurrency(quotation.payment?.advanceReceived)}\nBalance Payable: ${formatCurrency(quotation.payment?.balancePayable)}\n\nView Interactive Quotation & Lock Your Dates Online:\n${portalUrl}\n\nThank you for choosing The Snap Service.`;
+  const rawNote = (quotation.payment?.specialNote || quotation.notes || '').trim();
+  const cleanNote = rawNote.replace(/^(note\s*:\s*|note\s*-\s*)/i, '').trim() || rawNote;
+  const noteSnippet = cleanNote ? `\nSpecial Note: ${cleanNote}` : '';
+
+  const message = `THE SNAP SERVICE\n\nAssalam-o-Alaikum ${quotation.client?.name || 'Valued Client'},\nHere is your official wedding quotation (#${quotation.quotationNumber || 'SS-2026'}).\n\nEvents Covered: ${eventNames || 'Wedding Package'}\nEvent Dates: ${quotation.client?.eventDates || 'As Discussed'}\n${pricingSnippet}${noteSnippet}\nAdvance Paid: ${formatCurrency(quotation.payment?.advanceReceived)}\nBalance Payable: ${formatCurrency(quotation.payment?.balancePayable)}\n\nView Interactive Quotation & Lock Your Dates Online:\n${portalUrl}\n\nThank you for choosing The Snap Service.`;
 
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }

@@ -495,6 +495,23 @@ export function QuotationPreview({ quotation, settings, previewRef }: QuotationP
             </div>
           </div>
 
+          {/* SPECIAL NOTE UNDER GRAND TOTAL - Only rendered if note is present */}
+          {(() => {
+            const rawNote = (payment.specialNote || quotation.notes || '').trim();
+            if (!rawNote) return null;
+            const cleanNote = rawNote.replace(/^(note\s*:\s*|note\s*-\s*)/i, '').trim() || rawNote;
+            return (
+              <div className="mt-2 bg-gradient-to-r from-[#FAF9F6] via-amber-50/70 to-[#FAF9F6] rounded-xl border border-[#D4AF37]/60 px-3 py-1.5 shadow-2xs flex items-center justify-center gap-2 text-center">
+                <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-white bg-[#0D4F4F] px-2 py-0.5 rounded-full shrink-0 shadow-2xs">
+                  NOTE
+                </span>
+                <span className="text-[11px] sm:text-xs text-[#0D4F4F] font-semibold leading-snug">
+                  {cleanNote}
+                </span>
+              </div>
+            );
+          })()}
+
           {/* 3-STAGE MILESTONE PAYMENT PLAN ROW */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-center text-xs">
             {/* Stage 1: 50% Advance to confirm booking */}
