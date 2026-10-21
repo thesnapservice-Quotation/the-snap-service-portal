@@ -107,26 +107,96 @@ export function extractQuotationSeq(quotationNumber?: string): number {
 }
 
 /**
- * Sort quotations strictly by Quotation Number (descending: newest quotation # at the top).
- * If quotation numbers are equal or non-numeric, fall back to immutable createdAt.
+ * Sort quotations Date-wise (Newest created quotation at the top).
+ * 1. Primary: Immutable createdAt timestamp (latest created quotation first).
+ * 2. Secondary: Client Quotation Date (descending).
+ * 3. Fallback: Quotation sequence number descending.
  * Does NOT sort by updatedAt, so editing a quotation will NEVER change its fixed position in the list.
  */
 export function sortQuotationsByNumber(quotes: Quotation[]): Quotation[] {
   return [...quotes].sort((a, b) => {
-    const seqA = extractQuotationSeq(a.quotationNumber);
-    const seqB = extractQuotationSeq(b.quotationNumber);
-
-    if (seqA !== seqB) {
-      return seqB - seqA;
-    }
-
+    // 1. Primary: Sort by CreatedAt timestamp (Newest quotation created at the top)
     const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     if (timeA !== timeB) {
       return timeB - timeA;
     }
 
+    // 2. Secondary: Client Quotation Date (descending)
+    const dateA = a.client?.quotationDate || '';
+    const dateB = b.client?.quotationDate || '';
+    if (dateA !== dateB) {
+      return dateB.localeCompare(dateA);
+    }
+
+    // 3. Fallback: Quotation Sequence number
+    const seqA = extractQuotationSeq(a.quotationNumber);
+    const seqB = extractQuotationSeq(b.quotationNumber);
+    if (seqA !== seqB) {
+      return seqB - seqA;
+    }
+
     return (b.quotationNumber || '').localeCompare(a.quotationNumber || '');
+  });
+}
+
+/**
+ * Extracts the earliest event date of a quotation in YYYY-MM-DD format.
+ * If no dates on events array, parses client.eventDates or client.quotationDate.
+ */
+export function getQuotationEarliestEventDate(q: Quotation): string {
+  if (!q) return '9999-99-99';
+
+  const dates: string[] = [];
+  (q.events || []).forEach((e) => {
+    if (e.eventDate && e.eventDate.trim()) {
+      dates.push(e.eventDate.trim());
+    }
+  });
+
+  if (dates.length > 0) {
+    dates.sort();
+    return dates[0];
+  }
+
+  if (q.client?.eventDates) {
+    const matches = q.client.eventDates.match(/\d{4}-\d{2}-\d{2}/g);
+    if (matches && matches.length > 0) {
+      matches.sort();
+      return matches[0];
+    }
+    const parsed = new Date(q.client.eventDates);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0];
+    }
+  }
+
+  if (q.client?.quotationDate) {
+    return q.client.quotationDate.split('T')[0];
+  }
+
+  if (q.createdAt) {
+    return q.createdAt.split('T')[0];
+  }
+
+  return '9999-99-99';
+}
+
+/**
+ * Sort wedding quotations Event-Wise for Deliverables & Post-Production:
+ * Quotations whose event dates happened earlier are placed first!
+ * (e.g. Aug 27 -> Sep 12 -> Oct 9 -> Nov 20 -> Dec 25)
+ */
+export function sortDeliverableQuotations(quotes: Quotation[]): Quotation[] {
+  return [...quotes].sort((a, b) => {
+    const dateA = getQuotationEarliestEventDate(a);
+    const dateB = getQuotationEarliestEventDate(b);
+    if (dateA !== dateB) {
+      return dateA.localeCompare(dateB);
+    }
+    const seqA = extractQuotationSeq(a.quotationNumber);
+    const seqB = extractQuotationSeq(b.quotationNumber);
+    return seqA - seqB;
   });
 }
 

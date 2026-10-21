@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuotations } from '@/hooks/use-quotations';
 import { storage } from '@/lib/storage';
 import { Quotation, DeliverableStatus, AlbumDeliverableStatus, VideoDeliverableStatus } from '@/lib/types';
-import { formatDate, formatWhatsAppPhone } from '@/lib/utils';
+import { formatDate, formatWhatsAppPhone, sortDeliverableQuotations, getQuotationEarliestEventDate } from '@/lib/utils';
 import { Sparkles, CheckCircle2, Film, BookOpen, Clock, AlertTriangle, Calendar, Search, X, MessageCircle } from 'lucide-react';
 
 /**
@@ -124,9 +124,10 @@ export default function DeliverablesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [localDeliverableStatus, setLocalDeliverableStatus] = useState<Record<string, DeliverableStatus>>({});
 
-  // Strictly filter only quotations whose events are confirmed or completed
+  // Strictly filter only quotations whose events are confirmed or completed, sorted strictly EVENT-WISE (earliest event first)
   const confirmedQuotations = useMemo(() => {
-    return quotations.filter((q) => q.status === 'confirmed' || q.status === 'completed');
+    const list = quotations.filter((q) => q.status === 'confirmed' || q.status === 'completed');
+    return sortDeliverableQuotations(list);
   }, [quotations]);
 
   const updateDeliverableStatus = async (

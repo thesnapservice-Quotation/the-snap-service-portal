@@ -6,7 +6,7 @@ import { useQuotations } from '@/hooks/use-quotations';
 import { useSettings } from '@/hooks/use-settings';
 import { useServices } from '@/hooks/use-services';
 import { useProfitPrivacy } from '@/context/profit-privacy-context';
-import { formatCurrency, formatDate, formatDateTime, sortQuotationsByNumber, generateWhatsAppShareUrl, generatePortalUrl, calculateQuotationInternalCost, calculateQuotationNetProfit, getQuotationPriceRangeDisplay } from '@/lib/utils';
+import { formatCurrency, formatDate, formatDateTime, sortQuotationsByNumber, generateWhatsAppShareUrl, generatePortalUrl, calculateQuotationInternalCost, calculateQuotationNetProfit, getQuotationPriceRangeDisplay, getQuotationEarliestEventDate, extractQuotationSeq } from '@/lib/utils';
 import { QuotationStatus } from '@/lib/types';
 import { 
   PlusCircle, 
@@ -29,7 +29,8 @@ import {
   CheckCircle2,
   Check,
   Clock,
-  Layers
+  Layers,
+  ArrowUpDown
 } from 'lucide-react';
 
 import { StatusBadge, STATUS_CLASSES } from '@/components/quotation/status-badge';
@@ -60,6 +61,7 @@ export default function QuotationsListPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [waFilter, setWaFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'newest_first' | 'oldest_first' | 'event_date' | 'quote_number'>('newest_first');
   const [selectedLedgerQuote, setSelectedLedgerQuote] = useState<Quotation | null>(null);
 
   // Bulk selection state
@@ -120,22 +122,50 @@ export default function QuotationsListPage() {
     }
   };
 
-  const filtered = sourceList.filter((q) => {
-    const matchesSearch =
-      q.client.name.toLowerCase().includes(search.toLowerCase()) ||
-      q.quotationNumber.toLowerCase().includes(search.toLowerCase()) ||
-      q.client.phone.includes(search);
+  const filtered = useMemo(() => {
+    const list = sourceList.filter((q) => {
+      const matchesSearch =
+        q.client.name.toLowerCase().includes(search.toLowerCase()) ||
+        q.quotationNumber.toLowerCase().includes(search.toLowerCase()) ||
+        q.client.phone.includes(search);
 
-    const matchesStatus = statusFilter === 'all' || statusFilter === 'trash' || q.status === statusFilter;
+      const matchesStatus = statusFilter === 'all' || statusFilter === 'trash' || q.status === statusFilter;
 
-    const waMeta = getLatestWhatsAppStatus(q);
-    const matchesWa =
-      waFilter === 'all' ||
-      (waFilter === 'not_sent' && !waMeta.isSent) ||
-      (waFilter === waMeta.category);
+      const waMeta = getLatestWhatsAppStatus(q);
+      const matchesWa =
+        waFilter === 'all' ||
+        (waFilter === 'not_sent' && !waMeta.isSent) ||
+        (waFilter === waMeta.category);
 
-    return matchesSearch && matchesStatus && matchesWa;
-  });
+      return matchesSearch && matchesStatus && matchesWa;
+    });
+
+    return [...list].sort((a, b) => {
+      if (sortBy === 'oldest_first') {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeA - timeB;
+      }
+      if (sortBy === 'event_date') {
+        const dateA = getQuotationEarliestEventDate(a);
+        const dateB = getQuotationEarliestEventDate(b);
+        return dateA.localeCompare(dateB);
+      }
+      if (sortBy === 'quote_number') {
+        const seqA = extractQuotationSeq(a.quotationNumber);
+        const seqB = extractQuotationSeq(b.quotationNumber);
+        return seqB - seqA;
+      }
+      // Default: 'newest_first' (Date-wise: Newest creation / quotation date at the top)
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeA !== timeB) return timeB - timeA;
+      const dateA = a.client?.quotationDate || '';
+      const dateB = b.client?.quotationDate || '';
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      return (b.quotationNumber || '').localeCompare(a.quotationNumber || '');
+    });
+  }, [sourceList, search, statusFilter, waFilter, sortBy]);
 
   // Financial Totals Calculation across all filtered quotations
   const { totalSellingPrice, totalAdvanceReceived, totalInternalCost, totalEstimatedProfit } = useMemo(() => {
@@ -366,6 +396,22 @@ export default function QuotationsListPage() {
               <option value="final_reminder">🔴 Final Reminder Sent</option>
               <option value="offer_reminder">🟡 Offer Sent</option>
               <option value="event_confirmation">🟣 Confirmed</option>
+            </select>
+          </div>
+
+          {/* Sort Order Selector */}
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="w-4 h-4 text-slate-400" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="px-3 py-2 border border-slate-300 rounded-lg bg-white font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+              title="Sort Quotations"
+            >
+              <option value="newest_first">📅 Newest First (Date-wise)</option>
+              <option value="oldest_first">📅 Oldest First</option>
+              <option value="event_date">👰 Event Date (Upcoming First)</option>
+              <option value="quote_number"># Quotation Number</option>
             </select>
           </div>
         </div>
