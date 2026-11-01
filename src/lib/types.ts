@@ -320,6 +320,7 @@ export interface AppSettings {
   whatsappTemplates?: WhatsAppTemplatesConfig;
   customWhatsAppCategories?: CustomWhatsAppCategory[];
   permanentTeamMembers?: PermanentTeamMember[];
+  teamRoles?: string[];
 }
 
 // ----------------------------------------------------

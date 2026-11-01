@@ -201,6 +201,15 @@ Regards,
 {business_name}`,
 };
 
+export const DEFAULT_TEAM_ROLES = [
+  'Lead Photographer',
+  'Candid Photographer',
+  'Cinematographer',
+  'Drone Pilot',
+  'Assistant / Lighting',
+  'General Team',
+];
+
 export const DEFAULT_PERMANENT_TEAM = [
   { id: 'team-1', name: 'Ali Raza', role: 'Lead Photographer', phone: '03001234567', defaultCost: 8000 },
   { id: 'team-2', name: 'Usman Malik', role: 'Cinematographer', phone: '03219876543', defaultCost: 10000 },
@@ -237,6 +246,7 @@ export const SUPER_ADMIN_DEFAULT_SETTINGS: AppSettings = {
   },
   whatsappTemplates: DEFAULT_WHATSAPP_TEMPLATES,
   permanentTeamMembers: DEFAULT_PERMANENT_TEAM,
+  teamRoles: DEFAULT_TEAM_ROLES,
 };
 
 export const STANDARD_USER_DEFAULT_SETTINGS: AppSettings = {
@@ -269,6 +279,7 @@ export const STANDARD_USER_DEFAULT_SETTINGS: AppSettings = {
   },
   whatsappTemplates: DEFAULT_WHATSAPP_TEMPLATES,
   permanentTeamMembers: DEFAULT_PERMANENT_TEAM,
+  teamRoles: DEFAULT_TEAM_ROLES,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = SUPER_ADMIN_DEFAULT_SETTINGS;

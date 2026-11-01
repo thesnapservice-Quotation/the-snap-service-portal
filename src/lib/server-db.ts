@@ -2,7 +2,7 @@ import { Quotation, UserAccount, TaskItem, DeviceSubscription, Service, AppSetti
 import { supabase } from './supabase';
 import { SEED_USERS } from './storage';
 import { generateRandomNumericId } from './crypto';
-import { DEFAULT_SETTINGS, DEFAULT_SERVICES, getDefaultSettingsForWorkspace } from './defaults';
+import { DEFAULT_SETTINGS, DEFAULT_SERVICES, getDefaultSettingsForWorkspace, DEFAULT_TEAM_ROLES, DEFAULT_WHATSAPP_TEMPLATES } from './defaults';
 import { getQuotationSecurityPin, sortQuotationsByNumber, isQuotationExpired } from './utils';
 
 /**
@@ -724,7 +724,6 @@ export async function deleteQuotationFromDb(id: string): Promise<boolean> {
   return true;
 }
 
-const PRIMARY_SETTINGS_CLOUD_DB = 'https://jsonblob.com/api/jsonBlob/1339847291029315585';
 const cachedSettingsMap = new Map<string, AppSettings>();
 
 export async function getSettingsFromDb(workspaceOrUserId?: string): Promise<AppSettings> {
@@ -733,49 +732,56 @@ export async function getSettingsFromDb(workspaceOrUserId?: string): Promise<App
     return cachedSettingsMap.get(targetWs)!;
   }
 
+  const defaultWsSettings = getDefaultSettingsForWorkspace(targetWs);
+  const sysId = `sys_settings_${targetWs}`;
+
   // 1. Try fetching from Supabase 'quotations' table with sys_settings_${targetWs}
   try {
-    const sysId = `sys_settings_${targetWs}`;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('quotations')
       .select('full_data')
       .eq('id', sysId)
       .single();
 
-    if (data?.full_data?.settings?.bank) {
-      const parsed = { ...data.full_data.settings, workspaceId: targetWs } as AppSettings;
+    if (!error && data?.full_data?.settings?.bank) {
+      const parsed = {
+        ...defaultWsSettings,
+        ...data.full_data.settings,
+        workspaceId: targetWs,
+        permanentTeamMembers: data.full_data.settings.permanentTeamMembers || defaultWsSettings.permanentTeamMembers || [],
+        teamRoles: (data.full_data.settings.teamRoles && Array.isArray(data.full_data.settings.teamRoles) && data.full_data.settings.teamRoles.length > 0)
+          ? data.full_data.settings.teamRoles
+          : DEFAULT_TEAM_ROLES,
+      } as AppSettings;
       cachedSettingsMap.set(targetWs, parsed);
       return parsed;
     }
   } catch {}
 
-  // 2. Try fetching from Supabase table 'app_settings'
-  try {
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('*')
-      .eq('id', targetWs)
-      .limit(1)
-      .single();
-
-    if (!error && data && data.settings_data?.bank) {
-      const parsed = { ...data.settings_data, workspaceId: targetWs } as AppSettings;
-      cachedSettingsMap.set(targetWs, parsed);
-      return parsed;
-    }
-  } catch {}
-
-  // 3. Fallback to secondary Cloud DB ONLY for Super Admin workspace
-  if (targetWs === 'ws_user-super-admin') {
+  // 2. Fallback to Supabase REST API
+  if (SUPABASE_URL && SUPABASE_KEY) {
     try {
-      const res = await fetch(PRIMARY_SETTINGS_CLOUD_DB, {
-        headers: { 'Accept': 'application/json' },
+      const endpoint = `${SUPABASE_URL}/rest/v1/quotations?id=eq.${encodeURIComponent(sysId)}&select=full_data`;
+      const res = await fetch(endpoint, {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+        },
         cache: 'no-store',
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data && data.bank) {
-          const parsed = { ...data, workspaceId: targetWs } as AppSettings;
+        const rows = await res.json();
+        if (rows && rows[0]?.full_data?.settings?.bank) {
+          const parsed = {
+            ...defaultWsSettings,
+            ...rows[0].full_data.settings,
+            workspaceId: targetWs,
+            permanentTeamMembers: rows[0].full_data.settings.permanentTeamMembers || defaultWsSettings.permanentTeamMembers || [],
+            teamRoles: (rows[0].full_data.settings.teamRoles && Array.isArray(rows[0].full_data.settings.teamRoles) && rows[0].full_data.settings.teamRoles.length > 0)
+              ? rows[0].full_data.settings.teamRoles
+              : DEFAULT_TEAM_ROLES,
+          } as AppSettings;
           cachedSettingsMap.set(targetWs, parsed);
           return parsed;
         }
@@ -783,58 +789,105 @@ export async function getSettingsFromDb(workspaceOrUserId?: string): Promise<App
     } catch {}
   }
 
-  return getDefaultSettingsForWorkspace(targetWs);
+  return defaultWsSettings;
 }
 
 export async function saveSettingsToDb(settings: AppSettings, workspaceOrUserId?: string): Promise<AppSettings> {
   const targetWs = getWorkspaceId(workspaceOrUserId || settings.workspaceId);
+  const existing = await getSettingsFromDb(targetWs);
+
+  // Safe merge: never wipe out permanentTeamMembers or teamRoles on partial updates
+  const mergedTeamMembers = settings.permanentTeamMembers !== undefined
+    ? settings.permanentTeamMembers
+    : (existing.permanentTeamMembers || []);
+
+  const mergedTeamRoles = (settings.teamRoles !== undefined && Array.isArray(settings.teamRoles) && settings.teamRoles.length > 0)
+    ? settings.teamRoles
+    : (existing.teamRoles && Array.isArray(existing.teamRoles) && existing.teamRoles.length > 0 ? existing.teamRoles : DEFAULT_TEAM_ROLES);
+
   const settingsToSave: AppSettings = {
+    ...existing,
     ...settings,
     workspaceId: targetWs,
+    business: {
+      ...(existing.business || {}),
+      ...(settings.business || {}),
+    },
+    bank: {
+      ...(existing.bank || {}),
+      ...(settings.bank || {}),
+    },
+    quotation: {
+      ...(existing.quotation || {}),
+      ...(settings.quotation || {}),
+    },
+    integrations: {
+      ...(existing.integrations || {}),
+      ...(settings.integrations || {}),
+    },
+    whatsappTemplates: {
+      ...DEFAULT_WHATSAPP_TEMPLATES,
+      ...(existing.whatsappTemplates || {}),
+      ...(settings.whatsappTemplates || {}),
+    },
+    customWhatsAppCategories: settings.customWhatsAppCategories !== undefined
+      ? settings.customWhatsAppCategories
+      : existing.customWhatsAppCategories,
+    permanentTeamMembers: mergedTeamMembers,
+    teamRoles: mergedTeamRoles,
   };
+
   cachedSettingsMap.set(targetWs, settingsToSave);
 
-  // 1. Save to Supabase quotations table under isolated sys_settings_${targetWs}
+  // Persist to Supabase quotations table under isolated sys_settings_${targetWs}
+  const sysId = `sys_settings_${targetWs}`;
+  const now = new Date().toISOString();
+  const dbPayload = {
+    id: sysId,
+    quotation_number: `SYS-SETTINGS-${targetWs}`,
+    user_id: targetWs,
+    status: 'confirmed',
+    client: { name: `Settings for ${targetWs}`, phone: '', quotationDate: now, eventDates: '' },
+    events: [],
+    inclusions: [],
+    payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+    full_data: { isSystemSettingsRecord: true, workspaceId: targetWs, settings: settingsToSave },
+    updated_at: now,
+  };
+
   try {
-    const sysId = `sys_settings_${targetWs}`;
-    await supabase
+    const { error } = await supabase
       .from('quotations')
-      .upsert({
-        id: sysId,
-        quotation_number: `SYS-SETTINGS-${targetWs}`,
-        user_id: targetWs,
-        status: 'confirmed',
-        client: { name: `Settings for ${targetWs}`, phone: '', quotationDate: new Date().toISOString(), eventDates: '' },
-        events: [],
-        inclusions: [],
-        payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
-        full_data: { isSystemSettingsRecord: true, workspaceId: targetWs, settings: settingsToSave },
-        updated_at: new Date().toISOString(),
+      .upsert(dbPayload, { onConflict: 'id' });
+    if (error && SUPABASE_URL && SUPABASE_KEY) {
+      console.error('Supabase SDK upsert error for settings, falling back to REST:', error);
+      await fetch(`${SUPABASE_URL}/rest/v1/quotations?on_conflict=id`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates',
+        },
+        body: JSON.stringify(dbPayload),
       });
+    }
   } catch (e) {
     console.error('Error saving settings to Supabase quotations:', e);
-  }
-
-  // 2. Save to Supabase app_settings table
-  try {
-    await supabase
-      .from('app_settings')
-      .upsert({
-        id: targetWs,
-        settings_data: settingsToSave,
-        updated_at: new Date().toISOString(),
-      });
-  } catch {}
-
-  // 3. Save to Cloud DB if Super Admin
-  if (targetWs === 'ws_user-super-admin') {
-    try {
-      await fetch(PRIMARY_SETTINGS_CLOUD_DB, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(settingsToSave),
-      });
-    } catch {}
+    if (SUPABASE_URL && SUPABASE_KEY) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/quotations?on_conflict=id`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates',
+          },
+          body: JSON.stringify(dbPayload),
+        });
+      } catch {}
+    }
   }
 
   return settingsToSave;

@@ -5,7 +5,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useServices } from '@/hooks/use-services';
 import { useAuth } from '@/hooks/use-auth';
 import { useQuotations } from '@/hooks/use-quotations';
-import { AppSettings, Service, UserRole, Quotation, UserAccount } from '@/lib/types';
+import { AppSettings, Service, UserRole, Quotation, UserAccount, PermanentTeamMember } from '@/lib/types';
 import { storage } from '@/lib/storage';
 import { formatCurrency } from '@/lib/utils';
 import { GOOGLE_APPS_SCRIPT_TEMPLATE, syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
@@ -66,7 +66,9 @@ import {
   MessageSquare,
   Camera,
   Send,
-  Info
+  Info,
+  Settings2,
+  Edit2
 } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { 
@@ -77,7 +79,7 @@ import {
   WhatsAppCategory,
   CustomWhatsAppCategory 
 } from '@/lib/whatsapp';
-import { DEFAULT_WHATSAPP_TEMPLATES } from '@/lib/defaults';
+import { DEFAULT_WHATSAPP_TEMPLATES, DEFAULT_TEAM_ROLES } from '@/lib/defaults';
 
 const ICON_OPTIONS = [
   'Camera',
@@ -138,6 +140,17 @@ export default function SettingsPage() {
   const [crewRole, setCrewRole] = useState('Lead Photographer');
   const [crewPhone, setCrewPhone] = useState('');
   const [crewCost, setCrewCost] = useState<number | ''>(8000);
+
+  // Edit team member modal state
+  const [editingCrewMember, setEditingCrewMember] = useState<PermanentTeamMember | null>(null);
+  const [editCrewName, setEditCrewName] = useState('');
+  const [editCrewRole, setEditCrewRole] = useState('Lead Photographer');
+  const [editCrewPhone, setEditCrewPhone] = useState('');
+  const [editCrewCost, setEditCrewCost] = useState<number | ''>(8000);
+
+  // Team roles management state
+  const [showRolesModal, setShowRolesModal] = useState(false);
+  const [newRoleInput, setNewRoleInput] = useState('');
 
   // If task_manager, automatically default to notifications tab
   useEffect(() => {
@@ -501,6 +514,10 @@ export default function SettingsPage() {
         ...DEFAULT_WHATSAPP_TEMPLATES,
         ...(settings.whatsappTemplates || {}),
       },
+      teamRoles: (settings.teamRoles && Array.isArray(settings.teamRoles) && settings.teamRoles.length > 0)
+        ? settings.teamRoles
+        : DEFAULT_TEAM_ROLES,
+      permanentTeamMembers: settings.permanentTeamMembers || [],
     });
     if (settings.integrations?.googleDriveWebhookUrl) {
       setGoogleWebhookUrl(settings.integrations.googleDriveWebhookUrl);
@@ -607,19 +624,74 @@ export default function SettingsPage() {
     setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
 
+  const availableRoles = (formData.teamRoles && Array.isArray(formData.teamRoles) && formData.teamRoles.length > 0)
+    ? formData.teamRoles
+    : (settings.teamRoles && Array.isArray(settings.teamRoles) && settings.teamRoles.length > 0)
+    ? settings.teamRoles
+    : DEFAULT_TEAM_ROLES;
+
+  const handleAddRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanRole = newRoleInput.trim();
+    if (!cleanRole) return;
+
+    if (availableRoles.some((r) => r.toLowerCase() === cleanRole.toLowerCase())) {
+      alert(`Role "${cleanRole}" already exists!`);
+      return;
+    }
+
+    const updatedRoles = [...availableRoles, cleanRole];
+    const updatedSettings: AppSettings = {
+      ...formData,
+      teamRoles: updatedRoles,
+    };
+
+    setFormData(updatedSettings);
+    await updateSettings(updatedSettings);
+    setNewRoleInput('');
+    setCrewRole(cleanRole);
+    setSaveSuccessMsg(`New role "${cleanRole}" added successfully!`);
+    setTimeout(() => setSaveSuccessMsg(''), 3000);
+  };
+
+  const handleDeleteRole = async (roleToDelete: string) => {
+    if (availableRoles.length <= 1) {
+      alert('You must have at least one team role defined.');
+      return;
+    }
+    if (!confirm(`Delete role "${roleToDelete}"? (Existing team members with this role will keep their title)`)) {
+      return;
+    }
+
+    const updatedRoles = availableRoles.filter((r) => r !== roleToDelete);
+    const updatedSettings: AppSettings = {
+      ...formData,
+      teamRoles: updatedRoles,
+    };
+
+    setFormData(updatedSettings);
+    await updateSettings(updatedSettings);
+    if (crewRole === roleToDelete) {
+      setCrewRole(updatedRoles[0] || 'Lead Photographer');
+    }
+    setSaveSuccessMsg(`Role "${roleToDelete}" deleted.`);
+    setTimeout(() => setSaveSuccessMsg(''), 3000);
+  };
+
   const handleAddCrewMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!crewName.trim()) return;
 
-    const newMember = {
+    const newMember: PermanentTeamMember = {
       id: `crew-${Date.now()}`,
       name: crewName.trim(),
-      role: crewRole.trim(),
+      role: crewRole.trim() || 'Crew Member',
       phone: crewPhone.trim(),
       defaultCost: typeof crewCost === 'number' ? crewCost : 8000,
     };
 
-    const updatedMembers = [...(formData.permanentTeamMembers || []), newMember];
+    const currentList = formData.permanentTeamMembers || settings.permanentTeamMembers || [];
+    const updatedMembers = [...currentList, newMember];
     const updatedSettings: AppSettings = {
       ...formData,
       permanentTeamMembers: updatedMembers,
@@ -634,10 +706,48 @@ export default function SettingsPage() {
     setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
 
+  const handleStartEditCrewMember = (member: PermanentTeamMember) => {
+    setEditingCrewMember(member);
+    setEditCrewName(member.name);
+    setEditCrewRole(member.role || 'Crew Member');
+    setEditCrewPhone(member.phone || '');
+    setEditCrewCost(typeof member.defaultCost === 'number' ? member.defaultCost : 8000);
+  };
+
+  const handleSaveEditCrewMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCrewMember || !editCrewName.trim()) return;
+
+    const currentList = formData.permanentTeamMembers || settings.permanentTeamMembers || [];
+    const updatedMembers = currentList.map((m) =>
+      m.id === editingCrewMember.id
+        ? {
+            ...m,
+            name: editCrewName.trim(),
+            role: editCrewRole.trim() || 'Crew Member',
+            phone: editCrewPhone.trim(),
+            defaultCost: typeof editCrewCost === 'number' ? editCrewCost : 0,
+          }
+        : m
+    );
+
+    const updatedSettings: AppSettings = {
+      ...formData,
+      permanentTeamMembers: updatedMembers,
+    };
+
+    setFormData(updatedSettings);
+    await updateSettings(updatedSettings);
+    setEditingCrewMember(null);
+    setSaveSuccessMsg(`Team member "${editCrewName.trim()}" updated successfully!`);
+    setTimeout(() => setSaveSuccessMsg(''), 3000);
+  };
+
   const handleDeleteCrewMember = async (id: string, name: string) => {
     if (!confirm(`Remove ${name} from permanent crew directory?`)) return;
 
-    const updatedMembers = (formData.permanentTeamMembers || []).filter((m) => m.id !== id);
+    const currentList = formData.permanentTeamMembers || settings.permanentTeamMembers || [];
+    const updatedMembers = currentList.filter((m) => m.id !== id);
     const updatedSettings: AppSettings = {
       ...formData,
       permanentTeamMembers: updatedMembers,
@@ -1212,18 +1322,34 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1 text-[11px]">Role / Specialization</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-medium text-slate-700 text-[11px]">Role / Specialization</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowRolesModal(true)}
+                    className="text-[10px] text-[#0D4F4F] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                    title="Add or remove roles"
+                  >
+                    <Settings2 className="w-3 h-3 text-[#D4AF37]" /> Manage Roles
+                  </button>
+                </div>
                 <select
                   value={crewRole}
-                  onChange={(e) => setCrewRole(e.target.value)}
+                  onChange={(e) => {
+                    if (e.target.value === '__add_new__') {
+                      setShowRolesModal(true);
+                    } else {
+                      setCrewRole(e.target.value);
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none font-medium"
                 >
-                  <option value="Lead Photographer">Lead Photographer</option>
-                  <option value="Candid Photographer">Candid Photographer</option>
-                  <option value="Cinematographer">Cinematographer / Video</option>
-                  <option value="Drone Pilot">Drone Pilot</option>
-                  <option value="Assistant / Lighting">Assistant / Lighting</option>
-                  <option value="General Team">General Team Member</option>
+                  {availableRoles.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                  <option value="__add_new__" className="font-bold text-[#0D4F4F] bg-amber-50">
+                    + Add New Role...
+                  </option>
                 </select>
               </div>
 
@@ -1292,14 +1418,24 @@ export default function SettingsPage() {
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteCrewMember(member.id, member.name)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="Delete member"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditCrewMember(member)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-[#0D4F4F] hover:bg-[#0D4F4F]/10 transition-colors cursor-pointer"
+                          title="Edit member details"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCrewMember(member.id, member.name)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                          title="Delete member"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
@@ -2888,6 +3024,203 @@ export default function SettingsPage() {
         existingQuotations={quotations}
         onImportQuotations={handleImportSelectedQuotations}
       />
+
+      {/* Edit Team Member Modal */}
+      {editingCrewMember && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-150">
+            <div className="bg-[#0D4F4F] text-white p-4 flex items-center justify-between border-b border-[#D4AF37]/30">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#D4AF37] text-[#0D4F4F] flex items-center justify-center font-bold text-xs">
+                  <Edit2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-sm text-white">Edit Team Member</h3>
+                  <p className="text-[11px] text-[#C3DFDF]">{editingCrewMember.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingCrewMember(null)}
+                className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditCrewMember} className="p-5 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1 text-[11px]">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editCrewName}
+                  onChange={(e) => setEditCrewName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-slate-700 text-[11px]">Role / Specialization</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowRolesModal(true)}
+                    className="text-[10px] text-[#0D4F4F] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Settings2 className="w-3 h-3 text-[#D4AF37]" /> Manage Roles
+                  </button>
+                </div>
+                <select
+                  value={editCrewRole}
+                  onChange={(e) => {
+                    if (e.target.value === '__add_new__') {
+                      setShowRolesModal(true);
+                    } else {
+                      setEditCrewRole(e.target.value);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                >
+                  {availableRoles.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                  <option value="__add_new__" className="font-bold text-[#0D4F4F] bg-amber-50">
+                    + Add New Role...
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1 text-[11px]">WhatsApp Phone #</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 03001234567"
+                  value={editCrewPhone}
+                  onChange={(e) => setEditCrewPhone(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1 text-[11px]">Default Rate (PKR / Day)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-slate-400 font-bold text-xs">Rs.</span>
+                  <input
+                    type="number"
+                    value={editCrewCost}
+                    onChange={(e) => setEditCrewCost(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs bg-white font-bold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingCrewMember(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs hover:bg-[#093A3A] transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" /> Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Roles Modal */}
+      {showRolesModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-150">
+            <div className="bg-[#0D4F4F] text-white p-4 flex items-center justify-between border-b border-[#D4AF37]/30">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#D4AF37] text-[#0D4F4F] flex items-center justify-center font-bold text-xs">
+                  <Settings2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-sm text-white">Manage Studio Team Roles</h3>
+                  <p className="text-[11px] text-[#C3DFDF]">Add new specializations or remove unused roles</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRolesModal(false)}
+                className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5 text-xs">
+              {/* Add New Role Form */}
+              <form onSubmit={handleAddRole} className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <label className="block font-bold text-slate-700 text-[11px]">Add New Role / Title</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Traditional Photographer, Album Designer..."
+                    value={newRoleInput}
+                    onChange={(e) => setNewRoleInput(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white font-medium focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#093A3A] transition-all shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+                  >
+                    <Plus className="w-4 h-4" /> Add Role
+                  </button>
+                </div>
+              </form>
+
+              {/* Roles List */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider">
+                    Current Roles ({availableRoles.length})
+                  </h4>
+                  <span className="text-[10px] text-slate-400">Click ✕ to remove</span>
+                </div>
+                <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto p-1">
+                  {availableRoles.map((role) => (
+                    <div
+                      key={role}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 font-bold text-xs hover:border-[#D4AF37] transition-all"
+                    >
+                      <span>{role}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRole(role)}
+                        className="text-slate-400 hover:text-red-600 transition-colors p-0.5 rounded cursor-pointer"
+                        title={`Delete role ${role}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowRolesModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
