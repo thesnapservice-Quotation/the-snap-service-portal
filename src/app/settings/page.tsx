@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { useSettings } from '@/hooks/use-settings';
 import { useServices } from '@/hooks/use-services';
 import { useAuth } from '@/hooks/use-auth';
 import { useQuotations } from '@/hooks/use-quotations';
 import { AppSettings, Service, UserRole, Quotation, UserAccount, PermanentTeamMember } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate, formatEventTiming, isQuotationExpired } from '@/lib/utils';
+import { getTimingSlot, isPlaceholderCrewName, TimingSlot } from '@/lib/crew-overlap';
 import { GOOGLE_APPS_SCRIPT_TEMPLATE, syncQuotationToGoogleDrive } from '@/lib/google-drive-sync';
 import {
   getStoredGoogleDriveUser,
@@ -68,7 +70,8 @@ import {
   Send,
   Info,
   Settings2,
-  Edit2
+  Edit2,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { 
@@ -151,6 +154,71 @@ export default function SettingsPage() {
   // Team roles management state
   const [showRolesModal, setShowRolesModal] = useState(false);
   const [newRoleInput, setNewRoleInput] = useState('');
+
+  // Map of assigned event dates and Day/Night shifts for each permanent team member
+  const memberAssignmentsMap = useMemo(() => {
+    const map: Record<
+      string,
+      {
+        quotationId: string;
+        quotationNumber: string;
+        clientName: string;
+        eventName: string;
+        eventDate?: string;
+        timing?: string;
+        timingSlot: TimingSlot;
+        role?: string;
+      }[]
+    > = {};
+
+    const activeQuotations = (quotations || []).filter(
+      (q) => q && q.status !== 'trash' && !q.isDeleted && !isQuotationExpired(q)
+    );
+
+    activeQuotations.forEach((q) => {
+      (q.events || []).forEach((evt) => {
+        const slot = getTimingSlot(evt.timing);
+
+        (evt.services || []).forEach((srv) => {
+          (srv.crewBreakdown || []).slice(0, srv.quantity || 1).forEach((c) => {
+            const rawName = c.name?.trim();
+            if (!rawName || isPlaceholderCrewName(rawName)) return;
+
+            const key = rawName.toLowerCase();
+            if (!map[key]) map[key] = [];
+
+            const alreadyAdded = map[key].some(
+              (item) => item.quotationId === q.id && item.eventName === evt.name && item.eventDate === evt.eventDate
+            );
+
+            if (!alreadyAdded) {
+              map[key].push({
+                quotationId: q.id,
+                quotationNumber: q.quotationNumber,
+                clientName: q.client?.name || 'Client',
+                eventName: evt.name,
+                eventDate: evt.eventDate,
+                timing: evt.timing,
+                timingSlot: slot,
+                role: c.role || srv.serviceName,
+              });
+            }
+          });
+        });
+      });
+    });
+
+    // Sort each member's events chronologically by date
+    Object.keys(map).forEach((k) => {
+      map[k].sort((a, b) => {
+        const dateA = a.eventDate || '9999-99-99';
+        const dateB = b.eventDate || '9999-99-99';
+        return dateA.localeCompare(dateB);
+      });
+    });
+
+    return map;
+  }, [quotations]);
 
   // If task_manager, automatically default to notifications tab
   useEffect(() => {
@@ -1450,6 +1518,93 @@ export default function SettingsPage() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Assigned Event Dates & Shifts (Day / Night) */}
+                    {(() => {
+                      const memberEvents = memberAssignmentsMap[member.name.toLowerCase().trim()] || [];
+
+                      return (
+                        <div className="pt-2.5 border-t border-slate-100 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10.5px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1">
+                              <CalendarIcon className="w-3.5 h-3.5 text-[#0D4F4F]" /> Assigned Event Dates
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                memberEvents.length > 0
+                                  ? 'bg-[#0D4F4F]/10 text-[#0D4F4F] border border-[#0D4F4F]/20'
+                                  : 'bg-slate-100 text-slate-400'
+                              }`}
+                            >
+                              {memberEvents.length} {memberEvents.length === 1 ? 'Date' : 'Dates'}
+                            </span>
+                          </div>
+
+                          {memberEvents.length === 0 ? (
+                            <p className="text-[11px] text-slate-400 italic bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-200 text-center">
+                              No event dates assigned yet
+                            </p>
+                          ) : (
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                              {memberEvents.map((evt, eIdx) => {
+                                const slot = evt.timingSlot;
+                                const isNight = slot === 'night';
+                                const isDay = slot === 'day';
+                                const isFullDay = slot === 'full_day';
+
+                                return (
+                                  <div
+                                    key={eIdx}
+                                    className="p-2 rounded-xl bg-slate-50 hover:bg-[#0D4F4F]/5 border border-slate-200 hover:border-[#0D4F4F]/30 transition-all flex items-center justify-between gap-2"
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-bold text-slate-900 text-[11px]">
+                                          {evt.eventDate ? formatDate(evt.eventDate) : 'Date TBD'}
+                                        </span>
+
+                                        {/* Day / Night Shift Badge */}
+                                        {isNight ? (
+                                          <span className="px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-900 font-bold text-[9.5px] flex items-center gap-0.5 border border-indigo-200 shadow-2xs">
+                                            <span>🌙</span> <span>Night Event</span>
+                                          </span>
+                                        ) : isDay ? (
+                                          <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-[9.5px] flex items-center gap-0.5 border border-amber-200 shadow-2xs">
+                                            <span>☀️</span> <span>Day Event</span>
+                                          </span>
+                                        ) : isFullDay ? (
+                                          <span className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-900 font-bold text-[9.5px] flex items-center gap-0.5 border border-purple-200 shadow-2xs">
+                                            <span>☀️🌙</span> <span>Full Day</span>
+                                          </span>
+                                        ) : (
+                                          <span className="px-1.5 py-0.5 rounded-md bg-slate-200 text-slate-700 font-semibold text-[9.5px]">
+                                            {formatEventTiming(evt.timing) || 'Standard'}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <div className="text-[10.5px] text-slate-600 truncate mt-0.5 flex items-center gap-1">
+                                        <span className="font-semibold text-slate-800">{evt.clientName}</span>
+                                        <span className="text-slate-400">•</span>
+                                        <span className="text-[#0D4F4F] font-medium truncate">{evt.eventName}</span>
+                                      </div>
+                                    </div>
+
+                                    <Link
+                                      href={`/quotations/${evt.quotationId}/compare`}
+                                      className="px-2 py-1 rounded-lg bg-white hover:bg-[#0D4F4F] hover:text-[#D4AF37] border border-slate-200 text-[10px] font-mono font-bold text-[#0D4F4F] transition-all shrink-0 shadow-2xs"
+                                      title="Open Event Team Compare"
+                                    >
+                                      #{evt.quotationNumber}
+                                    </Link>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
