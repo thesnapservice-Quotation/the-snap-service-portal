@@ -19,8 +19,10 @@ import {
   MapPin,
   X,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Users
 } from 'lucide-react';
+import { isPlaceholderCrewName, getTimingSlot, doTimingSlotsOverlap } from '@/lib/crew-overlap';
 
 export interface BookedDateInfo {
   dateStr: string; // YYYY-MM-DD
@@ -34,6 +36,7 @@ export interface BookedDateInfo {
   packagePrice?: number;
   status: string;
   quotationId: string;
+  crewMembers?: { name: string; role: string }[];
 }
 
 interface BookingCalendarProps {
@@ -89,6 +92,20 @@ export function BookingCalendar({
         if (evt.eventDate) {
           const key = evt.eventDate;
           if (!map[key]) map[key] = [];
+
+          const eventCrew: { name: string; role: string }[] = [];
+          (evt.services || []).forEach((srv) => {
+            (srv.crewBreakdown || []).slice(0, srv.quantity || 1).forEach((c) => {
+              const rawName = c.name?.trim();
+              if (rawName && !isPlaceholderCrewName(rawName)) {
+                eventCrew.push({
+                  name: rawName,
+                  role: c.role || srv.serviceName,
+                });
+              }
+            });
+          });
+
           map[key].push({
             dateStr: evt.eventDate,
             clientName: q.client?.name || 'Unnamed Client',
@@ -101,6 +118,7 @@ export function BookingCalendar({
             packagePrice: q.payment?.grandTotal,
             status: q.status,
             quotationId: q.id,
+            crewMembers: eventCrew,
           });
         }
       });
@@ -138,6 +156,44 @@ export function BookingCalendar({
     });
     return conflictList;
   }, [events, bookedDatesMap]);
+
+  // Check if any selected day has overlapping crew assignments
+  const dayCrewClashes = useMemo(() => {
+    if (!selectedDayInfo || selectedDayInfo.bookings.length <= 1) return [];
+    const map: Record<string, { booking: BookedDateInfo; slot: string }[]> = {};
+    selectedDayInfo.bookings.forEach((b) => {
+      const slot = getTimingSlot(b.eventTiming);
+      (b.crewMembers || []).forEach((c) => {
+        const key = c.name.toLowerCase().trim();
+        if (!map[key]) map[key] = [];
+        map[key].push({ booking: b, slot });
+      });
+    });
+
+    const conflicts: { crewName: string; events: string[] }[] = [];
+    Object.entries(map).forEach(([key, items]) => {
+      if (items.length > 1) {
+        let overlaps = false;
+        for (let i = 0; i < items.length; i++) {
+          for (let j = i + 1; j < items.length; j++) {
+            if (doTimingSlotsOverlap(items[i].slot as any, items[j].slot as any)) {
+              overlaps = true;
+              break;
+            }
+          }
+          if (overlaps) break;
+        }
+        if (overlaps) {
+          const canonical = items[0].booking.crewMembers?.find((c) => c.name.toLowerCase().trim() === key)?.name || key;
+          conflicts.push({
+            crewName: canonical,
+            events: items.map((it) => `${it.booking.clientName} (${formatEventTiming(it.booking.eventTiming) || 'Timing Unspecified'})`),
+          });
+        }
+      }
+    });
+    return conflicts;
+  }, [selectedDayInfo]);
 
   // Month Calendar Navigation
   const year = viewDate.getFullYear();
@@ -473,127 +529,165 @@ export function BookingCalendar({
                   )}
                 </div>
               ) : (
-                selectedDayInfo.bookings.map((b, bIdx) => {
-                  const isConfirmed = b.status === 'confirmed' || b.status === 'completed';
-                  const waUrl = b.clientPhone
-                    ? `https://wa.me/${formatWhatsAppPhone(b.clientPhone)}?text=${encodeURIComponent(
-                        `Assalam-o-Alaikum ${b.clientName},\nRegarding your wedding event (${b.eventName}) scheduled on ${formatDate(b.dateStr)} (Quotation #${b.quotationNumber}):`
-                      )}`
-                    : '';
-
-                  return (
-                    <div key={bIdx} className="pt-3.5 first:pt-0 space-y-2.5">
-                      {/* Top Badges */}
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                            isConfirmed
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                              : 'bg-red-100 text-red-800 border-red-300'
-                          }`}
-                        >
-                          {isConfirmed ? (
-                            <>
-                              <Lock className="w-3 h-3 text-emerald-700" /> Confirmed Booking
-                            </>
-                          ) : (
-                            <>
-                              <span className="font-bold">✖</span> Hold / Inquired (Not Confirmed)
-                            </>
-                          )}
-                        </span>
-
-                        <Link
-                          href={`/quotations/${b.quotationId}`}
-                          className="font-mono text-xs font-bold text-[#0D4F4F] hover:text-[#B89228] hover:underline"
-                          title="View quotation internally"
-                        >
-                          #{b.quotationNumber}
-                        </Link>
+                <>
+                  {/* Day Crew Schedule Clashes Banner */}
+                  {dayCrewClashes.length > 0 && (
+                    <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 text-amber-900 space-y-1.5 text-xs mb-3">
+                      <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Team Schedule Clash on this Date:</span>
                       </div>
-
-                      {/* Client Name & Quick Contact */}
-                      <div className="flex items-start justify-between gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                        <div>
-                          <h4 className="font-bold text-sm text-slate-900">
-                            {b.clientName || 'Unnamed Client'}
-                          </h4>
-                          {b.clientPhone && (
-                            <p className="text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-1">
-                              <Phone className="w-3 h-3 text-slate-400" />
-                              {b.clientPhone}
-                            </p>
-                          )}
+                      {dayCrewClashes.map((clash, cIdx) => (
+                        <div key={cIdx} className="text-[11px] text-slate-700">
+                          <strong className="text-amber-950 font-bold">{clash.crewName}</strong> is assigned to multiple events with overlapping timing ({clash.events.join(' &amp; ')}).
                         </div>
-
-                        {b.clientPhone && (
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <a
-                              href={waUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-2.5 py-1 rounded-lg bg-[#25D366] text-white hover:bg-[#1EBE5D] text-[11px] font-bold flex items-center gap-1 transition-colors shadow-2xs"
-                              title="Chat on WhatsApp"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>WhatsApp</span>
-                            </a>
-                            <a
-                              href={`tel:${b.clientPhone}`}
-                              className="p-1 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
-                              title="Call Client"
-                            >
-                              <Phone className="w-3.5 h-3.5" />
-                            </a>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Event Details: Event Name, Timing, Venue, Price */}
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-slate-400 uppercase font-semibold block">Event</span>
-                          <span className="font-bold text-slate-800">{b.eventName}</span>
-                        </div>
-
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                          <span className="text-[10px] text-slate-400 uppercase font-semibold block">Timing</span>
-                          <span className="font-bold text-[#0D4F4F]">
-                            {b.eventTiming ? formatEventTiming(b.eventTiming) : 'Standard Event'}
-                          </span>
-                        </div>
-
-                        {b.eventVenue && (
-                          <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-200 flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                            <div>
-                              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Venue</span>
-                              <span className="font-semibold text-slate-800">{b.eventVenue}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {b.packagePrice !== undefined && b.packagePrice > 0 && (
-                          <div className="col-span-2 bg-emerald-50/60 p-2 rounded-lg border border-emerald-200 flex items-center justify-between text-xs">
-                            <span className="text-[10px] text-emerald-800 uppercase font-semibold">Total Package Price</span>
-                            <span className="font-bold text-emerald-950 font-serif">{formatCurrency(b.packagePrice)}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* View Quotation Full Link */}
-                      <div className="pt-1 flex items-center justify-end">
-                        <Link
-                          href={`/quotations/${b.quotationId}`}
-                          className="text-xs font-bold text-[#0D4F4F] hover:text-[#B89228] flex items-center gap-1 hover:underline"
-                        >
-                          <span>Open Full Quotation Details</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </Link>
-                      </div>
+                      ))}
                     </div>
-                  );
-                })
+                  )}
+
+                  {selectedDayInfo.bookings.map((b, bIdx) => {
+                    const isConfirmed = b.status === 'confirmed' || b.status === 'completed';
+                    const waUrl = b.clientPhone
+                      ? `https://wa.me/${formatWhatsAppPhone(b.clientPhone)}?text=${encodeURIComponent(
+                          `Assalam-o-Alaikum ${b.clientName},\nRegarding your wedding event (${b.eventName}) scheduled on ${formatDate(b.dateStr)} (Quotation #${b.quotationNumber}):`
+                        )}`
+                      : '';
+
+                    return (
+                      <div key={bIdx} className="pt-3.5 first:pt-0 space-y-2.5">
+                        {/* Top Badges */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                              isConfirmed
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                : 'bg-red-100 text-red-800 border-red-300'
+                            }`}
+                          >
+                            {isConfirmed ? (
+                              <>
+                                <Lock className="w-3 h-3 text-emerald-700" /> Confirmed Booking
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-bold">✖</span> Hold / Inquired (Not Confirmed)
+                              </>
+                            )}
+                          </span>
+
+                          <Link
+                            href={`/quotations/${b.quotationId}`}
+                            className="font-mono text-xs font-bold text-[#0D4F4F] hover:text-[#B89228] hover:underline"
+                            title="View quotation internally"
+                          >
+                            #{b.quotationNumber}
+                          </Link>
+                        </div>
+
+                        {/* Client Name & Quick Contact */}
+                        <div className="flex items-start justify-between gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                          <div>
+                            <h4 className="font-bold text-sm text-slate-900">
+                              {b.clientName || 'Unnamed Client'}
+                            </h4>
+                            {b.clientPhone && (
+                              <p className="text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-1">
+                                <Phone className="w-3 h-3 text-slate-400" />
+                                {b.clientPhone}
+                              </p>
+                            )}
+                          </div>
+
+                          {b.clientPhone && (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <a
+                                href={waUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1 rounded-lg bg-[#25D366] text-white hover:bg-[#1EBE5D] text-[11px] font-bold flex items-center gap-1 transition-colors shadow-2xs"
+                                title="Chat on WhatsApp"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span>WhatsApp</span>
+                              </a>
+                              <a
+                                href={`tel:${b.clientPhone}`}
+                                className="p-1 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors"
+                                title="Call Client"
+                              >
+                                <Phone className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Event Details: Event Name, Timing, Venue, Price */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
+                            <span className="text-[10px] text-slate-400 uppercase font-semibold block">Event</span>
+                            <span className="font-bold text-slate-800">{b.eventName}</span>
+                          </div>
+
+                          <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
+                            <span className="text-[10px] text-slate-400 uppercase font-semibold block">Timing</span>
+                            <span className="font-bold text-[#0D4F4F]">
+                              {b.eventTiming ? formatEventTiming(b.eventTiming) : 'Standard Event'}
+                            </span>
+                          </div>
+
+                          {b.eventVenue && (
+                            <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-200 flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                              <div>
+                                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Venue</span>
+                                <span className="font-semibold text-slate-800">{b.eventVenue}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Assigned Shooting Crew */}
+                          {b.crewMembers && b.crewMembers.length > 0 && (
+                            <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-200 space-y-1">
+                              <span className="text-[10px] text-slate-400 uppercase font-semibold block flex items-center gap-1">
+                                <Users className="w-3 h-3 text-[#0D4F4F]" /> Assigned Shooting Team
+                              </span>
+                              <div className="flex flex-wrap gap-1">
+                                {b.crewMembers.map((cm, cIdx) => (
+                                  <span
+                                    key={cIdx}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-800 text-[10.5px] font-semibold"
+                                  >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#0D4F4F]"></span>
+                                    <span>{cm.name}</span>
+                                    <span className="text-[9.5px] text-slate-400">({cm.role})</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {b.packagePrice !== undefined && b.packagePrice > 0 && (
+                            <div className="col-span-2 bg-emerald-50/60 p-2 rounded-lg border border-emerald-200 flex items-center justify-between text-xs">
+                              <span className="text-[10px] text-emerald-800 uppercase font-semibold">Total Package Price</span>
+                              <span className="font-bold text-emerald-950 font-serif">{formatCurrency(b.packagePrice)}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* View Quotation Full Link */}
+                        <div className="pt-1 flex items-center justify-end">
+                          <Link
+                            href={`/quotations/${b.quotationId}`}
+                            className="text-xs font-bold text-[#0D4F4F] hover:text-[#B89228] flex items-center gap-1 hover:underline"
+                          >
+                            <span>Open Full Quotation Details</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
               )}
             </div>
 

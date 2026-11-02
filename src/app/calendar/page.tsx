@@ -8,6 +8,7 @@ import { formatCurrency, formatDate, formatEventTiming, sortCalendarQuotations, 
 import { BookingCalendar } from '@/components/quotation/booking-calendar';
 import { SendCrewWhatsAppModal, CrewMemberDetail } from '@/components/quotation/send-crew-whatsapp-modal';
 import { Quotation, EventItem } from '@/lib/types';
+import { findAllCrewConflicts } from '@/lib/crew-overlap';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -86,6 +87,11 @@ export default function MasterCalendarPage() {
         return eSum + dQty;
       }, 0);
     }, 0);
+  }, [activeQuotations]);
+
+  // Global team schedule conflicts across active wedding bookings
+  const crewConflicts = useMemo(() => {
+    return findAllCrewConflicts(activeQuotations);
   }, [activeQuotations]);
 
   // Compute big wedding date range string for a quotation
@@ -229,6 +235,78 @@ export default function MasterCalendarPage() {
           </div>
         </div>
       </div>
+
+      {/* Real-time Team Schedule Overlap Alert Banner */}
+      {crewConflicts.length > 0 && (
+        <div className="p-4 md:p-5 rounded-2xl bg-amber-50/90 border-2 border-amber-400 text-amber-950 shadow-md space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs">
+                <AlertTriangle className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm md:text-base text-amber-950 flex items-center gap-2">
+                  <span>Team Schedule Overlaps Detected!</span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-xs font-mono font-bold">
+                    {crewConflicts.length} Conflict{crewConflicts.length > 1 ? 's' : ''}
+                  </span>
+                </h3>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  The following team members are double-booked on the same date and overlapping time shift:
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            {crewConflicts.map((c, idx) => (
+              <div
+                key={idx}
+                className="bg-white p-3.5 rounded-xl border border-amber-300 shadow-2xs space-y-2 text-xs"
+              >
+                <div className="flex items-center justify-between gap-2 border-b border-amber-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-[#0D4F4F] text-[#D4AF37] font-bold text-xs flex items-center justify-center">
+                      {c.crewName.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="font-bold text-slate-900 text-sm">{c.crewName}</span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-[11px]">
+                    {formatDate(c.eventDate)} ({c.timingDescription})
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                    Overlapping Events:
+                  </span>
+                  {c.events.map((evt, eIdx) => (
+                    <div
+                      key={eIdx}
+                      className="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200"
+                    >
+                      <div>
+                        <span className="font-bold text-slate-900 block">
+                          {evt.clientName} (#{evt.quotationNumber})
+                        </span>
+                        <span className="text-[11px] text-slate-500 block">
+                          Event: {evt.eventName} • {evt.timing ? formatEventTiming(evt.timing) : 'Timing Unspecified'}
+                        </span>
+                      </div>
+                      <Link
+                        href={`/quotations/${evt.quotationId}/compare`}
+                        className="px-2.5 py-1 rounded-lg bg-[#D4AF37] text-[#0D4F4F] font-bold text-[10.5px] hover:brightness-110 shrink-0 shadow-2xs"
+                      >
+                        Resolve / Edit
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Interactive Visual Month Calendar Grid */}
       <BookingCalendar

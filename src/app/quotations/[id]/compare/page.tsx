@@ -5,11 +5,14 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Quotation, AdditionalExpense, Service, SelectedService, CrewMemberCost, VideoEditingEventCost, AlbumItemCost, QuotationVariation } from '@/lib/types';
 import { storage } from '@/lib/storage';
-import { formatCurrency, formatDate, computeDefaultVideoEditingCost, getDefaultAlbumUnitCost, mergeVariationIntoQuotation } from '@/lib/utils';
+import { formatCurrency, formatDate, formatEventTiming, computeDefaultVideoEditingCost, getDefaultAlbumUnitCost, mergeVariationIntoQuotation } from '@/lib/utils';
 import { generateSecureId } from '@/lib/crypto';
 import { apiFetchQuotationById, apiSaveQuotation } from '@/lib/api-client';
 import { sortEventsInSequence } from '@/components/quotation/quotation-preview';
 import { useSettings } from '@/hooks/use-settings';
+import { useQuotations } from '@/hooks/use-quotations';
+import { checkCrewMemberOverlap, isPlaceholderCrewName, CrewConflictItem } from '@/lib/crew-overlap';
+import { CrewConflictModal } from '@/components/quotation/crew-conflict-modal';
 import { 
   ArrowLeft, 
   Lock, 
@@ -33,19 +36,39 @@ import {
   CheckCircle2,
   Layers,
   MapPin,
-  Clock
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function QuotationComparePage() {
   const params = useParams();
   const id = params.id as string;
   const { settings } = useSettings();
+  const { quotations: allQuotations } = useQuotations();
 
   const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
   const [videoEditingCosts, setVideoEditingCosts] = useState<VideoEditingEventCost[]>([]);
   const [albumCosts, setAlbumCosts] = useState<AlbumItemCost[]>([]);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+
+  // Conflict Warning Modal State
+  const [conflictModalState, setConflictModalState] = useState<{
+    isOpen: boolean;
+    crewName: string;
+    targetEventName: string;
+    targetEventDate: string;
+    targetEventTiming?: string;
+    conflicts: CrewConflictItem[];
+    onConfirmAction?: () => void;
+    onCancelAction?: () => void;
+  }>({
+    isOpen: false,
+    crewName: '',
+    targetEventName: '',
+    targetEventDate: '',
+    conflicts: [],
+  });
 
   const prepareQuotationData = (q: Quotation, srvs: Service[]): Quotation => {
     // Preserve existing crew breakdown, custom cost units, and existing profit analysis
@@ -244,13 +267,62 @@ export default function QuotationComparePage() {
     });
   });
 
+  // Check and trigger interactive warning popup if crew member has a schedule clash
+  const triggerConflictCheck = (
+    eventId: string,
+    serviceId: string,
+    crewIndex: number,
+    candidateName: string
+  ) => {
+    const cleanName = candidateName.trim();
+    if (!cleanName || isPlaceholderCrewName(cleanName)) return;
+
+    const targetEvt = quotation?.events.find((e) => e.id === eventId);
+    if (!targetEvt || !targetEvt.eventDate) return;
+
+    const conflictResult = checkCrewMemberOverlap(
+      cleanName,
+      targetEvt.eventDate,
+      targetEvt.timing,
+      allQuotations,
+      {
+        currentQuotationId: quotation?.id,
+        currentEventId: eventId,
+        currentServiceId: serviceId,
+        currentCrewIndex: crewIndex,
+      }
+    );
+
+    if (conflictResult.hasConflict) {
+      setConflictModalState({
+        isOpen: true,
+        crewName: cleanName,
+        targetEventName: targetEvt.name,
+        targetEventDate: targetEvt.eventDate,
+        targetEventTiming: targetEvt.timing,
+        conflicts: conflictResult.conflicts,
+        onConfirmAction: () => {
+          setConflictModalState((prev) => ({ ...prev, isOpen: false }));
+        },
+        onCancelAction: () => {
+          // Revert member back to unassigned placeholder
+          const targetSrv = targetEvt.services.find((s) => s.id === serviceId || s.serviceId === serviceId);
+          const placeholderName = `${targetSrv?.serviceName || 'Team Member'} #${crewIndex + 1}`;
+          handleUpdateCrewMember(eventId, serviceId, crewIndex, 'name', placeholderName, true);
+          setConflictModalState((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+    }
+  };
+
   // Handler for individual crew member name or cost update
   const handleUpdateCrewMember = (
     eventId: string,
     serviceId: string,
     crewIndex: number,
     field: 'name' | 'cost' | 'phone' | 'role',
-    value: string | number
+    value: string | number,
+    skipConflictCheck = false
   ) => {
     const updatedEvents = quotation.events.map((evt) => {
       if (evt.id === eventId) {
@@ -308,6 +380,17 @@ export default function QuotationComparePage() {
       ...quotation,
       events: updatedEvents,
     });
+
+    // Automatically check for clash if selecting a permanent team member
+    if (field === 'name' && typeof value === 'string' && !skipConflictCheck) {
+      const cleanName = value.trim();
+      const matchedPermanent = settings?.permanentTeamMembers?.find(
+        (m) => m.name.toLowerCase() === cleanName.toLowerCase()
+      );
+      if (matchedPermanent) {
+        triggerConflictCheck(eventId, serviceId, crewIndex, matchedPermanent.name);
+      }
+    }
   };
 
   // Handler for updating video editing cost for an event day
@@ -723,81 +806,157 @@ export default function QuotationComparePage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           {crewList.slice(0, qty).map((crewMember, idx) => {
                             const datalistId = `crew-dl-${evt.id}-${srv.id || srv.serviceId}-${idx}`;
+                            const conflictCheck = evt.eventDate && !isPlaceholderCrewName(crewMember.name)
+                              ? checkCrewMemberOverlap(
+                                  crewMember.name,
+                                  evt.eventDate,
+                                  evt.timing,
+                                  allQuotations,
+                                  {
+                                    currentQuotationId: quotation.id,
+                                    currentEventId: evt.id,
+                                    currentServiceId: srv.id || srv.serviceId,
+                                    currentCrewIndex: idx,
+                                  }
+                                )
+                              : { hasConflict: false, conflicts: [] };
+
                             return (
                               <div
                                 key={crewMember.id || idx}
-                                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white p-2.5 rounded-lg border border-slate-200 text-xs shadow-2xs"
+                                className={`flex flex-col bg-white p-2.5 rounded-lg border text-xs shadow-2xs transition-all ${
+                                  conflictCheck.hasConflict
+                                    ? 'border-amber-400 bg-amber-50/40 ring-1 ring-amber-300'
+                                    : 'border-slate-200'
+                                }`}
                               >
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  <div className="w-6 h-6 rounded-full bg-[#0D4F4F]/10 text-[#0D4F4F] font-bold text-[10px] flex items-center justify-center shrink-0">
-                                    #{idx + 1}
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <div
+                                      className={`w-6 h-6 rounded-full font-bold text-[10px] flex items-center justify-center shrink-0 ${
+                                        conflictCheck.hasConflict
+                                          ? 'bg-amber-500 text-white'
+                                          : 'bg-[#0D4F4F]/10 text-[#0D4F4F]'
+                                      }`}
+                                    >
+                                      #{idx + 1}
+                                    </div>
+
+                                    <div className="relative flex-1 min-w-0">
+                                      <input
+                                        type="text"
+                                        list={datalistId}
+                                        value={crewMember.name}
+                                        onChange={(e) =>
+                                          handleUpdateCrewMember(
+                                            evt.id,
+                                            srv.serviceId || srv.id,
+                                            idx,
+                                            'name',
+                                            e.target.value
+                                          )
+                                        }
+                                        onBlur={(e) =>
+                                          triggerConflictCheck(
+                                            evt.id,
+                                            srv.serviceId || srv.id,
+                                            idx,
+                                            e.target.value
+                                          )
+                                        }
+                                        placeholder={`Team Member Name (e.g. Ali Khan)`}
+                                        className={`w-full px-2.5 py-1.5 border rounded-md text-xs font-semibold focus:ring-2 focus:outline-none bg-white ${
+                                          conflictCheck.hasConflict
+                                            ? 'border-amber-400 focus:ring-amber-500 text-amber-950 font-bold'
+                                            : 'border-slate-300 focus:ring-[#0D4F4F]'
+                                        }`}
+                                      />
+                                      <datalist id={datalistId}>
+                                        {(settings?.permanentTeamMembers || []).map((m) => (
+                                          <option key={m.id} value={m.name}>
+                                            {m.role ? `${m.role} • Rs. ${m.defaultCost}` : ''}
+                                          </option>
+                                        ))}
+                                      </datalist>
+                                    </div>
                                   </div>
 
-                                  <div className="relative flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {/* Phone input if custom/temporary */}
                                     <input
                                       type="text"
-                                      list={datalistId}
-                                      value={crewMember.name}
+                                      value={crewMember.phone || ''}
                                       onChange={(e) =>
                                         handleUpdateCrewMember(
                                           evt.id,
                                           srv.serviceId || srv.id,
                                           idx,
-                                          'name',
+                                          'phone',
                                           e.target.value
                                         )
                                       }
-                                      placeholder={`Team Member Name (e.g. Ali Khan)`}
-                                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs font-semibold focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none bg-white"
+                                      placeholder="Phone #"
+                                      className="w-28 px-2 py-1.5 border border-slate-200 rounded-md text-[11px] font-medium text-slate-700 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                                      title="WhatsApp phone number"
                                     />
-                                    <datalist id={datalistId}>
-                                      {(settings?.permanentTeamMembers || []).map((m) => (
-                                        <option key={m.id} value={m.name}>
-                                          {m.role ? `${m.role} • Rs. ${m.defaultCost}` : ''}
-                                        </option>
-                                      ))}
-                                    </datalist>
+
+                                    <div className="relative w-28 shrink-0">
+                                      <span className="absolute left-2 top-1.5 font-bold text-[10px] text-slate-400">Rs.</span>
+                                      <input
+                                        type="number"
+                                        value={crewMember.cost || ''}
+                                        onChange={(e) =>
+                                          handleUpdateCrewMember(
+                                            evt.id,
+                                            srv.serviceId || srv.id,
+                                            idx,
+                                            'cost',
+                                            parseFloat(e.target.value) || 0
+                                          )
+                                        }
+                                        placeholder="Cost"
+                                        className="w-full pl-7 pr-2 py-1.5 border border-slate-300 rounded-md text-xs font-bold text-slate-900 focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
+                                      />
+                                    </div>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                  {/* Phone input if custom/temporary */}
-                                  <input
-                                    type="text"
-                                    value={crewMember.phone || ''}
-                                    onChange={(e) =>
-                                      handleUpdateCrewMember(
-                                        evt.id,
-                                        srv.serviceId || srv.id,
-                                        idx,
-                                        'phone',
-                                        e.target.value
-                                      )
-                                    }
-                                    placeholder="Phone #"
-                                    className="w-28 px-2 py-1.5 border border-slate-200 rounded-md text-[11px] font-medium text-slate-700 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                                    title="WhatsApp phone number"
-                                  />
+                                {/* Inline Conflict Warning Badge */}
+                                {conflictCheck.hasConflict && conflictCheck.conflicts.length > 0 && (
+                                  <div className="mt-2 pt-2 border-t border-amber-200/80 flex items-start justify-between gap-2 text-[11px] text-amber-900 font-medium">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                      <span className="font-bold text-amber-800">Timing Clash:</span>
+                                      <span>
+                                        Already assigned on {evt.eventDate ? formatDate(evt.eventDate) : 'Date TBD'} ({formatEventTiming(conflictCheck.conflicts[0].timing) || 'Timing Unspecified'}) for{' '}
+                                        <strong className="text-amber-950 font-bold">{conflictCheck.conflicts[0].clientName}</strong> (#{conflictCheck.conflicts[0].quotationNumber})
+                                      </span>
+                                    </div>
 
-                                  <div className="relative w-28 shrink-0">
-                                    <span className="absolute left-2 top-1.5 font-bold text-[10px] text-slate-400">Rs.</span>
-                                    <input
-                                      type="number"
-                                      value={crewMember.cost || ''}
-                                      onChange={(e) =>
-                                        handleUpdateCrewMember(
-                                          evt.id,
-                                          srv.serviceId || srv.id,
-                                          idx,
-                                          'cost',
-                                          parseFloat(e.target.value) || 0
-                                        )
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setConflictModalState({
+                                          isOpen: true,
+                                          crewName: crewMember.name,
+                                          targetEventName: evt.name,
+                                          targetEventDate: evt.eventDate || '',
+                                          targetEventTiming: evt.timing,
+                                          conflicts: conflictCheck.conflicts,
+                                          onConfirmAction: () => setConflictModalState((p) => ({ ...p, isOpen: false })),
+                                          onCancelAction: () => {
+                                            const placeholderName = `${srv.serviceName} #${idx + 1}`;
+                                            handleUpdateCrewMember(evt.id, srv.serviceId || srv.id, idx, 'name', placeholderName, true);
+                                            setConflictModalState((p) => ({ ...p, isOpen: false }));
+                                          },
+                                        })
                                       }
-                                      placeholder="Cost"
-                                      className="w-full pl-7 pr-2 py-1.5 border border-slate-300 rounded-md text-xs font-bold text-slate-900 focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
-                                    />
+                                      className="text-[10px] text-amber-800 hover:text-amber-950 underline font-bold shrink-0 cursor-pointer"
+                                    >
+                                      View Conflict
+                                    </button>
                                   </div>
-                                </div>
+                                )}
                               </div>
                             );
                           })}
@@ -1100,6 +1259,24 @@ export default function QuotationComparePage() {
           </div>
         </div>
       </div>
+
+      {/* Interactive Team Schedule Conflict Warning Modal */}
+      <CrewConflictModal
+        isOpen={conflictModalState.isOpen}
+        crewName={conflictModalState.crewName}
+        targetEventName={conflictModalState.targetEventName}
+        targetEventDate={conflictModalState.targetEventDate}
+        targetEventTiming={conflictModalState.targetEventTiming}
+        conflicts={conflictModalState.conflicts}
+        onConfirm={() => {
+          if (conflictModalState.onConfirmAction) conflictModalState.onConfirmAction();
+          setConflictModalState((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onCancel={() => {
+          if (conflictModalState.onCancelAction) conflictModalState.onCancelAction();
+          setConflictModalState((prev) => ({ ...prev, isOpen: false }));
+        }}
+      />
     </div>
   );
 }
