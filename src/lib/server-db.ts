@@ -18,7 +18,7 @@ if (typeof window !== 'undefined') {
 }
 
 const rawDbUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
-const SUPABASE_URL = (rawDbUrl.startsWith('http') ? rawDbUrl : 'https://kwrliixcdmjyuurjucrc.supabase.co').replace(/\/$/, '');
+const SUPABASE_URL = (rawDbUrl ? (rawDbUrl.startsWith('http') ? rawDbUrl : `https://${rawDbUrl}`) : 'https://zlgbdvanylvooadkfipx.supabase.co').replace(/\/$/, '');
 const rawDbKey = (
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||

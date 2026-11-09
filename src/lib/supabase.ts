@@ -7,7 +7,7 @@ if (typeof window !== 'undefined') {
 }
 
 const rawUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
-const SUPABASE_URL = (rawUrl.startsWith('http') ? rawUrl : 'https://kwrliixcdmjyuurjucrc.supabase.co').replace(/\/$/, '');
+const SUPABASE_URL = (rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`) : 'https://zlgbdvanylvooadkfipx.supabase.co').replace(/\/$/, '');
 
 const rawKey = (
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
