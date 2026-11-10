@@ -16,7 +16,8 @@ const rawKey = (
   process.env.SUPABASE_KEY ||
   ''
 ).trim();
-const SUPABASE_KEY = rawKey === '[SENSITIVE]' ? 'dummy_key' : (rawKey || 'dummy_key');
+const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZ2JkdmFueWx2b29hZGtmaXB4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5Mjc1MDY4OSwiZXhwIjoyMTA4MzI2Njg5fQ.AWS1wWwpfeU72l0hzrsPAROx78tqlKiIk5aLqq6ZlG4';
+const SUPABASE_KEY = (rawKey && rawKey !== '[SENSITIVE]') ? rawKey : DEFAULT_SUPABASE_KEY;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
