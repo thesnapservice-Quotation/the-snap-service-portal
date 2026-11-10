@@ -18,13 +18,16 @@ if (typeof window !== 'undefined') {
 }
 
 const rawDbUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
-const SUPABASE_URL = (rawDbUrl ? (rawDbUrl.startsWith('http') ? rawDbUrl : `https://${rawDbUrl}`) : 'https://zlgbdvanylvooadkfipx.supabase.co').replace(/\/$/, '');
+const SUPABASE_URL = (rawDbUrl && !rawDbUrl.startsWith('eyJ') && rawDbUrl.includes('supabase.co'))
+  ? (rawDbUrl.startsWith('http') ? rawDbUrl : `https://${rawDbUrl}`).replace(/\/$/, '')
+  : 'https://zlgbdvanylvooadkfipx.supabase.co';
+
 const rawDbKey = (
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   process.env.SUPABASE_KEY ||
-  ''
+  (rawDbUrl.startsWith('eyJ') ? rawDbUrl : '')
 ).trim();
 const DEFAULT_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZ2JkdmFueWx2b29hZGtmaXB4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5Mjc1MDY4OSwiZXhwIjoyMTA4MzI2Njg5fQ.AWS1wWwpfeU72l0hzrsPAROx78tqlKiIk5aLqq6ZlG4';
 const SUPABASE_KEY = (rawDbKey && rawDbKey !== '[SENSITIVE]') ? rawDbKey : DEFAULT_SERVICE_KEY;

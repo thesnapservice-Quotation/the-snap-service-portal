@@ -6,13 +6,15 @@ export const revalidate = 0;
 
 export async function GET() {
   const rawUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
-  const supabaseUrl = (rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`) : 'https://zlgbdvanylvooadkfipx.supabase.co').replace(/\/$/, '');
+  const supabaseUrl = (rawUrl && !rawUrl.startsWith('eyJ') && rawUrl.includes('supabase.co'))
+    ? (rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`).replace(/\/$/, '')
+    : 'https://zlgbdvanylvooadkfipx.supabase.co';
   const rawKey = (
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     process.env.SUPABASE_KEY ||
-    ''
+    (rawUrl.startsWith('eyJ') ? rawUrl : '')
   ).trim();
   const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZ2JkdmFueWx2b29hZGtmaXB4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5Mjc1MDY4OSwiZXhwIjoyMTA4MzI2Njg5fQ.AWS1wWwpfeU72l0hzrsPAROx78tqlKiIk5aLqq6ZlG4';
   const supabaseKey = (rawKey && rawKey !== '[SENSITIVE]') ? rawKey : DEFAULT_KEY;
