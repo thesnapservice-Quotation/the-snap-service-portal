@@ -19,8 +19,8 @@ export default function RootLayout({
     pathname === '/signup' ||
     pathname.startsWith('/portal') ||
     pathname.startsWith('/p/') ||
-    pathname.startsWith('/reviews') ||
-    pathname.startsWith('/client-reviews');
+    pathname === '/reviews' ||
+    pathname === '/client-reviews';
 
   return (
     <html lang="en" suppressHydrationWarning>

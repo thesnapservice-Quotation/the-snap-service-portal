@@ -1,5 +1,5 @@
-import { Quotation, Service, AppSettings, UserAccount, PaymentTransaction, TaskItem, StudioExpense } from './types';
-import { DEFAULT_SERVICES, DEFAULT_SETTINGS, DEFAULT_INCLUSIONS, getDefaultSettingsForWorkspace } from './defaults';
+import { Quotation, Service, AppSettings, UserAccount, PaymentTransaction, TaskItem, StudioExpense, ClientStory } from './types';
+import { DEFAULT_SERVICES, DEFAULT_SETTINGS, DEFAULT_INCLUSIONS, getDefaultSettingsForWorkspace, DEFAULT_CLIENT_STORIES } from './defaults';
 import { getTodayDateString } from './utils';
 import { generateSecureId, generateRandomNumericId } from './crypto';
 
@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
   CURRENT_USER: 'snap_service_current_user',
   TASKS: 'snap_service_tasks_v1',
   EXPENSES: 'snap_service_expenses_v1',
+  CLIENT_REVIEWS: 'snap_service_client_reviews_v1',
 };
 
 // Seed Users: Super Admin (Owner)
@@ -750,6 +751,32 @@ export const storage = {
       window.dispatchEvent(new Event('snap_expenses_updated'));
     } catch (e) {
       console.error('Error writing all expenses to localStorage', e);
+    }
+  },
+
+  // Client Reviews CRUD (Offline/Local Cache)
+  getClientReviews: (): ClientStory[] => {
+    if (typeof window === 'undefined') return DEFAULT_CLIENT_STORIES;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CLIENT_REVIEWS);
+      if (!data) return DEFAULT_CLIENT_STORIES;
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_CLIENT_STORIES;
+      return parsed.sort((a: ClientStory, b: ClientStory) => (a.order || 0) - (b.order || 0));
+    } catch (e) {
+      console.error('Error reading client reviews from localStorage', e);
+      return DEFAULT_CLIENT_STORIES;
+    }
+  },
+
+  saveClientReviews: (reviews: ClientStory[]): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      const sorted = (reviews || []).map((r, i) => ({ ...r, order: i + 1 }));
+      localStorage.setItem(STORAGE_KEYS.CLIENT_REVIEWS, JSON.stringify(sorted));
+      window.dispatchEvent(new Event('snap_client_reviews_updated'));
+    } catch (e) {
+      console.error('Error saving client reviews to localStorage', e);
     }
   },
 };

@@ -1105,6 +1105,28 @@ export default function SettingsPage() {
               />
             </div>
           </div>
+
+          {/* Quick Access to Client Reviews Manager */}
+          <div className="p-4 rounded-xl border border-[#D4AF37]/35 bg-[#FAF9F6] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#0D4F4F]/10 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5 text-[#D4AF37]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-xs text-slate-800">Public Client Reviews & Stories</h3>
+                <p className="text-[11px] text-stone-500">
+                  Reorder stories (choose who shows first), upload client event pictures, and embed YouTube / Instagram films.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/reviews/manage"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-[#0D4F4F] text-[#FAF9F6] hover:bg-[#093A3A] transition-colors shrink-0"
+            >
+              <span>Manage Reviews & Videos</span>
+              <ExternalLink className="w-3 h-3" />
+            </Link>
+          </div>
         </div>
       )}
 

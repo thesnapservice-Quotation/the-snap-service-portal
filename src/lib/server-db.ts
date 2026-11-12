@@ -1,8 +1,8 @@
-import { Quotation, UserAccount, TaskItem, DeviceSubscription, Service, AppSettings, StudioExpense } from './types';
+import { Quotation, UserAccount, TaskItem, DeviceSubscription, Service, AppSettings, StudioExpense, ClientStory } from './types';
 import { supabase } from './supabase';
 import { SEED_USERS } from './storage';
 import { generateRandomNumericId } from './crypto';
-import { DEFAULT_SETTINGS, DEFAULT_SERVICES, getDefaultSettingsForWorkspace, DEFAULT_TEAM_ROLES, DEFAULT_WHATSAPP_TEMPLATES } from './defaults';
+import { DEFAULT_SETTINGS, DEFAULT_SERVICES, getDefaultSettingsForWorkspace, DEFAULT_TEAM_ROLES, DEFAULT_WHATSAPP_TEMPLATES, DEFAULT_CLIENT_STORIES } from './defaults';
 import { getQuotationSecurityPin, sortQuotationsByNumber, isQuotationExpired } from './utils';
 
 /**
@@ -1667,4 +1667,124 @@ export async function deleteExpenseFromDb(expenseId: string, workspaceId?: strin
   }
 
   return updatedList;
+}
+
+// ----------------------------------------------------
+// Client Reviews & Stories Persistence Engine
+// ----------------------------------------------------
+
+let cachedClientReviews: ClientStory[] | null = null;
+
+export async function getClientReviewsFromDb(): Promise<ClientStory[]> {
+  if (cachedClientReviews && cachedClientReviews.length > 0) {
+    return cachedClientReviews;
+  }
+
+  const recordId = 'sys_client_reviews';
+
+  // 1. Try Supabase SDK
+  try {
+    const { data, error } = await supabase
+      .from('quotations')
+      .select('full_data')
+      .eq('id', recordId)
+      .single();
+
+    if (!error && data?.full_data?.reviews && Array.isArray(data.full_data.reviews)) {
+      const sorted = (data.full_data.reviews as ClientStory[]).sort(
+        (a, b) => (a.order || 0) - (b.order || 0)
+      );
+      cachedClientReviews = sorted;
+      return sorted;
+    }
+  } catch {}
+
+  // 2. Try Supabase REST fallback
+  if (SUPABASE_URL && SUPABASE_KEY) {
+    try {
+      const endpoint = `${SUPABASE_URL}/rest/v1/quotations?id=eq.${encodeURIComponent(recordId)}&select=full_data`;
+      const res = await fetch(endpoint, {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (rows && rows[0]?.full_data?.reviews && Array.isArray(rows[0].full_data.reviews)) {
+          const sorted = (rows[0].full_data.reviews as ClientStory[]).sort(
+            (a, b) => (a.order || 0) - (b.order || 0)
+          );
+          cachedClientReviews = sorted;
+          return sorted;
+        }
+      }
+    } catch {}
+  }
+
+  // Fallback to default client stories
+  cachedClientReviews = DEFAULT_CLIENT_STORIES;
+  return DEFAULT_CLIENT_STORIES;
+}
+
+export async function saveClientReviewsToDb(reviews: ClientStory[]): Promise<ClientStory[]> {
+  const recordId = 'sys_client_reviews';
+  const now = new Date().toISOString();
+
+  // Normalize order (1 = first)
+  const normalizedReviews: ClientStory[] = (reviews || []).map((story, index) => ({
+    ...story,
+    order: index + 1,
+    updatedAt: now,
+  }));
+
+  cachedClientReviews = normalizedReviews;
+
+  const dbPayload = {
+    id: recordId,
+    quotation_number: 'SYS-CLIENT-REVIEWS',
+    user_id: 'ws_user-super-admin',
+    status: 'confirmed',
+    client: {
+      name: 'Client Reviews System Showcase',
+      phone: '',
+      quotationDate: now,
+      eventDates: '',
+    },
+    events: [],
+    inclusions: [],
+    payment: { grandTotal: 0, advanceReceived: 0, advanceType: 'fixed', balancePayable: 0 },
+    full_data: {
+      isSystemRecord: true,
+      reviews: normalizedReviews,
+      updatedAt: now,
+    },
+    updated_at: now,
+  };
+
+  try {
+    const { error } = await supabase
+      .from('quotations')
+      .upsert(dbPayload, { onConflict: 'id' });
+
+    if (error && SUPABASE_URL && SUPABASE_KEY) {
+      console.error('Supabase SDK upsert error for reviews, falling back to REST:', error);
+      await fetch(`${SUPABASE_URL}/rest/v1/quotations?on_conflict=id`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates',
+        },
+        body: JSON.stringify(dbPayload),
+      });
+    }
+  } catch (e) {
+    console.error('Error saving client reviews to Supabase:', e);
+  }
+
+  return normalizedReviews;
 }

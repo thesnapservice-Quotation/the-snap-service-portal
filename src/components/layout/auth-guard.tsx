@@ -14,9 +14,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isPublic =
     PUBLIC_PATHS.includes(pathname) ||
     pathname.startsWith('/portal') ||
-    pathname.startsWith('/p/') ||
-    pathname.startsWith('/reviews') ||
-    pathname.startsWith('/client-reviews');
+    pathname.startsWith('/p/');
   const [checking, setChecking] = useState(() => !isPublic && !storage.getCurrentUser());
 
   useEffect(() => {

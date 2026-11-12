@@ -494,3 +494,33 @@ export interface StudioExpense {
   createdAt: string;
   updatedAt: string;
 }
+
+// ----------------------------------------------------
+// Client Reviews & Stories Types
+// ----------------------------------------------------
+
+export interface ReviewPhoto {
+  url: string;
+  caption: string;
+  position: 'far-left' | 'inner-left' | 'inner-right' | 'far-right';
+}
+
+export interface ClientStory {
+  id: string;
+  couple: string;
+  eventType: string;
+  city: string;
+  rating: number;
+  quote: string;
+  videoUrl?: string; // Optional YouTube link or Instagram reel/post embed link
+  order?: number; // 1 = shows first
+  photos: {
+    farLeft: ReviewPhoto;
+    innerLeft: ReviewPhoto;
+    innerRight: ReviewPhoto;
+    farRight: ReviewPhoto;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+

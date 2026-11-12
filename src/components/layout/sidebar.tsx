@@ -29,6 +29,7 @@ const NAV_ITEMS = [
   { label: 'Deliverables & Albums', href: '/deliverables', icon: PackageCheck },
   { label: 'Daily Tasks', href: '/tasks', icon: ListTodo },
   { label: 'Expenses & Ledger', href: '/expenses', icon: Receipt },
+  { label: 'Client Reviews', href: '/reviews/manage', icon: Sparkles },
   { label: 'Studio Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Studio Settings', href: '/settings', icon: Sliders },
 ];

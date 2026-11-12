@@ -2,125 +2,35 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Star, X, ChevronLeft, ChevronRight, Maximize2, Sparkles, Moon, Sun, ArrowUpRight } from 'lucide-react';
-
-interface ReviewPhoto {
-  url: string;
-  caption: string;
-  position: 'far-left' | 'inner-left' | 'inner-right' | 'far-right';
-}
-
-interface ClientStory {
-  id: string;
-  couple: string;
-  eventType: string;
-  city: string;
-  rating: number;
-  quote: string;
-  photos: {
-    farLeft: ReviewPhoto;
-    innerLeft: ReviewPhoto;
-    innerRight: ReviewPhoto;
-    farRight: ReviewPhoto;
-  };
-}
-
-const CLIENT_STORIES: ClientStory[] = [
-  {
-    id: 'sarah-zain',
-    couple: 'Sarah & Zain',
-    eventType: 'Mehndi Night',
-    city: 'Lahore',
-    rating: 5,
-    quote: 'The candid moments captured are breathtaking! The team made us so comfortable.',
-    photos: {
-      farLeft: {
-        url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Candid laughter in traditional Pakistani Mehndi attire',
-        position: 'far-left',
-      },
-      innerLeft: {
-        url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Vibrant stage setup and floral guest seating',
-        position: 'inner-left',
-      },
-      innerRight: {
-        url: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=1200&q=85',
-        caption: 'The couple entrance under a blooming floral canopy',
-        position: 'inner-right',
-      },
-      farRight: {
-        url: 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Friends & family cheering and celebrating the night',
-        position: 'far-right',
-      },
-    },
-  },
-  {
-    id: 'ayesha-hamza',
-    couple: 'Ayesha & Hamza',
-    eventType: 'Baraat & Reception',
-    city: 'Faisalabad',
-    rating: 5,
-    quote: 'Absolutely incredible work. The attention to detail and cinematic feel exceeded expectations!',
-    photos: {
-      farLeft: {
-        url: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Affectionate daylight portrait in ivory & gold sherwani',
-        position: 'far-left',
-      },
-      innerLeft: {
-        url: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Intricate bridal henna and royal heritage jewelry details',
-        position: 'inner-left',
-      },
-      innerRight: {
-        url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Groom royal entrance amongst guests and family',
-        position: 'inner-right',
-      },
-      farRight: {
-        url: 'https://images.unsplash.com/photo-1544077960-604201fe74bc?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Joyful candid moments during the grand reception',
-        position: 'far-right',
-      },
-    },
-  },
-  {
-    id: 'salman-rabia',
-    couple: 'Dr. M. Salman & Dr. Rabia',
-    eventType: 'Shendi',
-    city: 'Islamabad',
-    rating: 5,
-    quote: 'Professional, punctual, and highly creative. We love every single shot!',
-    photos: {
-      farLeft: {
-        url: 'https://images.unsplash.com/photo-1529634806980-85c3dd6d34ac?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Enchanted outdoor portraits under warm fairy lights',
-        position: 'far-left',
-      },
-      innerLeft: {
-        url: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Lively family dance moments on the open dancefloor',
-        position: 'inner-left',
-      },
-      innerRight: {
-        url: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Radiant bride candid laugh during ceremony rituals',
-        position: 'inner-right',
-      },
-      farRight: {
-        url: 'https://images.unsplash.com/photo-1523438885200-e635ba2c371e?auto=format&fit=crop&w=1200&q=85',
-        caption: 'Rose petals and confetti shower on the grand walkway',
-        position: 'far-right',
-      },
-    },
-  },
-];
+import {
+  Star,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  Sparkles,
+  Moon,
+  Sun,
+  ArrowUpRight,
+  Film,
+  Sliders,
+} from 'lucide-react';
+import { ClientStory, ReviewPhoto } from '@/lib/types';
+import { DEFAULT_CLIENT_STORIES } from '@/lib/defaults';
+import { storage } from '@/lib/storage';
+import { parseVideoEmbed } from '@/lib/video-embed';
 
 export default function ClientReviewsPage() {
   // Theme state: defaults to studio's standard warm cream & teal palette (#FAF9F6 + #0D4F4F + #D4AF37)
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Dynamic Stories loaded from Database / Local Storage
+  const [stories, setStories] = useState<ClientStory[]>(() => {
+    if (typeof window !== 'undefined') {
+      return storage.getClientReviews();
+    }
+    return DEFAULT_CLIENT_STORIES;
+  });
 
   // Mobile Slide index (one client review story per slide on phone screens)
   const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
@@ -134,8 +44,43 @@ export default function ClientReviewsPage() {
     allPhotos: { url: string; caption: string; couple: string }[];
   } | null>(null);
 
+  // Fetch latest saved reviews and custom order from central database
+  useEffect(() => {
+    let isMounted = true;
+    async function loadFreshReviews() {
+      try {
+        const res = await fetch('/api/reviews');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.reviews) && data.reviews.length > 0) {
+            if (isMounted) {
+              setStories(data.reviews);
+              storage.saveClientReviews(data.reviews);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Using offline cached reviews:', err);
+      }
+    }
+
+    loadFreshReviews();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Listen for local updates dispatched by admin panel
+  useEffect(() => {
+    const handleLocalUpdate = () => {
+      setStories(storage.getClientReviews());
+    };
+    window.addEventListener('snap_client_reviews_updated', handleLocalUpdate);
+    return () => window.removeEventListener('snap_client_reviews_updated', handleLocalUpdate);
+  }, []);
+
   // Flatten all photos for continuous lightbox carousel
-  const allStoryPhotos = CLIENT_STORIES.flatMap((story) => [
+  const allStoryPhotos = stories.flatMap((story) => [
     { url: story.photos.farLeft.url, caption: story.photos.farLeft.caption, couple: story.couple },
     { url: story.photos.innerLeft.url, caption: story.photos.innerLeft.caption, couple: story.couple },
     { url: story.photos.innerRight.url, caption: story.photos.innerRight.caption, couple: story.couple },
@@ -177,11 +122,11 @@ export default function ClientReviewsPage() {
 
   // Mobile navigation handlers
   const nextMobileSlide = () => {
-    setMobileSlideIndex((prev) => (prev + 1) % CLIENT_STORIES.length);
+    setMobileSlideIndex((prev) => (prev + 1) % stories.length);
   };
 
   const prevMobileSlide = () => {
-    setMobileSlideIndex((prev) => (prev - 1 + CLIENT_STORIES.length) % CLIENT_STORIES.length);
+    setMobileSlideIndex((prev) => (prev - 1 + stories.length) % stories.length);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -212,7 +157,7 @@ export default function ClientReviewsPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   });
 
-  const currentMobileStory = CLIENT_STORIES[mobileSlideIndex];
+  const currentMobileStory = stories[mobileSlideIndex] || stories[0];
 
   return (
     <div
@@ -296,6 +241,19 @@ export default function ClientReviewsPage() {
             {isDarkMode ? <Sun className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <Moon className="w-3.5 h-3.5 md:w-4 md:h-4" />}
           </button>
 
+          {/* Admin Manage Link (discreet shortcut) */}
+          <Link
+            href="/reviews/manage"
+            className={`p-1.5 md:p-2 rounded-full border transition-all duration-300 flex items-center justify-center cursor-pointer ${
+              isDarkMode
+                ? 'border-neutral-800 text-neutral-400 hover:text-[#D4AF37] hover:border-[#D4AF37]/40'
+                : 'border-stone-200 text-stone-500 hover:text-[#0D4F4F] hover:border-[#0D4F4F]/30'
+            }`}
+            title="Manage Reviews (Admin)"
+          >
+            <Sliders className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          </Link>
+
           {/* Visit Studio Link */}
           <Link
             href="https://thesnapservice.com"
@@ -340,7 +298,7 @@ export default function ClientReviewsPage() {
 
           {/* Client Selection Pills */}
           <div className="flex items-center justify-center gap-1.5 overflow-x-auto pb-3 mb-3 scrollbar-none px-1">
-            {CLIENT_STORIES.map((s, idx) => {
+            {stories.map((s, idx) => {
               const isActive = mobileSlideIndex === idx;
               return (
                 <button
@@ -363,161 +321,199 @@ export default function ClientReviewsPage() {
           </div>
 
           {/* Single-Slide Card for Active Client */}
-          <div
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            className={`relative rounded-3xl border transition-all duration-500 p-4 sm:p-5 flex flex-col gap-3.5 shadow-xl ${
-              isDarkMode
-                ? 'border-[#D4AF37]/30 bg-[#0E1015]/90 shadow-black/50'
-                : 'border-[#D4AF37]/35 bg-white/95 shadow-[0_10px_35px_rgba(13,79,79,0.06)]'
-            }`}
-          >
-            {/* Top Navigation Bar inside Card */}
-            <div className="flex items-center justify-between text-xs pb-2 border-b border-[#D4AF37]/15">
-              <span
-                className={`text-[10px] tracking-[0.2em] uppercase font-medium ${
-                  isDarkMode ? 'text-[#D4AF37]' : 'text-[#0D4F4F]'
-                }`}
-              >
-                Story {mobileSlideIndex + 1} of {CLIENT_STORIES.length}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={prevMobileSlide}
-                  className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
-                    isDarkMode
-                      ? 'border-neutral-800 text-neutral-300 hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                      : 'border-stone-200 text-stone-600 hover:border-[#0D4F4F] hover:text-[#0D4F4F]'
+          {currentMobileStory && (
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              className={`relative rounded-3xl border transition-all duration-500 p-4 sm:p-5 flex flex-col gap-3.5 shadow-xl ${
+                isDarkMode
+                  ? 'border-[#D4AF37]/30 bg-[#0E1015]/90 shadow-black/50'
+                  : 'border-[#D4AF37]/35 bg-white/95 shadow-[0_10px_35px_rgba(13,79,79,0.06)]'
+              }`}
+            >
+              {/* Top Navigation Bar inside Card */}
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-[#D4AF37]/15">
+                <span
+                  className={`text-[10px] tracking-[0.2em] uppercase font-medium ${
+                    isDarkMode ? 'text-[#D4AF37]' : 'text-[#0D4F4F]'
                   }`}
-                  aria-label="Previous client story"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={nextMobileSlide}
-                  className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
-                    isDarkMode
-                      ? 'border-neutral-800 text-neutral-300 hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                      : 'border-stone-200 text-stone-600 hover:border-[#0D4F4F] hover:text-[#0D4F4F]'
-                  }`}
-                  aria-label="Next client story"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+                  Story {mobileSlideIndex + 1} of {stories.length}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={prevMobileSlide}
+                    className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
+                      isDarkMode
+                        ? 'border-neutral-800 text-neutral-300 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                        : 'border-stone-200 text-stone-600 hover:border-[#0D4F4F] hover:text-[#0D4F4F]'
+                    }`}
+                    aria-label="Previous client story"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={nextMobileSlide}
+                    className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
+                      isDarkMode
+                        ? 'border-neutral-800 text-neutral-300 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                        : 'border-stone-200 text-stone-600 hover:border-[#0D4F4F] hover:text-[#0D4F4F]'
+                    }`}
+                    aria-label="Next client story"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Couple Review Meta (Centerpiece) */}
-            <div className="text-center flex flex-col items-center pt-1">
-              {/* Couple Name in Gold */}
-              <h2 className="font-serif text-2xl text-[#D4AF37] font-medium tracking-wide mb-1 drop-shadow-[0_1px_3px_rgba(212,175,55,0.25)]">
-                {currentMobileStory.couple}
-              </h2>
+              {/* Couple Review Meta (Centerpiece) */}
+              <div className="text-center flex flex-col items-center pt-1">
+                {/* Couple Name in Gold */}
+                <h2 className="font-serif text-2xl text-[#D4AF37] font-medium tracking-wide mb-1 drop-shadow-[0_1px_3px_rgba(212,175,55,0.25)]">
+                  {currentMobileStory.couple}
+                </h2>
 
-              {/* 5 Stars in Gold */}
-              <div className="flex items-center justify-center gap-1 mb-2">
-                {[...Array(currentMobileStory.rating)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className="w-3.5 h-3.5 fill-[#D4AF37] text-[#D4AF37] drop-shadow-[0_1px_2px_rgba(212,175,55,0.35)]"
-                  />
+                {/* 5 Stars in Gold */}
+                <div className="flex items-center justify-center gap-1 mb-2">
+                  {[...Array(currentMobileStory.rating || 5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className="w-3.5 h-3.5 fill-[#D4AF37] text-[#D4AF37] drop-shadow-[0_1px_2px_rgba(212,175,55,0.35)]"
+                    />
+                  ))}
+                </div>
+
+                {/* Client Quote */}
+                <blockquote
+                  className={`text-xs leading-relaxed font-normal italic max-w-xs mx-auto mb-2 px-1 transition-colors duration-500 ${
+                    isDarkMode ? 'text-white/95' : 'text-slate-700'
+                  }`}
+                >
+                  &ldquo;{currentMobileStory.quote}&rdquo;
+                </blockquote>
+
+                {/* Event & City Tag */}
+                <div className="inline-flex items-center gap-1.5 text-[10px] tracking-widest uppercase text-[#D4AF37] font-semibold border-t border-[#D4AF37]/25 pt-1.5">
+                  <span>{currentMobileStory.eventType}</span>
+                  <span className="opacity-50">•</span>
+                  <span>{currentMobileStory.city}</span>
+                </div>
+              </div>
+
+              {/* Compact 2x2 Photo Showcase (All 4 Photos In One Slide View) */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {[
+                  currentMobileStory.photos.farLeft,
+                  currentMobileStory.photos.innerLeft,
+                  currentMobileStory.photos.innerRight,
+                  currentMobileStory.photos.farRight,
+                ].map((photo, pIdx) => (
+                  <div
+                    key={pIdx}
+                    onClick={() => openLightbox(photo.url, photo.caption, currentMobileStory.couple)}
+                    className={`group relative aspect-[4/3] rounded-xl overflow-hidden border cursor-pointer active:scale-95 transition-all duration-300 ${
+                      isDarkMode
+                        ? 'border-[#D4AF37]/30 bg-neutral-900 shadow-sm'
+                        : 'border-[#D4AF37]/35 bg-stone-100 shadow-sm'
+                    }`}
+                  >
+                    <img
+                      src={photo.url}
+                      alt={photo.caption}
+                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent flex items-end justify-between p-1.5">
+                      <span className="text-[9px] text-white/90 truncate max-w-[82%] font-light">
+                        {photo.caption}
+                      </span>
+                      <Maximize2 className="w-2.5 h-2.5 text-[#D4AF37] shrink-0" />
+                    </div>
+                  </div>
                 ))}
               </div>
 
-              {/* Client Quote */}
-              <blockquote
-                className={`text-xs leading-relaxed font-normal italic max-w-xs mx-auto mb-2 px-1 transition-colors duration-500 ${
-                  isDarkMode ? 'text-white/95' : 'text-slate-700'
-                }`}
-              >
-                &ldquo;{currentMobileStory.quote}&rdquo;
-              </blockquote>
+              {/* ============================================================== */}
+              {/* VIDEO EMBED IN MOBILE SLIDE (YouTube / Instagram)               */}
+              {/* "video neechy show ho gi har client k agar kisi client ki       */}
+              {/* video nahi toh box bhi show na ho video wala"                   */}
+              {/* ============================================================== */}
+              {(() => {
+                const videoInfo = parseVideoEmbed(currentMobileStory.videoUrl);
+                if (!videoInfo.isValid || !videoInfo.embedUrl) return null;
 
-              {/* Event & City Tag */}
-              <div className="inline-flex items-center gap-1.5 text-[10px] tracking-widest uppercase text-[#D4AF37] font-semibold border-t border-[#D4AF37]/25 pt-1.5">
-                <span>{currentMobileStory.eventType}</span>
-                <span className="opacity-50">•</span>
-                <span>{currentMobileStory.city}</span>
+                return (
+                  <div className="mt-2 pt-2 border-t border-[#D4AF37]/25 flex flex-col items-center">
+                    <div className="flex items-center gap-1.5 mb-1.5 text-[10px] uppercase tracking-widest text-[#D4AF37] font-semibold">
+                      <Film className="w-3 h-3" />
+                      <span>Cinematic Wedding Film</span>
+                    </div>
+                    <div
+                      className={`w-full rounded-xl overflow-hidden border border-[#D4AF37]/40 shadow-md bg-black ${
+                        videoInfo.type === 'youtube'
+                          ? 'aspect-video'
+                          : 'aspect-[9/16] min-h-[340px]'
+                      }`}
+                    >
+                      <iframe
+                        src={videoInfo.embedUrl}
+                        title={`${currentMobileStory.couple} Film`}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Swipe & Tap Hint */}
+              <div className="flex items-center justify-between pt-1 text-[10px] text-neutral-400 font-light">
+                <span className="flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" /> Tap photo to enlarge
+                </span>
+                <span className="tracking-wide">Swipe to next story &rarr;</span>
+              </div>
+
+              {/* Animated Pagination Indicators */}
+              <div className="flex items-center justify-center gap-1.5 pt-1">
+                {stories.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setMobileSlideIndex(idx)}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      mobileSlideIndex === idx
+                        ? 'w-6 bg-[#D4AF37]'
+                        : isDarkMode
+                        ? 'w-1.5 bg-neutral-700 hover:bg-neutral-500'
+                        : 'w-1.5 bg-stone-300 hover:bg-stone-400'
+                    }`}
+                    aria-label={`Go to story ${idx + 1}`}
+                  />
+                ))}
               </div>
             </div>
-
-            {/* Compact 2x2 Photo Showcase (All 4 Photos In One Slide View) */}
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              {[
-                currentMobileStory.photos.farLeft,
-                currentMobileStory.photos.innerLeft,
-                currentMobileStory.photos.innerRight,
-                currentMobileStory.photos.farRight,
-              ].map((photo, pIdx) => (
-                <div
-                  key={pIdx}
-                  onClick={() => openLightbox(photo.url, photo.caption, currentMobileStory.couple)}
-                  className={`group relative aspect-[4/3] rounded-xl overflow-hidden border cursor-pointer active:scale-95 transition-all duration-300 ${
-                    isDarkMode
-                      ? 'border-[#D4AF37]/30 bg-neutral-900 shadow-sm'
-                      : 'border-[#D4AF37]/35 bg-stone-100 shadow-sm'
-                  }`}
-                >
-                  <img
-                    src={photo.url}
-                    alt={photo.caption}
-                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent flex items-end justify-between p-1.5">
-                    <span className="text-[9px] text-white/90 truncate max-w-[82%] font-light">
-                      {photo.caption}
-                    </span>
-                    <Maximize2 className="w-2.5 h-2.5 text-[#D4AF37] shrink-0" />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Swipe & Tap Hint */}
-            <div className="flex items-center justify-between pt-1 text-[10px] text-neutral-400 font-light">
-              <span className="flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" /> Tap any photo to enlarge
-              </span>
-              <span className="tracking-wide">Swipe to next story &rarr;</span>
-            </div>
-
-            {/* Animated Pagination Indicators */}
-            <div className="flex items-center justify-center gap-1.5 pt-1">
-              {CLIENT_STORIES.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setMobileSlideIndex(idx)}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    mobileSlideIndex === idx
-                      ? 'w-6 bg-[#D4AF37]'
-                      : isDarkMode
-                      ? 'w-1.5 bg-neutral-700 hover:bg-neutral-500'
-                      : 'w-1.5 bg-stone-300 hover:bg-stone-400'
-                  }`}
-                  aria-label={`Go to story ${idx + 1}`}
-                />
-              ))}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* ============================================================== */}
         {/* DESKTOP VIEW (>= md): Signature 16:9 Landscape 5-Part Ribbon   */}
         {/* [Far Left] [Inner Left] [Center Review] [Inner Right] [Far Right]*/}
+        {/* With Video Player Underneath if Present                        */}
         {/* ============================================================== */}
-        <div className="hidden md:flex md:flex-col gap-12 md:gap-16">
-          {CLIENT_STORIES.map((story, index) => {
-            const isThirdPeeking = index === 2;
+        <div className="hidden md:flex md:flex-col gap-14 lg:gap-18">
+          {stories.map((story, index) => {
+            const isLastPeeking = index === stories.length - 1 && stories.length >= 3;
+            const videoInfo = parseVideoEmbed(story.videoUrl);
 
             return (
               <section
                 key={story.id}
                 className={`relative group/row transition-all duration-700 ${
-                  isThirdPeeking ? 'opacity-90 hover:opacity-100' : 'opacity-100'
+                  isLastPeeking ? 'opacity-90 hover:opacity-100' : 'opacity-100'
                 }`}
               >
-                {/* Row Container: 5-Part Landscape Ribbon */}
+                {/* 5-Part Landscape Ribbon Container */}
                 <div className="grid grid-cols-12 gap-3.5 lg:gap-4 items-center">
                   {/* 1. Far Left Image */}
                   <div
@@ -585,7 +581,7 @@ export default function ClientReviewsPage() {
 
                     {/* 5 Stars in Gold */}
                     <div className="flex items-center justify-center gap-1 mb-3.5">
-                      {[...Array(story.rating)].map((_, i) => (
+                      {[...Array(story.rating || 5)].map((_, i) => (
                         <Star
                           key={i}
                           className="w-4 h-4 fill-[#D4AF37] text-[#D4AF37] drop-shadow-[0_1px_3px_rgba(212,175,55,0.35)]"
@@ -655,8 +651,37 @@ export default function ClientReviewsPage() {
                   </div>
                 </div>
 
+                {/* ============================================================== */}
+                {/* VIDEO EMBED UNDERNEATH CLIENT ROW                              */}
+                {/* "video neechy show ho gi har client k agar kisi client ki       */}
+                {/* video nahi toh box bhi show na ho video wala"                   */}
+                {/* ============================================================== */}
+                {videoInfo.isValid && videoInfo.embedUrl && (
+                  <div className="mt-8 flex flex-col items-center animate-in fade-in duration-500">
+                    <div className="flex items-center gap-2 mb-2 text-xs uppercase tracking-[0.25em] text-[#D4AF37] font-semibold">
+                      <Film className="w-3.5 h-3.5" />
+                      <span>{story.couple} • Cinematic Wedding Film</span>
+                    </div>
+                    <div
+                      className={`w-full rounded-2xl overflow-hidden border border-[#D4AF37]/35 shadow-2xl bg-black ${
+                        videoInfo.type === 'youtube'
+                          ? 'max-w-3xl aspect-video'
+                          : 'max-w-md aspect-[9/16] min-h-[460px]'
+                      }`}
+                    >
+                      <iframe
+                        src={videoInfo.embedUrl}
+                        title={`${story.couple} Wedding Film`}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Delicate Gold Separator Line Between Stories */}
-                {index < CLIENT_STORIES.length - 1 && (
+                {index < stories.length - 1 && (
                   <div
                     className={`w-full h-[1px] mt-12 md:mt-16 transition-colors duration-500 ${
                       isDarkMode
@@ -718,6 +743,14 @@ export default function ClientReviewsPage() {
           <span className="font-light">Official Luxury Client Gallery</span>
         </div>
         <div className="flex items-center gap-5 md:gap-6">
+          <Link
+            href="/reviews/manage"
+            className={`transition-colors tracking-wide ${
+              isDarkMode ? 'hover:text-[#D4AF37]' : 'hover:text-[#0D4F4F]'
+            }`}
+          >
+            Manage Reviews
+          </Link>
           <Link
             href="/portal"
             className={`transition-colors tracking-wide ${

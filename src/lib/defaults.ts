@@ -1,4 +1,4 @@
-import { Service, AppSettings, PackageInclusion } from './types';
+import { Service, AppSettings, PackageInclusion, ClientStory } from './types';
 
 // Coverage services allowed inside Event Days
 export const COVERAGE_SERVICES: Service[] = [
@@ -298,3 +298,107 @@ export function getDefaultSettingsForWorkspace(workspaceId?: string): AppSetting
   const cleanWs = workspaceId.startsWith('ws_') ? workspaceId : `ws_${workspaceId}`;
   return { ...STANDARD_USER_DEFAULT_SETTINGS, workspaceId: cleanWs };
 }
+
+// ----------------------------------------------------
+// Default Client Reviews & Stories for Public Showcase
+// ----------------------------------------------------
+
+export const DEFAULT_CLIENT_STORIES: ClientStory[] = [
+  {
+    id: 'sarah-zain',
+    couple: 'Sarah & Zain',
+    eventType: 'Mehndi Night',
+    city: 'Lahore',
+    rating: 5,
+    quote: 'The candid moments captured are breathtaking! The team made us so comfortable.',
+    order: 1,
+    videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', // Sample film placeholder (can be customized or cleared by admin)
+    photos: {
+      farLeft: {
+        url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Candid laughter in traditional Pakistani Mehndi attire',
+        position: 'far-left',
+      },
+      innerLeft: {
+        url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Vibrant stage setup and floral guest seating',
+        position: 'inner-left',
+      },
+      innerRight: {
+        url: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=1200&q=85',
+        caption: 'The couple entrance under a blooming floral canopy',
+        position: 'inner-right',
+      },
+      farRight: {
+        url: 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Friends & family cheering and celebrating the night',
+        position: 'far-right',
+      },
+    },
+  },
+  {
+    id: 'ayesha-hamza',
+    couple: 'Ayesha & Hamza',
+    eventType: 'Baraat & Reception',
+    city: 'Faisalabad',
+    rating: 5,
+    quote: 'Absolutely incredible work. The attention to detail and cinematic feel exceeded expectations!',
+    order: 2,
+    videoUrl: '', // No video by default (video box will NOT be shown)
+    photos: {
+      farLeft: {
+        url: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Affectionate daylight portrait in ivory & gold sherwani',
+        position: 'far-left',
+      },
+      innerLeft: {
+        url: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Intricate bridal henna and royal heritage jewelry details',
+        position: 'inner-left',
+      },
+      innerRight: {
+        url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Groom royal entrance amongst guests and family',
+        position: 'inner-right',
+      },
+      farRight: {
+        url: 'https://images.unsplash.com/photo-1544077960-604201fe74bc?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Joyful candid moments during the grand reception',
+        position: 'far-right',
+      },
+    },
+  },
+  {
+    id: 'salman-rabia',
+    couple: 'Dr. M. Salman & Dr. Rabia',
+    eventType: 'Shendi',
+    city: 'Islamabad',
+    rating: 5,
+    quote: 'Professional, punctual, and highly creative. We love every single shot!',
+    order: 3,
+    videoUrl: '', // No video by default (video box will NOT be shown)
+    photos: {
+      farLeft: {
+        url: 'https://images.unsplash.com/photo-1529634806980-85c3dd6d34ac?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Enchanted outdoor portraits under warm fairy lights',
+        position: 'far-left',
+      },
+      innerLeft: {
+        url: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Lively family dance moments on the open dancefloor',
+        position: 'inner-left',
+      },
+      innerRight: {
+        url: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Radiant bride candid laugh during ceremony rituals',
+        position: 'inner-right',
+      },
+      farRight: {
+        url: 'https://images.unsplash.com/photo-1523438885200-e635ba2c371e?auto=format&fit=crop&w=1200&q=85',
+        caption: 'Rose petals and confetti shower on the grand walkway',
+        position: 'far-right',
+      },
+    },
+  },
+];
+
