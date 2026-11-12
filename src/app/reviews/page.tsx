@@ -9,7 +9,6 @@ import {
   Sparkles,
   Moon,
   Sun,
-  ArrowUpRight,
   Film,
 } from 'lucide-react';
 import { ClientStory } from '@/lib/types';
@@ -127,9 +126,17 @@ export default function ClientReviewsPage() {
             : 'border-[#D4AF37]/25 bg-[#FAF9F6]/85'
         }`}
       >
-        {/* Left: Understated Sans-Serif Studio Branding */}
-        <div className="flex flex-col">
-          <Link href="/" className="group flex items-center gap-1.5 md:gap-2">
+        {/* Left: Brand with Circular Gold Emblem Logo */}
+        <div className="flex items-center gap-3">
+          <div className="relative w-9 h-9 md:w-11 md:h-11 shrink-0 drop-shadow-[0_2px_8px_rgba(212,175,55,0.22)]">
+            {/* eslint-disable-next-next/no-img-element */}
+            <img
+              src="/snap-service-gold-emblem.png"
+              alt="The Snap Service Logo"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="flex flex-col">
             <span
               className={`text-xs md:text-sm font-semibold tracking-[0.24em] md:tracking-[0.28em] uppercase transition-colors duration-300 ${
                 isDarkMode ? 'text-[#D4AF37]' : 'text-[#0D4F4F]'
@@ -137,15 +144,14 @@ export default function ClientReviewsPage() {
             >
               The Snap Service
             </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] opacity-80" />
-          </Link>
-          <span
-            className={`text-[9px] md:text-[10px] tracking-[0.18em] uppercase font-light mt-0.5 ${
-              isDarkMode ? 'text-neutral-400' : 'text-stone-500'
-            }`}
-          >
-            Wedding Photography & Cinematography
-          </span>
+            <span
+              className={`text-[9px] md:text-[10px] tracking-[0.18em] uppercase font-light mt-0.5 ${
+                isDarkMode ? 'text-neutral-400' : 'text-stone-500'
+              }`}
+            >
+              Wedding Photography & Cinematography
+            </span>
+          </div>
         </div>
 
         {/* Center: Refined Minimal Serif Title (Desktop only, mobile renders below header) */}
@@ -161,12 +167,11 @@ export default function ClientReviewsPage() {
           </h1>
         </div>
 
-        {/* Right: Actions (Theme Toggle, Admin Manage & Studio Link) */}
-        <div className="flex items-center gap-2 md:gap-3">
-          {/* Subtle Ambient Theme Toggle */}
+        {/* Right: Ambient Theme Toggle Only (No Admin / Studio Links) */}
+        <div className="flex items-center">
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`p-1.5 md:p-2 rounded-full border transition-all duration-300 flex items-center justify-center cursor-pointer ${
+            className={`p-2 rounded-full border transition-all duration-300 flex items-center justify-center cursor-pointer ${
               isDarkMode
                 ? 'border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10'
                 : 'border-[#0D4F4F]/20 text-[#0D4F4F] hover:bg-[#0D4F4F]/5'
@@ -174,23 +179,8 @@ export default function ClientReviewsPage() {
             title={isDarkMode ? 'Switch to Studio Cream' : 'Switch to Dark Mode'}
             aria-label="Toggle visual theme"
           >
-            {isDarkMode ? <Sun className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <Moon className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
-
-          {/* Visit Studio Link */}
-          <Link
-            href="https://thesnapservice.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`text-[10px] md:text-xs tracking-wider uppercase font-medium px-3 md:px-4 py-1.5 md:py-2 rounded-full border transition-all duration-300 flex items-center gap-1 cursor-pointer ${
-              isDarkMode
-                ? 'border-[#D4AF37]/35 text-[#D4AF37] hover:bg-[#D4AF37]/10'
-                : 'border-[#0D4F4F] text-[#0D4F4F] hover:bg-[#0D4F4F] hover:text-[#FAF9F6] shadow-sm'
-            }`}
-          >
-            <span>Visit Studio</span>
-            <ArrowUpRight className="w-3 h-3" />
-          </Link>
         </div>
       </header>
 
@@ -646,14 +636,6 @@ export default function ClientReviewsPage() {
           >
             thesnapservice.com
           </Link>
-          <a
-            href="https://wa.me/923000000000"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#D4AF37] font-medium hover:underline tracking-wide"
-          >
-            Inquire for Dates &rarr;
-          </a>
         </div>
       </footer>
     </div>
