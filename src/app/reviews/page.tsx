@@ -94,6 +94,100 @@ export default function ClientReviewsPage() {
 
   const currentMobileStory = stories[mobileSlideIndex] || stories[0];
 
+  // Helper to extract valid, non-empty photos for any story
+  const getValidPhotos = (story?: ClientStory) => {
+    if (!story || !story.photos) return [];
+    const list = [
+      story.photos.farLeft,
+      story.photos.innerLeft,
+      story.photos.innerRight,
+      story.photos.farRight,
+    ];
+    return list.filter((p) => p && typeof p.url === 'string' && p.url.trim().length > 0);
+  };
+
+  // Reusable Center Review Card
+  const renderReviewCard = (story: ClientStory, isCentered = false) => (
+    <div
+      className={`px-5 lg:px-7 py-7 lg:py-9 text-center flex flex-col items-center justify-center relative rounded-3xl border transition-all duration-500 ${
+        isCentered
+          ? 'max-w-2xl mx-auto shadow-[0_12px_40px_rgba(13,79,79,0.06)] w-full'
+          : 'col-span-4 shadow-[0_10px_35px_rgba(13,79,79,0.05)]'
+      } ${
+        isDarkMode
+          ? 'border-[#D4AF37]/25 bg-[#0D0E12]/80 backdrop-blur-sm shadow-[0_6px_28px_rgba(0,0,0,0.6)]'
+          : 'border-[#D4AF37]/30 bg-white/90 backdrop-blur-sm'
+      }`}
+    >
+      {/* Subtle Gold Accent Filigree */}
+      <div className="flex items-center gap-2 mb-2.5">
+        <span className="w-7 h-[1px] bg-gradient-to-r from-transparent to-[#D4AF37]/70" />
+        <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+        <span className="w-7 h-[1px] bg-gradient-to-l from-transparent to-[#D4AF37]/70" />
+      </div>
+
+      {/* Couple / Client Name in Gold */}
+      <h2 className="font-serif text-2xl lg:text-3xl text-[#D4AF37] font-medium tracking-wide mb-2 drop-shadow-[0_1px_3px_rgba(212,175,55,0.25)]">
+        {story.couple}
+      </h2>
+
+      {/* 5 Stars in Gold */}
+      <div className="flex items-center justify-center gap-1 mb-3.5">
+        {[...Array(story.rating || 5)].map((_, i) => (
+          <Star
+            key={i}
+            className="w-4 h-4 fill-[#D4AF37] text-[#D4AF37] drop-shadow-[0_1px_3px_rgba(212,175,55,0.35)]"
+          />
+        ))}
+      </div>
+
+      {/* Client Quote */}
+      <blockquote
+        className={`text-sm lg:text-[15px] leading-relaxed font-normal italic max-w-lg mx-auto mb-4 px-2 transition-colors duration-500 ${
+          isDarkMode ? 'text-white' : 'text-slate-700'
+        }`}
+      >
+        &ldquo;{story.quote}&rdquo;
+      </blockquote>
+
+      {/* Event & City Tag in Gold */}
+      <div className="inline-flex items-center gap-2 text-xs tracking-widest uppercase text-[#D4AF37] font-semibold border-t border-[#D4AF37]/30 pt-2.5">
+        <span>{story.eventType}</span>
+        {story.city && (
+          <>
+            <span className="opacity-50">•</span>
+            <span>{story.city}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  // Reusable Photo Frame (Only renders when URL is non-empty)
+  const renderPhotoFrame = (url?: string, colSpan = 'col-span-2') => {
+    if (!url || !url.trim()) return null;
+
+    return (
+      <div
+        className={`${colSpan} group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 ${
+          isDarkMode
+            ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
+            : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
+        }`}
+      >
+        <img
+          src={url}
+          alt="Wedding story photograph"
+          className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
+          loading="lazy"
+          onError={(e) => {
+            (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none');
+          }}
+        />
+      </div>
+    );
+  };
+
   return (
     <div
       className={`min-h-screen transition-colors duration-500 overflow-x-hidden flex flex-col justify-between ${
@@ -187,8 +281,8 @@ export default function ClientReviewsPage() {
       {/* Main Content Area */}
       <main className="relative z-10 flex-1 w-full max-w-[1760px] mx-auto px-4 md:px-10 py-6 md:py-14">
         {/* ============================================================== */}
-        {/* MOBILE VIEW (< md): Single-Slide Showcase with Compact Photos */}
-        {/* Each client review fits cleanly into a single slide card       */}
+        {/* MOBILE VIEW (< md): Single-Slide Showcase                      */}
+        {/* If no photos: clean quote card only. Never renders empty boxes */}
         {/* ============================================================== */}
         <div className="block md:hidden">
           {/* Mobile Page Title */}
@@ -234,121 +328,127 @@ export default function ClientReviewsPage() {
           </div>
 
           {/* Single-Slide Card for Active Client */}
-          {currentMobileStory && (
-            <div
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-              className={`relative rounded-3xl border transition-all duration-500 p-4 sm:p-5 flex flex-col gap-3.5 shadow-xl ${
-                isDarkMode
-                  ? 'border-[#D4AF37]/30 bg-[#0E1015]/90 shadow-black/50'
-                  : 'border-[#D4AF37]/35 bg-white/95 shadow-[0_10px_35px_rgba(13,79,79,0.06)]'
-              }`}
-            >
-              {/* Top Navigation Bar inside Card */}
-              <div className="flex items-center justify-between text-xs pb-2 border-b border-[#D4AF37]/15">
-                <span
-                  className={`text-[10px] tracking-[0.2em] uppercase font-medium ${
-                    isDarkMode ? 'text-[#D4AF37]' : 'text-[#0D4F4F]'
-                  }`}
-                >
-                  Story {mobileSlideIndex + 1} of {stories.length}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={prevMobileSlide}
-                    className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
-                      isDarkMode
-                        ? 'border-neutral-800 text-neutral-300 hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                        : 'border-stone-200 text-stone-600 hover:border-[#0D4F4F] hover:text-[#0D4F4F]'
-                    }`}
-                    aria-label="Previous client story"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={nextMobileSlide}
-                    className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
-                      isDarkMode
-                        ? 'border-neutral-800 text-neutral-300 hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                        : 'border-stone-200 text-stone-600 hover:border-[#0D4F4F] hover:text-[#0D4F4F]'
-                    }`}
-                    aria-label="Next client story"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+          {currentMobileStory && (() => {
+            const mobileValidPhotos = getValidPhotos(currentMobileStory);
+            const videoInfo = parseVideoEmbed(currentMobileStory.videoUrl);
 
-              {/* Couple Review Meta (Centerpiece) */}
-              <div className="text-center flex flex-col items-center pt-1">
-                {/* Couple Name in Gold */}
-                <h2 className="font-serif text-2xl text-[#D4AF37] font-medium tracking-wide mb-1 drop-shadow-[0_1px_3px_rgba(212,175,55,0.25)]">
-                  {currentMobileStory.couple}
-                </h2>
-
-                {/* 5 Stars in Gold */}
-                <div className="flex items-center justify-center gap-1 mb-2">
-                  {[...Array(currentMobileStory.rating || 5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className="w-3.5 h-3.5 fill-[#D4AF37] text-[#D4AF37] drop-shadow-[0_1px_2px_rgba(212,175,55,0.35)]"
-                    />
-                  ))}
-                </div>
-
-                {/* Client Quote */}
-                <blockquote
-                  className={`text-xs leading-relaxed font-normal italic max-w-xs mx-auto mb-2 px-1 transition-colors duration-500 ${
-                    isDarkMode ? 'text-white/95' : 'text-slate-700'
-                  }`}
-                >
-                  &ldquo;{currentMobileStory.quote}&rdquo;
-                </blockquote>
-
-                {/* Event & City Tag */}
-                <div className="inline-flex items-center gap-1.5 text-[10px] tracking-widest uppercase text-[#D4AF37] font-semibold border-t border-[#D4AF37]/25 pt-1.5">
-                  <span>{currentMobileStory.eventType}</span>
-                  <span className="opacity-50">•</span>
-                  <span>{currentMobileStory.city}</span>
-                </div>
-              </div>
-
-              {/* Compact 2x2 Photo Showcase: Clean, No Caption, Hover Zoom Only */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {[
-                  currentMobileStory.photos.farLeft,
-                  currentMobileStory.photos.innerLeft,
-                  currentMobileStory.photos.innerRight,
-                  currentMobileStory.photos.farRight,
-                ].map((photo, pIdx) => (
-                  <div
-                    key={pIdx}
-                    className={`group relative aspect-[4/3] rounded-xl overflow-hidden border transition-all duration-300 ${
-                      isDarkMode
-                        ? 'border-[#D4AF37]/30 bg-neutral-900 shadow-sm'
-                        : 'border-[#D4AF37]/35 bg-stone-100 shadow-sm'
+            return (
+              <div
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                className={`relative rounded-3xl border transition-all duration-500 p-4 sm:p-5 flex flex-col gap-3.5 shadow-xl ${
+                  isDarkMode
+                    ? 'border-[#D4AF37]/30 bg-[#0E1015]/90 shadow-black/50'
+                    : 'border-[#D4AF37]/35 bg-white/95 shadow-[0_10px_35px_rgba(13,79,79,0.06)]'
+                }`}
+              >
+                {/* Top Navigation Bar inside Card */}
+                <div className="flex items-center justify-between text-xs pb-2 border-b border-[#D4AF37]/15">
+                  <span
+                    className={`text-[10px] tracking-[0.2em] uppercase font-medium ${
+                      isDarkMode ? 'text-[#D4AF37]' : 'text-[#0D4F4F]'
                     }`}
                   >
-                    <img
-                      src={photo.url}
-                      alt="Wedding story photo"
-                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
-                    />
+                    Story {mobileSlideIndex + 1} of {stories.length}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={prevMobileSlide}
+                      className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
+                        isDarkMode
+                          ? 'border-neutral-800 text-neutral-300 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                          : 'border-stone-200 text-stone-600 hover:border-[#0D4F4F] hover:text-[#0D4F4F]'
+                      }`}
+                      aria-label="Previous client story"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={nextMobileSlide}
+                      className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
+                        isDarkMode
+                          ? 'border-neutral-800 text-neutral-300 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                          : 'border-stone-200 text-stone-600 hover:border-[#0D4F4F] hover:text-[#0D4F4F]'
+                      }`}
+                      aria-label="Next client story"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                ))}
-              </div>
+                </div>
 
-              {/* ============================================================== */}
-              {/* VIDEO EMBED IN MOBILE SLIDE (YouTube / Instagram)               */}
-              {/* "video neechy show ho gi har client k agar kisi client ki       */}
-              {/* video nahi toh box bhi show na ho video wala"                   */}
-              {/* ============================================================== */}
-              {(() => {
-                const videoInfo = parseVideoEmbed(currentMobileStory.videoUrl);
-                if (!videoInfo.isValid || !videoInfo.embedUrl) return null;
+                {/* Couple Review Meta (Centerpiece) */}
+                <div className="text-center flex flex-col items-center pt-1">
+                  {/* Couple Name in Gold */}
+                  <h2 className="font-serif text-2xl text-[#D4AF37] font-medium tracking-wide mb-1 drop-shadow-[0_1px_3px_rgba(212,175,55,0.25)]">
+                    {currentMobileStory.couple}
+                  </h2>
 
-                return (
+                  {/* 5 Stars in Gold */}
+                  <div className="flex items-center justify-center gap-1 mb-2">
+                    {[...Array(currentMobileStory.rating || 5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className="w-3.5 h-3.5 fill-[#D4AF37] text-[#D4AF37] drop-shadow-[0_1px_2px_rgba(212,175,55,0.35)]"
+                      />
+                    ))}
+                  </div>
+
+                  {/* Client Quote */}
+                  <blockquote
+                    className={`text-xs sm:text-sm leading-relaxed font-normal italic max-w-sm mx-auto mb-2 px-1 transition-colors duration-500 ${
+                      isDarkMode ? 'text-white/95' : 'text-slate-700'
+                    }`}
+                  >
+                    &ldquo;{currentMobileStory.quote}&rdquo;
+                  </blockquote>
+
+                  {/* Event & City Tag */}
+                  <div className="inline-flex items-center gap-1.5 text-[10px] tracking-widest uppercase text-[#D4AF37] font-semibold border-t border-[#D4AF37]/25 pt-1.5">
+                    <span>{currentMobileStory.eventType}</span>
+                    {currentMobileStory.city && (
+                      <>
+                        <span className="opacity-50">•</span>
+                        <span>{currentMobileStory.city}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Photos Grid: ONLY rendered if at least 1 photo exists! Never renders empty boxes */}
+                {mobileValidPhotos.length > 0 && (
+                  <div
+                    className={`grid gap-2 pt-1 ${
+                      mobileValidPhotos.length === 1
+                        ? 'grid-cols-1 max-w-[240px] mx-auto'
+                        : 'grid-cols-2'
+                    }`}
+                  >
+                    {mobileValidPhotos.map((photo, pIdx) => (
+                      <div
+                        key={pIdx}
+                        className={`group relative aspect-[4/3] rounded-xl overflow-hidden border transition-all duration-300 ${
+                          isDarkMode
+                            ? 'border-[#D4AF37]/30 bg-neutral-900 shadow-sm'
+                            : 'border-[#D4AF37]/35 bg-stone-100 shadow-sm'
+                        }`}
+                      >
+                        <img
+                          src={photo.url}
+                          alt="Wedding story photograph"
+                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none');
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Video Embed: Only rendered if videoUrl is present */}
+                {videoInfo.isValid && videoInfo.embedUrl && (
                   <div className="mt-2 pt-2 border-t border-[#D4AF37]/25 flex flex-col items-center">
                     <div className="flex items-center gap-1.5 mb-1.5 text-[10px] uppercase tracking-widest text-[#D4AF37] font-semibold">
                       <Film className="w-3 h-3" />
@@ -370,48 +470,56 @@ export default function ClientReviewsPage() {
                       />
                     </div>
                   </div>
-                );
-              })()}
+                )}
 
-              {/* Swipe Navigation Hint */}
-              <div className="flex items-center justify-between pt-1 text-[10px] text-neutral-400 font-light">
-                <span className="flex items-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" /> The Snap Service Studio
-                </span>
-                <span className="tracking-wide">Swipe to next story &rarr;</span>
-              </div>
+                {/* Swipe Navigation Hint */}
+                <div className="flex items-center justify-between pt-1 text-[10px] text-neutral-400 font-light">
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" /> The Snap Service
+                  </span>
+                  <span className="tracking-wide">Swipe to next story &rarr;</span>
+                </div>
 
-              {/* Animated Pagination Indicators */}
-              <div className="flex items-center justify-center gap-1.5 pt-1">
-                {stories.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setMobileSlideIndex(idx)}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      mobileSlideIndex === idx
-                        ? 'w-6 bg-[#D4AF37]'
-                        : isDarkMode
-                        ? 'w-1.5 bg-neutral-700 hover:bg-neutral-500'
-                        : 'w-1.5 bg-stone-300 hover:bg-stone-400'
-                    }`}
-                    aria-label={`Go to story ${idx + 1}`}
-                  />
-                ))}
+                {/* Animated Pagination Indicators */}
+                <div className="flex items-center justify-center gap-1.5 pt-1">
+                  {stories.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setMobileSlideIndex(idx)}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        mobileSlideIndex === idx
+                          ? 'w-6 bg-[#D4AF37]'
+                          : isDarkMode
+                          ? 'w-1.5 bg-neutral-700 hover:bg-neutral-500'
+                          : 'w-1.5 bg-stone-300 hover:bg-stone-400'
+                      }`}
+                      aria-label={`Go to story ${idx + 1}`}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* ============================================================== */}
-        {/* DESKTOP VIEW (>= md): Signature 16:9 Landscape 5-Part Ribbon   */}
-        {/* [Far Left] [Inner Left] [Center Review] [Inner Right] [Far Right]*/}
-        {/* With Video Player Underneath if Present                        */}
-        {/* Clean Photos: No Captions, No Full Screen Modal                */}
+        {/* DESKTOP VIEW (>= md): Responsive Story Layout                  */}
+        {/* - 0 photos: Elegant centered testimonial card (NO photo boxes) */}
+        {/* - 4 photos: Full 16:9 5-part sandwich ribbon                   */}
+        {/* - 2 photos: Symmetrical 3-part ribbon (1 left + card + 1 right) */}
         {/* ============================================================== */}
         <div className="hidden md:flex md:flex-col gap-14 lg:gap-18">
           {stories.map((story, index) => {
             const isLastPeeking = index === stories.length - 1 && stories.length >= 3;
             const videoInfo = parseVideoEmbed(story.videoUrl);
+
+            const hasFarLeft = !!story.photos?.farLeft?.url?.trim();
+            const hasInnerLeft = !!story.photos?.innerLeft?.url?.trim();
+            const hasInnerRight = !!story.photos?.innerRight?.url?.trim();
+            const hasFarRight = !!story.photos?.farRight?.url?.trim();
+
+            const allValid = getValidPhotos(story);
+            const totalValid = allValid.length;
 
             return (
               <section
@@ -420,125 +528,52 @@ export default function ClientReviewsPage() {
                   isLastPeeking ? 'opacity-90 hover:opacity-100' : 'opacity-100'
                 }`}
               >
-                {/* 5-Part Landscape Ribbon Container */}
-                <div className="grid grid-cols-12 gap-3.5 lg:gap-4 items-center">
-                  {/* 1. Far Left Image */}
-                  <div
-                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 ${
-                      isDarkMode
-                        ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
-                        : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
-                    }`}
-                  >
-                    <img
-                      src={story.photos.farLeft.url}
-                      alt="Far left wedding photo"
-                      className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
-                      loading="lazy"
-                    />
+                {/* CASE 1: 0 Photos uploaded (Like Miss Fariha) -> NO photo boxes, pure centered luxury card */}
+                {totalValid === 0 && renderReviewCard(story, true)}
+
+                {/* CASE 2: Exactly 4 Photos uploaded -> Signature 5-part sandwich ribbon */}
+                {totalValid === 4 && (
+                  <div className="grid grid-cols-12 gap-3.5 lg:gap-4 items-center">
+                    {renderPhotoFrame(story.photos.farLeft.url, 'col-span-2')}
+                    {renderPhotoFrame(story.photos.innerLeft.url, 'col-span-2')}
+                    {renderReviewCard(story, false)}
+                    {renderPhotoFrame(story.photos.innerRight.url, 'col-span-2')}
+                    {renderPhotoFrame(story.photos.farRight.url, 'col-span-2')}
                   </div>
+                )}
 
-                  {/* 2. Inner Left Image */}
-                  <div
-                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 ${
-                      isDarkMode
-                        ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
-                        : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
-                    }`}
-                  >
-                    <img
-                      src={story.photos.innerLeft.url}
-                      alt="Inner left wedding photo"
-                      className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
-                      loading="lazy"
-                    />
+                {/* CASE 3: Exactly 2 Photos uploaded (1 on each side or first two) -> Balanced 3-part layout */}
+                {totalValid === 2 && (
+                  <div className="grid grid-cols-12 gap-4 lg:gap-6 items-center">
+                    {renderPhotoFrame(
+                      hasFarLeft ? story.photos.farLeft.url : hasInnerLeft ? story.photos.innerLeft.url : allValid[0].url,
+                      'col-span-3'
+                    )}
+                    <div className="col-span-6 flex justify-center">
+                      {renderReviewCard(story, true)}
+                    </div>
+                    {renderPhotoFrame(
+                      hasFarRight ? story.photos.farRight.url : hasInnerRight ? story.photos.innerRight.url : allValid[1].url,
+                      'col-span-3'
+                    )}
                   </div>
+                )}
 
-                  {/* 3. Center Review Card (Sandwiched between left & right photos - Span 4 cols) */}
-                  <div
-                    className={`col-span-4 px-5 lg:px-7 py-7 lg:py-9 text-center flex flex-col items-center justify-center relative rounded-3xl border transition-all duration-500 ${
-                      isDarkMode
-                        ? 'border-[#D4AF37]/25 bg-[#0D0E12]/80 backdrop-blur-sm shadow-[0_6px_28px_rgba(0,0,0,0.6)]'
-                        : 'border-[#D4AF37]/30 bg-white/90 backdrop-blur-sm shadow-[0_10px_35px_rgba(13,79,79,0.05)]'
-                    }`}
-                  >
-                    {/* Subtle Gold Accent Filigree */}
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <span className="w-7 h-[1px] bg-gradient-to-r from-transparent to-[#D4AF37]/70" />
-                      <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-                      <span className="w-7 h-[1px] bg-gradient-to-l from-transparent to-[#D4AF37]/70" />
-                    </div>
-
-                    {/* Couple Name in Gold */}
-                    <h2 className="font-serif text-2xl lg:text-3xl text-[#D4AF37] font-medium tracking-wide mb-2 drop-shadow-[0_1px_3px_rgba(212,175,55,0.25)]">
-                      {story.couple}
-                    </h2>
-
-                    {/* 5 Stars in Gold */}
-                    <div className="flex items-center justify-center gap-1 mb-3.5">
-                      {[...Array(story.rating || 5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className="w-4 h-4 fill-[#D4AF37] text-[#D4AF37] drop-shadow-[0_1px_3px_rgba(212,175,55,0.35)]"
-                        />
-                      ))}
-                    </div>
-
-                    {/* Client Quote */}
-                    <blockquote
-                      className={`text-sm lg:text-[15px] leading-relaxed font-normal italic max-w-sm mx-auto mb-4 px-2 transition-colors duration-500 ${
-                        isDarkMode ? 'text-white' : 'text-slate-700'
+                {/* CASE 4: 1 or 3 Photos uploaded -> Centered card with only valid photos */}
+                {totalValid !== 0 && totalValid !== 2 && totalValid !== 4 && (
+                  <div className="flex flex-col items-center gap-6">
+                    {renderReviewCard(story, true)}
+                    <div
+                      className={`grid gap-4 max-w-4xl w-full ${
+                        totalValid === 1 ? 'grid-cols-1 max-w-md' : 'grid-cols-3'
                       }`}
                     >
-                      &ldquo;{story.quote}&rdquo;
-                    </blockquote>
-
-                    {/* Event & City Tag in Gold */}
-                    <div className="inline-flex items-center gap-2 text-xs tracking-widest uppercase text-[#D4AF37] font-semibold border-t border-[#D4AF37]/30 pt-2.5">
-                      <span>{story.eventType}</span>
-                      <span className="opacity-50">•</span>
-                      <span>{story.city}</span>
+                      {allValid.map((photo, pIdx) => renderPhotoFrame(photo.url, 'col-span-1'))}
                     </div>
                   </div>
+                )}
 
-                  {/* 4. Inner Right Image */}
-                  <div
-                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 ${
-                      isDarkMode
-                        ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
-                        : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
-                    }`}
-                  >
-                    <img
-                      src={story.photos.innerRight.url}
-                      alt="Inner right wedding photo"
-                      className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
-                      loading="lazy"
-                    />
-                  </div>
-
-                  {/* 5. Far Right Image */}
-                  <div
-                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 ${
-                      isDarkMode
-                        ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
-                        : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
-                    }`}
-                  >
-                    <img
-                      src={story.photos.farRight.url}
-                      alt="Far right wedding photo"
-                      className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
-                      loading="lazy"
-                    />
-                  </div>
-                </div>
-
-                {/* ============================================================== */}
-                {/* VIDEO EMBED UNDERNEATH CLIENT ROW                              */}
-                {/* "video neechy show ho gi har client k agar kisi client ki       */}
-                {/* video nahi toh box bhi show na ho video wala"                   */}
-                {/* ============================================================== */}
+                {/* Video Embed Player Underneath Client Review */}
                 {videoInfo.isValid && videoInfo.embedUrl && (
                   <div className="mt-8 flex flex-col items-center animate-in fade-in duration-500">
                     <div className="flex items-center gap-2 mb-2 text-xs uppercase tracking-[0.25em] text-[#D4AF37] font-semibold">

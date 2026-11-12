@@ -215,13 +215,13 @@ export default function ManageClientReviewsPage() {
     }
   };
 
-  // Add new story
+  // Add new story (starts with empty photos, never pre-populates dummy pictures)
   const handleAddStory = () => {
     const newId = `story-${Date.now()}`;
     const newStory: ClientStory = {
       id: newId,
-      couple: 'New Couple',
-      eventType: 'Baraat & Reception',
+      couple: 'New Client',
+      eventType: 'Wedding Celebration',
       city: 'Lahore',
       rating: 5,
       quote: 'Write the memorable review from the couple here...',
@@ -229,23 +229,23 @@ export default function ManageClientReviewsPage() {
       order: reviews.length + 1,
       photos: {
         farLeft: {
-          url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=1200&q=85',
-          caption: 'Candid photo of bride and groom',
+          url: '',
+          caption: '',
           position: 'far-left',
         },
         innerLeft: {
-          url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85',
-          caption: 'Stage and decor details',
+          url: '',
+          caption: '',
           position: 'inner-left',
         },
         innerRight: {
-          url: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=1200&q=85',
-          caption: 'Couple grand entrance under floral canopy',
+          url: '',
+          caption: '',
           position: 'inner-right',
         },
         farRight: {
-          url: 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=1200&q=85',
-          caption: 'Family and friends celebrating',
+          url: '',
+          caption: '',
           position: 'far-right',
         },
       },
