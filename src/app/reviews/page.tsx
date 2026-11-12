@@ -4,10 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Star,
-  X,
   ChevronLeft,
   ChevronRight,
-  Maximize2,
   Sparkles,
   Moon,
   Sun,
@@ -15,7 +13,7 @@ import {
   Film,
   Sliders,
 } from 'lucide-react';
-import { ClientStory, ReviewPhoto } from '@/lib/types';
+import { ClientStory } from '@/lib/types';
 import { DEFAULT_CLIENT_STORIES } from '@/lib/defaults';
 import { storage } from '@/lib/storage';
 import { parseVideoEmbed } from '@/lib/video-embed';
@@ -35,14 +33,6 @@ export default function ClientReviewsPage() {
   // Mobile Slide index (one client review story per slide on phone screens)
   const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
-
-  const [activePhoto, setActivePhoto] = useState<{
-    url: string;
-    caption: string;
-    couple: string;
-    index: number;
-    allPhotos: { url: string; caption: string; couple: string }[];
-  } | null>(null);
 
   // Fetch latest saved reviews and custom order from central database
   useEffect(() => {
@@ -79,47 +69,6 @@ export default function ClientReviewsPage() {
     return () => window.removeEventListener('snap_client_reviews_updated', handleLocalUpdate);
   }, []);
 
-  // Flatten all photos for continuous lightbox carousel
-  const allStoryPhotos = stories.flatMap((story) => [
-    { url: story.photos.farLeft.url, caption: story.photos.farLeft.caption, couple: story.couple },
-    { url: story.photos.innerLeft.url, caption: story.photos.innerLeft.caption, couple: story.couple },
-    { url: story.photos.innerRight.url, caption: story.photos.innerRight.caption, couple: story.couple },
-    { url: story.photos.farRight.url, caption: story.photos.farRight.caption, couple: story.couple },
-  ]);
-
-  const openLightbox = (url: string, caption: string, couple: string) => {
-    const idx = allStoryPhotos.findIndex((p) => p.url === url);
-    setActivePhoto({
-      url,
-      caption,
-      couple,
-      index: idx >= 0 ? idx : 0,
-      allPhotos: allStoryPhotos,
-    });
-  };
-
-  const nextLightboxPhoto = () => {
-    if (!activePhoto) return;
-    const nextIdx = (activePhoto.index + 1) % activePhoto.allPhotos.length;
-    const next = activePhoto.allPhotos[nextIdx];
-    setActivePhoto({
-      ...next,
-      index: nextIdx,
-      allPhotos: activePhoto.allPhotos,
-    });
-  };
-
-  const prevLightboxPhoto = () => {
-    if (!activePhoto) return;
-    const prevIdx = (activePhoto.index - 1 + activePhoto.allPhotos.length) % activePhoto.allPhotos.length;
-    const prev = activePhoto.allPhotos[prevIdx];
-    setActivePhoto({
-      ...prev,
-      index: prevIdx,
-      allPhotos: activePhoto.allPhotos,
-    });
-  };
-
   // Mobile navigation handlers
   const nextMobileSlide = () => {
     setMobileSlideIndex((prev) => (prev + 1) % stories.length);
@@ -144,18 +93,6 @@ export default function ClientReviewsPage() {
     }
     setTouchStartX(null);
   };
-
-  // Keyboard navigation for lightbox
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!activePhoto) return;
-      if (e.key === 'Escape') setActivePhoto(null);
-      if (e.key === 'ArrowRight') nextLightboxPhoto();
-      if (e.key === 'ArrowLeft') prevLightboxPhoto();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  });
 
   const currentMobileStory = stories[mobileSlideIndex] || stories[0];
 
@@ -225,7 +162,7 @@ export default function ClientReviewsPage() {
           </h1>
         </div>
 
-        {/* Right: Actions (Theme Toggle & Studio Link) */}
+        {/* Right: Actions (Theme Toggle, Admin Manage & Studio Link) */}
         <div className="flex items-center gap-2 md:gap-3">
           {/* Subtle Ambient Theme Toggle */}
           <button
@@ -400,7 +337,7 @@ export default function ClientReviewsPage() {
                 </div>
               </div>
 
-              {/* Compact 2x2 Photo Showcase (All 4 Photos In One Slide View) */}
+              {/* Compact 2x2 Photo Showcase: Clean, No Caption, Hover Zoom Only */}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 {[
                   currentMobileStory.photos.farLeft,
@@ -410,8 +347,7 @@ export default function ClientReviewsPage() {
                 ].map((photo, pIdx) => (
                   <div
                     key={pIdx}
-                    onClick={() => openLightbox(photo.url, photo.caption, currentMobileStory.couple)}
-                    className={`group relative aspect-[4/3] rounded-xl overflow-hidden border cursor-pointer active:scale-95 transition-all duration-300 ${
+                    className={`group relative aspect-[4/3] rounded-xl overflow-hidden border transition-all duration-300 ${
                       isDarkMode
                         ? 'border-[#D4AF37]/30 bg-neutral-900 shadow-sm'
                         : 'border-[#D4AF37]/35 bg-stone-100 shadow-sm'
@@ -419,16 +355,10 @@ export default function ClientReviewsPage() {
                   >
                     <img
                       src={photo.url}
-                      alt={photo.caption}
+                      alt="Wedding story photo"
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent flex items-end justify-between p-1.5">
-                      <span className="text-[9px] text-white/90 truncate max-w-[82%] font-light">
-                        {photo.caption}
-                      </span>
-                      <Maximize2 className="w-2.5 h-2.5 text-[#D4AF37] shrink-0" />
-                    </div>
                   </div>
                 ))}
               </div>
@@ -467,10 +397,10 @@ export default function ClientReviewsPage() {
                 );
               })()}
 
-              {/* Swipe & Tap Hint */}
+              {/* Swipe Navigation Hint */}
               <div className="flex items-center justify-between pt-1 text-[10px] text-neutral-400 font-light">
                 <span className="flex items-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" /> Tap photo to enlarge
+                  <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" /> The Snap Service Studio
                 </span>
                 <span className="tracking-wide">Swipe to next story &rarr;</span>
               </div>
@@ -500,6 +430,7 @@ export default function ClientReviewsPage() {
         {/* DESKTOP VIEW (>= md): Signature 16:9 Landscape 5-Part Ribbon   */}
         {/* [Far Left] [Inner Left] [Center Review] [Inner Right] [Far Right]*/}
         {/* With Video Player Underneath if Present                        */}
+        {/* Clean Photos: No Captions, No Full Screen Modal                */}
         {/* ============================================================== */}
         <div className="hidden md:flex md:flex-col gap-14 lg:gap-18">
           {stories.map((story, index) => {
@@ -517,8 +448,7 @@ export default function ClientReviewsPage() {
                 <div className="grid grid-cols-12 gap-3.5 lg:gap-4 items-center">
                   {/* 1. Far Left Image */}
                   <div
-                    onClick={() => openLightbox(story.photos.farLeft.url, story.photos.farLeft.caption, story.couple)}
-                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
+                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 ${
                       isDarkMode
                         ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
                         : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
@@ -526,21 +456,15 @@ export default function ClientReviewsPage() {
                   >
                     <img
                       src={story.photos.farLeft.url}
-                      alt={story.photos.farLeft.caption}
+                      alt="Far left wedding photo"
                       className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                      <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
-                        <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.farLeft.caption}
-                      </span>
-                    </div>
                   </div>
 
                   {/* 2. Inner Left Image */}
                   <div
-                    onClick={() => openLightbox(story.photos.innerLeft.url, story.photos.innerLeft.caption, story.couple)}
-                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
+                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 ${
                       isDarkMode
                         ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
                         : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
@@ -548,15 +472,10 @@ export default function ClientReviewsPage() {
                   >
                     <img
                       src={story.photos.innerLeft.url}
-                      alt={story.photos.innerLeft.caption}
+                      alt="Inner left wedding photo"
                       className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                      <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
-                        <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.innerLeft.caption}
-                      </span>
-                    </div>
                   </div>
 
                   {/* 3. Center Review Card (Sandwiched between left & right photos - Span 4 cols) */}
@@ -608,8 +527,7 @@ export default function ClientReviewsPage() {
 
                   {/* 4. Inner Right Image */}
                   <div
-                    onClick={() => openLightbox(story.photos.innerRight.url, story.photos.innerRight.caption, story.couple)}
-                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
+                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 ${
                       isDarkMode
                         ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
                         : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
@@ -617,21 +535,15 @@ export default function ClientReviewsPage() {
                   >
                     <img
                       src={story.photos.innerRight.url}
-                      alt={story.photos.innerRight.caption}
+                      alt="Inner right wedding photo"
                       className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                      <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
-                        <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.innerRight.caption}
-                      </span>
-                    </div>
                   </div>
 
                   {/* 5. Far Right Image */}
                   <div
-                    onClick={() => openLightbox(story.photos.farRight.url, story.photos.farRight.caption, story.couple)}
-                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
+                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 ${
                       isDarkMode
                         ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
                         : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
@@ -639,15 +551,10 @@ export default function ClientReviewsPage() {
                   >
                     <img
                       src={story.photos.farRight.url}
-                      alt={story.photos.farRight.caption}
+                      alt="Far right wedding photo"
                       className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                      <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
-                        <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.farRight.caption}
-                      </span>
-                    </div>
                   </div>
                 </div>
 
@@ -769,62 +676,6 @@ export default function ClientReviewsPage() {
           </a>
         </div>
       </footer>
-
-      {/* Interactive 4K Lightbox Modal */}
-      {activePhoto && (
-        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-between p-3 sm:p-4 md:p-8 animate-in fade-in duration-300">
-          {/* Top Controls Bar */}
-          <div className="w-full flex items-center justify-between z-10 max-w-6xl">
-            <div className="flex flex-col max-w-[80%]">
-              <span className="text-xs uppercase tracking-[0.2em] text-[#D4AF37] font-medium">
-                {activePhoto.couple}
-              </span>
-              <span className="text-xs text-neutral-300 font-light mt-0.5 truncate">
-                {activePhoto.caption}
-              </span>
-            </div>
-            <button
-              onClick={() => setActivePhoto(null)}
-              className="p-2 rounded-full border border-[#D4AF37]/40 text-neutral-200 hover:text-white hover:border-[#D4AF37] bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
-              aria-label="Close photo preview"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Main Image in Lightbox */}
-          <div className="relative max-w-6xl max-h-[75vh] md:max-h-[78vh] w-full flex items-center justify-center my-auto">
-            <button
-              onClick={prevLightboxPhoto}
-              className="absolute left-1 sm:left-2 md:-left-12 p-2.5 md:p-3 rounded-full border border-[#D4AF37]/40 text-neutral-200 hover:text-[#D4AF37] bg-black/60 hover:bg-black/90 transition-all z-20 cursor-pointer"
-              aria-label="Previous photo"
-            >
-              <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
-            </button>
-
-            <div className="rounded-2xl overflow-hidden border border-[#D4AF37]/50 shadow-2xl shadow-black max-h-[72vh] md:max-h-[76vh]">
-              <img
-                src={activePhoto.url}
-                alt={activePhoto.caption}
-                className="max-h-[72vh] md:max-h-[76vh] w-auto object-contain mx-auto"
-              />
-            </div>
-
-            <button
-              onClick={nextLightboxPhoto}
-              className="absolute right-1 sm:right-2 md:-right-12 p-2.5 md:p-3 rounded-full border border-[#D4AF37]/40 text-neutral-200 hover:text-[#D4AF37] bg-black/60 hover:bg-black/90 transition-all z-20 cursor-pointer"
-              aria-label="Next photo"
-            >
-              <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
-            </button>
-          </div>
-
-          {/* Bottom Photo Indicator */}
-          <div className="text-center text-[11px] md:text-xs tracking-widest uppercase text-neutral-400 font-light z-10">
-            Photo {activePhoto.index + 1} of {activePhoto.allPhotos.length} • Tap Esc to close
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -750,15 +750,6 @@ export default function ManageClientReviewsPage() {
                               disabled={photo?.url?.startsWith('data:')}
                               className="w-full px-2.5 py-1.5 text-[11px] rounded-lg border border-stone-200 bg-white focus:outline-none focus:border-[#0D4F4F] disabled:bg-stone-100 disabled:text-stone-500"
                             />
-
-                            {/* Photo Caption */}
-                            <input
-                              type="text"
-                              value={photo?.caption || ''}
-                              onChange={(e) => updatePhoto(story.id, slot, 'caption', e.target.value)}
-                              placeholder="Photo caption..."
-                              className="w-full px-2.5 py-1.5 text-[11px] rounded-lg border border-stone-200 bg-white focus:outline-none focus:border-[#0D4F4F]"
-                            />
                           </div>
                         );
                       })}
