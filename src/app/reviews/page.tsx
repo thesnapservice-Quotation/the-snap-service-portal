@@ -11,7 +11,6 @@ import {
   Sun,
   ArrowUpRight,
   Film,
-  Sliders,
 } from 'lucide-react';
 import { ClientStory } from '@/lib/types';
 import { DEFAULT_CLIENT_STORIES } from '@/lib/defaults';
@@ -177,19 +176,6 @@ export default function ClientReviewsPage() {
           >
             {isDarkMode ? <Sun className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <Moon className="w-3.5 h-3.5 md:w-4 md:h-4" />}
           </button>
-
-          {/* Admin Manage Link (discreet shortcut) */}
-          <Link
-            href="/reviews/manage"
-            className={`p-1.5 md:p-2 rounded-full border transition-all duration-300 flex items-center justify-center cursor-pointer ${
-              isDarkMode
-                ? 'border-neutral-800 text-neutral-400 hover:text-[#D4AF37] hover:border-[#D4AF37]/40'
-                : 'border-stone-200 text-stone-500 hover:text-[#0D4F4F] hover:border-[#0D4F4F]/30'
-            }`}
-            title="Manage Reviews (Admin)"
-          >
-            <Sliders className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          </Link>
 
           {/* Visit Studio Link */}
           <Link
@@ -651,20 +637,14 @@ export default function ClientReviewsPage() {
         </div>
         <div className="flex items-center gap-5 md:gap-6">
           <Link
-            href="/reviews/manage"
+            href="https://thesnapservice.com"
+            target="_blank"
+            rel="noopener noreferrer"
             className={`transition-colors tracking-wide ${
               isDarkMode ? 'hover:text-[#D4AF37]' : 'hover:text-[#0D4F4F]'
             }`}
           >
-            Manage Reviews
-          </Link>
-          <Link
-            href="/portal"
-            className={`transition-colors tracking-wide ${
-              isDarkMode ? 'hover:text-[#D4AF37]' : 'hover:text-[#0D4F4F]'
-            }`}
-          >
-            Client Portal
+            thesnapservice.com
           </Link>
           <a
             href="https://wa.me/923000000000"
@@ -672,7 +652,7 @@ export default function ClientReviewsPage() {
             rel="noopener noreferrer"
             className="text-[#D4AF37] font-medium hover:underline tracking-wide"
           >
-            Inquire for Dates
+            Inquire for Dates &rarr;
           </a>
         </div>
       </footer>
