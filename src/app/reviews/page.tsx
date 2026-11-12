@@ -122,6 +122,10 @@ export default function ClientReviewsPage() {
   // Theme state: defaults to studio's standard warm cream & teal palette (#FAF9F6 + #0D4F4F + #D4AF37)
   const [isDarkMode, setIsDarkMode] = useState(false);
 
+  // Mobile Slide index (one client review story per slide on phone screens)
+  const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
   const [activePhoto, setActivePhoto] = useState<{
     url: string;
     caption: string;
@@ -171,6 +175,31 @@ export default function ClientReviewsPage() {
     });
   };
 
+  // Mobile navigation handlers
+  const nextMobileSlide = () => {
+    setMobileSlideIndex((prev) => (prev + 1) % CLIENT_STORIES.length);
+  };
+
+  const prevMobileSlide = () => {
+    setMobileSlideIndex((prev) => (prev - 1 + CLIENT_STORIES.length) % CLIENT_STORIES.length);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX - touchEndX;
+    if (diff > 45) {
+      nextMobileSlide();
+    } else if (diff < -45) {
+      prevMobileSlide();
+    }
+    setTouchStartX(null);
+  };
+
   // Keyboard navigation for lightbox
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -182,6 +211,8 @@ export default function ClientReviewsPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   });
+
+  const currentMobileStory = CLIENT_STORIES[mobileSlideIndex];
 
   return (
     <div
@@ -209,17 +240,17 @@ export default function ClientReviewsPage() {
 
       {/* Top Header Bar */}
       <header
-        className={`relative z-20 w-full px-6 md:px-14 pt-8 pb-5 flex items-center justify-between border-b transition-colors duration-500 backdrop-blur-md ${
+        className={`relative z-20 w-full px-4 sm:px-6 md:px-14 pt-6 md:pt-8 pb-4 md:pb-5 flex items-center justify-between border-b transition-colors duration-500 backdrop-blur-md ${
           isDarkMode
-            ? 'border-[#D4AF37]/15 bg-[#090A0D]/70'
+            ? 'border-[#D4AF37]/15 bg-[#090A0D]/75'
             : 'border-[#D4AF37]/25 bg-[#FAF9F6]/85'
         }`}
       >
-        {/* Top-Left: Understated Sans-Serif Studio Branding */}
+        {/* Left: Understated Sans-Serif Studio Branding */}
         <div className="flex flex-col">
-          <Link href="/" className="group flex items-center gap-2">
+          <Link href="/" className="group flex items-center gap-1.5 md:gap-2">
             <span
-              className={`text-xs md:text-sm font-semibold tracking-[0.28em] uppercase transition-colors duration-300 ${
+              className={`text-xs md:text-sm font-semibold tracking-[0.24em] md:tracking-[0.28em] uppercase transition-colors duration-300 ${
                 isDarkMode ? 'text-[#D4AF37]' : 'text-[#0D4F4F]'
               }`}
             >
@@ -228,7 +259,7 @@ export default function ClientReviewsPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] opacity-80" />
           </Link>
           <span
-            className={`text-[9px] md:text-[10px] tracking-[0.2em] uppercase font-light mt-0.5 ${
+            className={`text-[9px] md:text-[10px] tracking-[0.18em] uppercase font-light mt-0.5 ${
               isDarkMode ? 'text-neutral-400' : 'text-stone-500'
             }`}
           >
@@ -236,10 +267,10 @@ export default function ClientReviewsPage() {
           </span>
         </div>
 
-        {/* Center: Refined Minimal Serif Title */}
-        <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
+        {/* Center: Refined Minimal Serif Title (Desktop only, mobile renders below header) */}
+        <div className="hidden md:block absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
           <h1
-            className={`font-serif text-2xl md:text-4xl font-normal tracking-wide transition-colors duration-500 ${
+            className={`font-serif text-3xl lg:text-4xl font-normal tracking-wide transition-colors duration-500 ${
               isDarkMode
                 ? 'text-[#E5C158] drop-shadow-[0_2px_10px_rgba(212,175,55,0.25)]'
                 : 'text-[#0D4F4F] drop-shadow-[0_1px_4px_rgba(13,79,79,0.08)]'
@@ -249,12 +280,12 @@ export default function ClientReviewsPage() {
           </h1>
         </div>
 
-        {/* Top-Right: Actions (Theme Toggle & Studio Link) */}
-        <div className="flex items-center gap-3">
+        {/* Right: Actions (Theme Toggle & Studio Link) */}
+        <div className="flex items-center gap-2 md:gap-3">
           {/* Subtle Ambient Theme Toggle */}
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`p-2 rounded-full border transition-all duration-300 flex items-center justify-center cursor-pointer ${
+            className={`p-1.5 md:p-2 rounded-full border transition-all duration-300 flex items-center justify-center cursor-pointer ${
               isDarkMode
                 ? 'border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10'
                 : 'border-[#0D4F4F]/20 text-[#0D4F4F] hover:bg-[#0D4F4F]/5'
@@ -262,7 +293,7 @@ export default function ClientReviewsPage() {
             title={isDarkMode ? 'Switch to Studio Cream' : 'Switch to Dark Mode'}
             aria-label="Toggle visual theme"
           >
-            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {isDarkMode ? <Sun className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <Moon className="w-3.5 h-3.5 md:w-4 md:h-4" />}
           </button>
 
           {/* Visit Studio Link */}
@@ -270,7 +301,7 @@ export default function ClientReviewsPage() {
             href="https://thesnapservice.com"
             target="_blank"
             rel="noopener noreferrer"
-            className={`text-[11px] md:text-xs tracking-wider uppercase font-medium px-4 py-2 rounded-full border transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+            className={`text-[10px] md:text-xs tracking-wider uppercase font-medium px-3 md:px-4 py-1.5 md:py-2 rounded-full border transition-all duration-300 flex items-center gap-1 cursor-pointer ${
               isDarkMode
                 ? 'border-[#D4AF37]/35 text-[#D4AF37] hover:bg-[#D4AF37]/10'
                 : 'border-[#0D4F4F] text-[#0D4F4F] hover:bg-[#0D4F4F] hover:text-[#FAF9F6] shadow-sm'
@@ -282,188 +313,381 @@ export default function ClientReviewsPage() {
         </div>
       </header>
 
-      {/* Main Reviews Container (Landscape 16:9 Inspired Framing) */}
-      <main className="relative z-10 flex-1 w-full max-w-[1760px] mx-auto px-4 md:px-10 py-8 md:py-14 flex flex-col gap-12 md:gap-16">
-        {CLIENT_STORIES.map((story, index) => {
-          const isThirdPeeking = index === 2;
-
-          return (
-            <section
-              key={story.id}
-              className={`relative group/row transition-all duration-700 ${
-                isThirdPeeking ? 'opacity-90 hover:opacity-100' : 'opacity-100'
+      {/* Main Content Area */}
+      <main className="relative z-10 flex-1 w-full max-w-[1760px] mx-auto px-4 md:px-10 py-6 md:py-14">
+        {/* ============================================================== */}
+        {/* MOBILE VIEW (< md): Single-Slide Showcase with Compact Photos */}
+        {/* Each client review fits cleanly into a single slide card       */}
+        {/* ============================================================== */}
+        <div className="block md:hidden">
+          {/* Mobile Page Title */}
+          <div className="text-center mb-4">
+            <h1
+              className={`font-serif text-2xl font-normal tracking-wide ${
+                isDarkMode ? 'text-[#E5C158]' : 'text-[#0D4F4F]'
               }`}
             >
-              {/* Row Container: 5-Part Landscape Ribbon (Image - Image - Review Center - Image - Image) */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 md:gap-4 items-center">
-                {/* 1. Far Left Image */}
-                <div
-                  onClick={() => openLightbox(story.photos.farLeft.url, story.photos.farLeft.caption, story.couple)}
-                  className={`md:col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
-                    isDarkMode
-                      ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
-                      : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
+              Client Reviews
+            </h1>
+            <p
+              className={`text-[10px] tracking-[0.2em] uppercase mt-1 ${
+                isDarkMode ? 'text-neutral-400' : 'text-stone-500'
+              }`}
+            >
+              Real Couples • Real Moments
+            </p>
+          </div>
+
+          {/* Client Selection Pills */}
+          <div className="flex items-center justify-center gap-1.5 overflow-x-auto pb-3 mb-3 scrollbar-none px-1">
+            {CLIENT_STORIES.map((s, idx) => {
+              const isActive = mobileSlideIndex === idx;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setMobileSlideIndex(idx)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-300 border cursor-pointer ${
+                    isActive
+                      ? isDarkMode
+                        ? 'bg-[#D4AF37] text-neutral-950 border-[#D4AF37] shadow-sm font-semibold'
+                        : 'bg-[#0D4F4F] text-[#FAF9F6] border-[#0D4F4F] shadow-sm font-semibold'
+                      : isDarkMode
+                      ? 'bg-neutral-900/70 text-neutral-300 border-neutral-800 hover:border-[#D4AF37]/40'
+                      : 'bg-white/80 text-stone-600 border-stone-200 hover:border-[#D4AF37]/50'
                   }`}
                 >
-                  <img
-                    src={story.photos.farLeft.url}
-                    alt={story.photos.farLeft.caption}
-                    className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
-                    loading="lazy"
+                  {s.couple}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Single-Slide Card for Active Client */}
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className={`relative rounded-3xl border transition-all duration-500 p-4 sm:p-5 flex flex-col gap-3.5 shadow-xl ${
+              isDarkMode
+                ? 'border-[#D4AF37]/30 bg-[#0E1015]/90 shadow-black/50'
+                : 'border-[#D4AF37]/35 bg-white/95 shadow-[0_10px_35px_rgba(13,79,79,0.06)]'
+            }`}
+          >
+            {/* Top Navigation Bar inside Card */}
+            <div className="flex items-center justify-between text-xs pb-2 border-b border-[#D4AF37]/15">
+              <span
+                className={`text-[10px] tracking-[0.2em] uppercase font-medium ${
+                  isDarkMode ? 'text-[#D4AF37]' : 'text-[#0D4F4F]'
+                }`}
+              >
+                Story {mobileSlideIndex + 1} of {CLIENT_STORIES.length}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={prevMobileSlide}
+                  className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
+                    isDarkMode
+                      ? 'border-neutral-800 text-neutral-300 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                      : 'border-stone-200 text-stone-600 hover:border-[#0D4F4F] hover:text-[#0D4F4F]'
+                  }`}
+                  aria-label="Previous client story"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={nextMobileSlide}
+                  className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
+                    isDarkMode
+                      ? 'border-neutral-800 text-neutral-300 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                      : 'border-stone-200 text-stone-600 hover:border-[#0D4F4F] hover:text-[#0D4F4F]'
+                  }`}
+                  aria-label="Next client story"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Couple Review Meta (Centerpiece) */}
+            <div className="text-center flex flex-col items-center pt-1">
+              {/* Couple Name in Gold */}
+              <h2 className="font-serif text-2xl text-[#D4AF37] font-medium tracking-wide mb-1 drop-shadow-[0_1px_3px_rgba(212,175,55,0.25)]">
+                {currentMobileStory.couple}
+              </h2>
+
+              {/* 5 Stars in Gold */}
+              <div className="flex items-center justify-center gap-1 mb-2">
+                {[...Array(currentMobileStory.rating)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className="w-3.5 h-3.5 fill-[#D4AF37] text-[#D4AF37] drop-shadow-[0_1px_2px_rgba(212,175,55,0.35)]"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                    <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
-                      <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.farLeft.caption}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 2. Inner Left Image */}
-                <div
-                  onClick={() => openLightbox(story.photos.innerLeft.url, story.photos.innerLeft.caption, story.couple)}
-                  className={`md:col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
-                    isDarkMode
-                      ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
-                      : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
-                  }`}
-                >
-                  <img
-                    src={story.photos.innerLeft.url}
-                    alt={story.photos.innerLeft.caption}
-                    className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                    <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
-                      <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.innerLeft.caption}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 3. Center Review Card (Sandwiched between left & right photos - Span 4 cols) */}
-                <div
-                  className={`md:col-span-4 px-4 md:px-7 py-7 md:py-9 text-center flex flex-col items-center justify-center relative rounded-3xl border transition-all duration-500 ${
-                    isDarkMode
-                      ? 'border-[#D4AF37]/25 bg-[#0D0E12]/80 backdrop-blur-sm shadow-[0_6px_28px_rgba(0,0,0,0.6)]'
-                      : 'border-[#D4AF37]/30 bg-white/90 backdrop-blur-sm shadow-[0_10px_35px_rgba(13,79,79,0.05)]'
-                  }`}
-                >
-                  {/* Subtle Gold Accent Filigree */}
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <span className="w-7 h-[1px] bg-gradient-to-r from-transparent to-[#D4AF37]/70" />
-                    <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-                    <span className="w-7 h-[1px] bg-gradient-to-l from-transparent to-[#D4AF37]/70" />
-                  </div>
-
-                  {/* Couple Name in Gold */}
-                  <h2 className="font-serif text-2xl md:text-3xl text-[#D4AF37] font-medium tracking-wide mb-2 drop-shadow-[0_1px_3px_rgba(212,175,55,0.25)]">
-                    {story.couple}
-                  </h2>
-
-                  {/* 5 Stars in Gold */}
-                  <div className="flex items-center justify-center gap-1 mb-3.5">
-                    {[...Array(story.rating)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className="w-4 h-4 fill-[#D4AF37] text-[#D4AF37] drop-shadow-[0_1px_3px_rgba(212,175,55,0.35)]"
-                      />
-                    ))}
-                  </div>
-
-                  {/* Client Quote in White (in Dark mode) or Rich Midnight Slate (in Standard Cream mode) */}
-                  <blockquote
-                    className={`text-sm md:text-[15px] leading-relaxed font-normal italic max-w-sm mx-auto mb-4 px-2 transition-colors duration-500 ${
-                      isDarkMode ? 'text-white' : 'text-slate-700'
-                    }`}
-                  >
-                    &ldquo;{story.quote}&rdquo;
-                  </blockquote>
-
-                  {/* Event & City Tag in Gold */}
-                  <div className="inline-flex items-center gap-2 text-xs tracking-widest uppercase text-[#D4AF37] font-semibold border-t border-[#D4AF37]/30 pt-2.5">
-                    <span>{story.eventType}</span>
-                    <span className="opacity-50">•</span>
-                    <span>{story.city}</span>
-                  </div>
-                </div>
-
-                {/* 4. Inner Right Image */}
-                <div
-                  onClick={() => openLightbox(story.photos.innerRight.url, story.photos.innerRight.caption, story.couple)}
-                  className={`md:col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
-                    isDarkMode
-                      ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
-                      : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
-                  }`}
-                >
-                  <img
-                    src={story.photos.innerRight.url}
-                    alt={story.photos.innerRight.caption}
-                    className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                    <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
-                      <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.innerRight.caption}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 5. Far Right Image */}
-                <div
-                  onClick={() => openLightbox(story.photos.farRight.url, story.photos.farRight.caption, story.couple)}
-                  className={`md:col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
-                    isDarkMode
-                      ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
-                      : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
-                  }`}
-                >
-                  <img
-                    src={story.photos.farRight.url}
-                    alt={story.photos.farRight.caption}
-                    className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                    <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
-                      <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.farRight.caption}
-                    </span>
-                  </div>
-                </div>
+                ))}
               </div>
 
-              {/* Delicate Gold Separator Line Between Stories */}
-              {index < CLIENT_STORIES.length - 1 && (
-                <div
-                  className={`w-full h-[1px] mt-12 md:mt-16 transition-colors duration-500 ${
-                    isDarkMode
-                      ? 'bg-gradient-to-r from-transparent via-[#D4AF37]/25 to-transparent'
-                      : 'bg-gradient-to-r from-transparent via-[#D4AF37]/35 to-transparent'
-                  }`}
-                />
-              )}
-            </section>
-          );
-        })}
+              {/* Client Quote */}
+              <blockquote
+                className={`text-xs leading-relaxed font-normal italic max-w-xs mx-auto mb-2 px-1 transition-colors duration-500 ${
+                  isDarkMode ? 'text-white/95' : 'text-slate-700'
+                }`}
+              >
+                &ldquo;{currentMobileStory.quote}&rdquo;
+              </blockquote>
 
-        {/* Suggestion of More Stories Below (Row 3 peeking hint / smooth gradient) */}
-        <div className="relative pt-6 pb-6 text-center flex flex-col items-center">
+              {/* Event & City Tag */}
+              <div className="inline-flex items-center gap-1.5 text-[10px] tracking-widest uppercase text-[#D4AF37] font-semibold border-t border-[#D4AF37]/25 pt-1.5">
+                <span>{currentMobileStory.eventType}</span>
+                <span className="opacity-50">•</span>
+                <span>{currentMobileStory.city}</span>
+              </div>
+            </div>
+
+            {/* Compact 2x2 Photo Showcase (All 4 Photos In One Slide View) */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              {[
+                currentMobileStory.photos.farLeft,
+                currentMobileStory.photos.innerLeft,
+                currentMobileStory.photos.innerRight,
+                currentMobileStory.photos.farRight,
+              ].map((photo, pIdx) => (
+                <div
+                  key={pIdx}
+                  onClick={() => openLightbox(photo.url, photo.caption, currentMobileStory.couple)}
+                  className={`group relative aspect-[4/3] rounded-xl overflow-hidden border cursor-pointer active:scale-95 transition-all duration-300 ${
+                    isDarkMode
+                      ? 'border-[#D4AF37]/30 bg-neutral-900 shadow-sm'
+                      : 'border-[#D4AF37]/35 bg-stone-100 shadow-sm'
+                  }`}
+                >
+                  <img
+                    src={photo.url}
+                    alt={photo.caption}
+                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent flex items-end justify-between p-1.5">
+                    <span className="text-[9px] text-white/90 truncate max-w-[82%] font-light">
+                      {photo.caption}
+                    </span>
+                    <Maximize2 className="w-2.5 h-2.5 text-[#D4AF37] shrink-0" />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Swipe & Tap Hint */}
+            <div className="flex items-center justify-between pt-1 text-[10px] text-neutral-400 font-light">
+              <span className="flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" /> Tap any photo to enlarge
+              </span>
+              <span className="tracking-wide">Swipe to next story &rarr;</span>
+            </div>
+
+            {/* Animated Pagination Indicators */}
+            <div className="flex items-center justify-center gap-1.5 pt-1">
+              {CLIENT_STORIES.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setMobileSlideIndex(idx)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    mobileSlideIndex === idx
+                      ? 'w-6 bg-[#D4AF37]'
+                      : isDarkMode
+                      ? 'w-1.5 bg-neutral-700 hover:bg-neutral-500'
+                      : 'w-1.5 bg-stone-300 hover:bg-stone-400'
+                  }`}
+                  aria-label={`Go to story ${idx + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ============================================================== */}
+        {/* DESKTOP VIEW (>= md): Signature 16:9 Landscape 5-Part Ribbon   */}
+        {/* [Far Left] [Inner Left] [Center Review] [Inner Right] [Far Right]*/}
+        {/* ============================================================== */}
+        <div className="hidden md:flex md:flex-col gap-12 md:gap-16">
+          {CLIENT_STORIES.map((story, index) => {
+            const isThirdPeeking = index === 2;
+
+            return (
+              <section
+                key={story.id}
+                className={`relative group/row transition-all duration-700 ${
+                  isThirdPeeking ? 'opacity-90 hover:opacity-100' : 'opacity-100'
+                }`}
+              >
+                {/* Row Container: 5-Part Landscape Ribbon */}
+                <div className="grid grid-cols-12 gap-3.5 lg:gap-4 items-center">
+                  {/* 1. Far Left Image */}
+                  <div
+                    onClick={() => openLightbox(story.photos.farLeft.url, story.photos.farLeft.caption, story.couple)}
+                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
+                      isDarkMode
+                        ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
+                        : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
+                    }`}
+                  >
+                    <img
+                      src={story.photos.farLeft.url}
+                      alt={story.photos.farLeft.caption}
+                      className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                      <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
+                        <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.farLeft.caption}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 2. Inner Left Image */}
+                  <div
+                    onClick={() => openLightbox(story.photos.innerLeft.url, story.photos.innerLeft.caption, story.couple)}
+                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
+                      isDarkMode
+                        ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
+                        : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
+                    }`}
+                  >
+                    <img
+                      src={story.photos.innerLeft.url}
+                      alt={story.photos.innerLeft.caption}
+                      className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                      <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
+                        <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.innerLeft.caption}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 3. Center Review Card (Sandwiched between left & right photos - Span 4 cols) */}
+                  <div
+                    className={`col-span-4 px-5 lg:px-7 py-7 lg:py-9 text-center flex flex-col items-center justify-center relative rounded-3xl border transition-all duration-500 ${
+                      isDarkMode
+                        ? 'border-[#D4AF37]/25 bg-[#0D0E12]/80 backdrop-blur-sm shadow-[0_6px_28px_rgba(0,0,0,0.6)]'
+                        : 'border-[#D4AF37]/30 bg-white/90 backdrop-blur-sm shadow-[0_10px_35px_rgba(13,79,79,0.05)]'
+                    }`}
+                  >
+                    {/* Subtle Gold Accent Filigree */}
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span className="w-7 h-[1px] bg-gradient-to-r from-transparent to-[#D4AF37]/70" />
+                      <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span className="w-7 h-[1px] bg-gradient-to-l from-transparent to-[#D4AF37]/70" />
+                    </div>
+
+                    {/* Couple Name in Gold */}
+                    <h2 className="font-serif text-2xl lg:text-3xl text-[#D4AF37] font-medium tracking-wide mb-2 drop-shadow-[0_1px_3px_rgba(212,175,55,0.25)]">
+                      {story.couple}
+                    </h2>
+
+                    {/* 5 Stars in Gold */}
+                    <div className="flex items-center justify-center gap-1 mb-3.5">
+                      {[...Array(story.rating)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className="w-4 h-4 fill-[#D4AF37] text-[#D4AF37] drop-shadow-[0_1px_3px_rgba(212,175,55,0.35)]"
+                        />
+                      ))}
+                    </div>
+
+                    {/* Client Quote */}
+                    <blockquote
+                      className={`text-sm lg:text-[15px] leading-relaxed font-normal italic max-w-sm mx-auto mb-4 px-2 transition-colors duration-500 ${
+                        isDarkMode ? 'text-white' : 'text-slate-700'
+                      }`}
+                    >
+                      &ldquo;{story.quote}&rdquo;
+                    </blockquote>
+
+                    {/* Event & City Tag in Gold */}
+                    <div className="inline-flex items-center gap-2 text-xs tracking-widest uppercase text-[#D4AF37] font-semibold border-t border-[#D4AF37]/30 pt-2.5">
+                      <span>{story.eventType}</span>
+                      <span className="opacity-50">•</span>
+                      <span>{story.city}</span>
+                    </div>
+                  </div>
+
+                  {/* 4. Inner Right Image */}
+                  <div
+                    onClick={() => openLightbox(story.photos.innerRight.url, story.photos.innerRight.caption, story.couple)}
+                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
+                      isDarkMode
+                        ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
+                        : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
+                    }`}
+                  >
+                    <img
+                      src={story.photos.innerRight.url}
+                      alt={story.photos.innerRight.caption}
+                      className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                      <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
+                        <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.innerRight.caption}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 5. Far Right Image */}
+                  <div
+                    onClick={() => openLightbox(story.photos.farRight.url, story.photos.farRight.caption, story.couple)}
+                    className={`col-span-2 group relative aspect-[4/3] rounded-2xl overflow-hidden border transition-all duration-500 cursor-pointer ${
+                      isDarkMode
+                        ? 'border-[#D4AF37]/30 hover:border-[#E5C158] bg-neutral-900 shadow-md shadow-black/50'
+                        : 'border-[#D4AF37]/35 hover:border-[#D4AF37] bg-stone-100 shadow-[0_8px_25px_rgba(13,79,79,0.06)] hover:shadow-[0_12px_32px_rgba(212,175,55,0.18)]'
+                    }`}
+                  >
+                    <img
+                      src={story.photos.farRight.url}
+                      alt={story.photos.farRight.caption}
+                      className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                      <span className="text-[10px] text-white line-clamp-1 flex items-center gap-1.5 font-light">
+                        <Maximize2 className="w-3 h-3 text-[#D4AF37]" /> {story.photos.farRight.caption}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delicate Gold Separator Line Between Stories */}
+                {index < CLIENT_STORIES.length - 1 && (
+                  <div
+                    className={`w-full h-[1px] mt-12 md:mt-16 transition-colors duration-500 ${
+                      isDarkMode
+                        ? 'bg-gradient-to-r from-transparent via-[#D4AF37]/25 to-transparent'
+                        : 'bg-gradient-to-r from-transparent via-[#D4AF37]/35 to-transparent'
+                    }`}
+                  />
+                )}
+              </section>
+            );
+          })}
+        </div>
+
+        {/* Suggestion of More Stories Below */}
+        <div className="relative pt-8 pb-4 text-center flex flex-col items-center">
           <div
-            className={`h-12 w-[1px] ${
+            className={`h-10 w-[1px] ${
               isDarkMode
                 ? 'bg-gradient-to-b from-[#D4AF37]/50 to-transparent'
                 : 'bg-gradient-to-b from-[#0D4F4F]/40 to-transparent'
             }`}
           />
           <span
-            className={`text-[11px] tracking-[0.25em] uppercase font-medium mt-3 ${
+            className={`text-[10px] md:text-[11px] tracking-[0.25em] uppercase font-medium mt-3 ${
               isDarkMode ? 'text-[#D4AF37]' : 'text-[#0D4F4F]'
             }`}
           >
             Endless Celebrations & Love Stories Documented
           </span>
           <div
-            className={`flex items-center gap-2 mt-1.5 text-xs font-light ${
+            className={`flex flex-wrap items-center justify-center gap-2 mt-1.5 text-[11px] md:text-xs font-light ${
               isDarkMode ? 'text-neutral-400' : 'text-stone-500'
             }`}
           >
@@ -473,14 +697,14 @@ export default function ClientReviewsPage() {
             <span>•</span>
             <span>Islamabad</span>
             <span>•</span>
-            <span>Worldwide Destination Weddings</span>
+            <span>Worldwide Destinations</span>
           </div>
         </div>
       </main>
 
       {/* Understated Minimalist Footer */}
       <footer
-        className={`relative z-20 w-full px-6 md:px-14 py-6 border-t transition-colors duration-500 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between text-xs gap-3 ${
+        className={`relative z-20 w-full px-4 sm:px-6 md:px-14 py-5 md:py-6 border-t transition-colors duration-500 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between text-[11px] md:text-xs gap-3 ${
           isDarkMode
             ? 'border-[#D4AF37]/15 bg-[#090A0D]/85 text-neutral-400'
             : 'border-[#D4AF37]/25 bg-[#FAF9F6]/90 text-stone-600'
@@ -493,7 +717,7 @@ export default function ClientReviewsPage() {
           <span className="opacity-40">|</span>
           <span className="font-light">Official Luxury Client Gallery</span>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-5 md:gap-6">
           <Link
             href="/portal"
             className={`transition-colors tracking-wide ${
@@ -515,14 +739,14 @@ export default function ClientReviewsPage() {
 
       {/* Interactive 4K Lightbox Modal */}
       {activePhoto && (
-        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-between p-4 md:p-8 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-between p-3 sm:p-4 md:p-8 animate-in fade-in duration-300">
           {/* Top Controls Bar */}
           <div className="w-full flex items-center justify-between z-10 max-w-6xl">
-            <div className="flex flex-col">
+            <div className="flex flex-col max-w-[80%]">
               <span className="text-xs uppercase tracking-[0.2em] text-[#D4AF37] font-medium">
                 {activePhoto.couple}
               </span>
-              <span className="text-xs text-neutral-300 font-light mt-0.5">
+              <span className="text-xs text-neutral-300 font-light mt-0.5 truncate">
                 {activePhoto.caption}
               </span>
             </div>
@@ -536,35 +760,35 @@ export default function ClientReviewsPage() {
           </div>
 
           {/* Main Image in Lightbox */}
-          <div className="relative max-w-6xl max-h-[78vh] w-full flex items-center justify-center my-auto">
+          <div className="relative max-w-6xl max-h-[75vh] md:max-h-[78vh] w-full flex items-center justify-center my-auto">
             <button
               onClick={prevLightboxPhoto}
-              className="absolute left-2 md:-left-12 p-3 rounded-full border border-[#D4AF37]/40 text-neutral-200 hover:text-[#D4AF37] bg-black/60 hover:bg-black/90 transition-all z-20 cursor-pointer"
+              className="absolute left-1 sm:left-2 md:-left-12 p-2.5 md:p-3 rounded-full border border-[#D4AF37]/40 text-neutral-200 hover:text-[#D4AF37] bg-black/60 hover:bg-black/90 transition-all z-20 cursor-pointer"
               aria-label="Previous photo"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
             </button>
 
-            <div className="rounded-2xl overflow-hidden border border-[#D4AF37]/50 shadow-2xl shadow-black max-h-[76vh]">
+            <div className="rounded-2xl overflow-hidden border border-[#D4AF37]/50 shadow-2xl shadow-black max-h-[72vh] md:max-h-[76vh]">
               <img
                 src={activePhoto.url}
                 alt={activePhoto.caption}
-                className="max-h-[76vh] w-auto object-contain mx-auto"
+                className="max-h-[72vh] md:max-h-[76vh] w-auto object-contain mx-auto"
               />
             </div>
 
             <button
               onClick={nextLightboxPhoto}
-              className="absolute right-2 md:-right-12 p-3 rounded-full border border-[#D4AF37]/40 text-neutral-200 hover:text-[#D4AF37] bg-black/60 hover:bg-black/90 transition-all z-20 cursor-pointer"
+              className="absolute right-1 sm:right-2 md:-right-12 p-2.5 md:p-3 rounded-full border border-[#D4AF37]/40 text-neutral-200 hover:text-[#D4AF37] bg-black/60 hover:bg-black/90 transition-all z-20 cursor-pointer"
               aria-label="Next photo"
             >
-              <ChevronRight className="w-6 h-6" />
+              <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
             </button>
           </div>
 
           {/* Bottom Photo Indicator */}
-          <div className="text-center text-xs tracking-widest uppercase text-neutral-400 font-light z-10">
-            Photo {activePhoto.index + 1} of {activePhoto.allPhotos.length} • Press Esc to close
+          <div className="text-center text-[11px] md:text-xs tracking-widest uppercase text-neutral-400 font-light z-10">
+            Photo {activePhoto.index + 1} of {activePhoto.allPhotos.length} • Tap Esc to close
           </div>
         </div>
       )}
