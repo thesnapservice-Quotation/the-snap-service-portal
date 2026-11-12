@@ -14,7 +14,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const isStandalonePage = pathname === '/login' || pathname === '/signup' || pathname.startsWith('/portal') || pathname.startsWith('/p/');
+  const isStandalonePage =
+    pathname === '/login' ||
+    pathname === '/signup' ||
+    pathname.startsWith('/portal') ||
+    pathname.startsWith('/p/') ||
+    pathname.startsWith('/reviews') ||
+    pathname.startsWith('/client-reviews');
 
   return (
     <html lang="en" suppressHydrationWarning>

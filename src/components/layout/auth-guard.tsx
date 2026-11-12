@@ -5,13 +5,18 @@ import { usePathname, useRouter } from 'next/navigation';
 import { storage } from '@/lib/storage';
 import { UserAccount } from '@/lib/types';
 
-const PUBLIC_PATHS = ['/login', '/signup'];
+const PUBLIC_PATHS = ['/login', '/signup', '/reviews', '/client-reviews'];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<UserAccount | null>(() => storage.getCurrentUser());
-  const isPublic = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/portal') || pathname.startsWith('/p/');
+  const isPublic =
+    PUBLIC_PATHS.includes(pathname) ||
+    pathname.startsWith('/portal') ||
+    pathname.startsWith('/p/') ||
+    pathname.startsWith('/reviews') ||
+    pathname.startsWith('/client-reviews');
   const [checking, setChecking] = useState(() => !isPublic && !storage.getCurrentUser());
 
   useEffect(() => {
