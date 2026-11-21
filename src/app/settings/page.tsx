@@ -168,6 +168,8 @@ export default function SettingsPage() {
         timing?: string;
         timingSlot: TimingSlot;
         role?: string;
+        bookingStatus?: string;
+        eventId?: string;
       }[]
     > = {};
 
@@ -187,11 +189,16 @@ export default function SettingsPage() {
             const key = rawName.toLowerCase();
             if (!map[key]) map[key] = [];
 
-            const alreadyAdded = map[key].some(
+            const existingItem = map[key].find(
               (item) => item.quotationId === q.id && item.eventName === evt.name && item.eventDate === evt.eventDate
             );
 
-            if (!alreadyAdded) {
+            const curStatus = (c.bookingStatus as string) || 'pending';
+
+            if (existingItem) {
+              if (curStatus === 'booked') existingItem.bookingStatus = 'booked';
+              else if (curStatus === 'contacted' && existingItem.bookingStatus !== 'booked') existingItem.bookingStatus = 'contacted';
+            } else {
               map[key].push({
                 quotationId: q.id,
                 quotationNumber: q.quotationNumber,
@@ -201,6 +208,8 @@ export default function SettingsPage() {
                 timing: evt.timing,
                 timingSlot: slot,
                 role: c.role || srv.serviceName,
+                bookingStatus: curStatus,
+                eventId: evt.id,
               });
             }
           });
@@ -219,6 +228,19 @@ export default function SettingsPage() {
 
     return map;
   }, [quotations]);
+
+  // Global total assignments and booked count across all saved team members
+  const { totalAssignments, totalBookedAssignments } = useMemo(() => {
+    let total = 0;
+    let booked = 0;
+    Object.values(memberAssignmentsMap).forEach((events) => {
+      events.forEach((e) => {
+        total += 1;
+        if (e.bookingStatus === 'booked') booked += 1;
+      });
+    });
+    return { totalAssignments: total, totalBookedAssignments: booked };
+  }, [memberAssignmentsMap]);
 
   // If task_manager, automatically default to notifications tab
   useEffect(() => {
@@ -825,6 +847,67 @@ export default function SettingsPage() {
     await updateSettings(updatedSettings);
     setSaveSuccessMsg(`Crew member "${name}" removed.`);
     setTimeout(() => setSaveSuccessMsg(''), 3000);
+  };
+
+  const handleToggleSettingsCrewBookingStatus = async (
+    quotationId: string,
+    crewName: string,
+    eventId?: string,
+    forcedStatus?: 'booked' | 'pending' | 'contacted'
+  ) => {
+    const targetQuotation = (quotations || []).find((q) => q.id === quotationId);
+    if (!targetQuotation) return;
+
+    const cleanTarget = crewName.trim().toLowerCase();
+
+    // Determine current status
+    let currentStatus: 'booked' | 'pending' | 'contacted' = 'pending';
+    for (const evt of targetQuotation.events) {
+      if (eventId && evt.id !== eventId) continue;
+      for (const srv of evt.services) {
+        for (const c of srv.crewBreakdown || []) {
+          if (c.name?.trim().toLowerCase() === cleanTarget && c.bookingStatus) {
+            currentStatus = c.bookingStatus as any;
+            break;
+          }
+        }
+      }
+    }
+
+    const nextStatus = forcedStatus || (currentStatus === 'booked' ? 'pending' : 'booked');
+
+    const updatedEvents = targetQuotation.events.map((evt) => {
+      if (eventId && evt.id !== eventId) return evt;
+      return {
+        ...evt,
+        services: evt.services.map((srv) => ({
+          ...srv,
+          crewBreakdown: (srv.crewBreakdown || []).map((c) => {
+            if (c.name?.trim().toLowerCase() === cleanTarget) {
+              return {
+                ...c,
+                bookingStatus: nextStatus,
+              };
+            }
+            return c;
+          }),
+        })),
+      };
+    });
+
+    const updatedQuotation: Quotation = {
+      ...targetQuotation,
+      events: updatedEvents,
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await saveQuotation(updatedQuotation);
+      setSaveSuccessMsg(`Updated ${crewName}'s status to ${nextStatus === 'booked' ? 'Booked' : 'Not Booked'}`);
+      setTimeout(() => setSaveSuccessMsg(''), 2500);
+    } catch (err) {
+      console.error('Failed to update booking status in settings:', err);
+    }
   };
 
   const handleAddService = (e: React.FormEvent) => {
@@ -1480,9 +1563,25 @@ export default function SettingsPage() {
 
           {/* Team Members List Grid */}
           <div className="space-y-3">
-            <h3 className="font-bold text-xs text-slate-700 uppercase tracking-wider">
-              Saved Studio Team &amp; Freelancers ({formData.permanentTeamMembers?.length || 0})
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h3 className="font-bold text-xs text-slate-700 uppercase tracking-wider">
+                Saved Studio Team &amp; Freelancers ({formData.permanentTeamMembers?.length || 0})
+              </h3>
+              {totalAssignments > 0 && (
+                <div className="flex items-center gap-2 text-xs flex-wrap">
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[11px] flex items-center gap-1 shadow-2xs">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{totalBookedAssignments} Booked</span>
+                  </span>
+                  {totalAssignments - totalBookedAssignments > 0 && (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px] flex items-center gap-1 shadow-2xs">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                      <span>{totalAssignments - totalBookedAssignments} Not Booked</span>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
 
             {(!formData.permanentTeamMembers || formData.permanentTeamMembers.length === 0) ? (
               <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
@@ -1544,6 +1643,8 @@ export default function SettingsPage() {
                     {/* Assigned Event Dates & Shifts (Day / Night) */}
                     {(() => {
                       const memberEvents = memberAssignmentsMap[member.name.toLowerCase().trim()] || [];
+                      const bookedCount = memberEvents.filter((e) => e.bookingStatus === 'booked').length;
+                      const allBooked = memberEvents.length > 0 && bookedCount === memberEvents.length;
 
                       return (
                         <div className="pt-2.5 border-t border-slate-100 space-y-2">
@@ -1551,15 +1652,30 @@ export default function SettingsPage() {
                             <span className="text-[10.5px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1">
                               <CalendarIcon className="w-3.5 h-3.5 text-[#0D4F4F]" /> Assigned Event Dates
                             </span>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                memberEvents.length > 0
-                                  ? 'bg-[#0D4F4F]/10 text-[#0D4F4F] border border-[#0D4F4F]/20'
-                                  : 'bg-slate-100 text-slate-400'
-                              }`}
-                            >
-                              {memberEvents.length} {memberEvents.length === 1 ? 'Date' : 'Dates'}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {memberEvents.length > 0 && (
+                                <span
+                                  className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-md border ${
+                                    allBooked
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                      : bookedCount > 0
+                                      ? 'bg-emerald-50/80 text-emerald-800 border-emerald-200'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                  }`}
+                                >
+                                  {allBooked ? 'All Booked ✓' : `${bookedCount}/${memberEvents.length} Booked`}
+                                </span>
+                              )}
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  memberEvents.length > 0
+                                    ? 'bg-[#0D4F4F]/10 text-[#0D4F4F] border border-[#0D4F4F]/20'
+                                    : 'bg-slate-100 text-slate-400'
+                                }`}
+                              >
+                                {memberEvents.length} {memberEvents.length === 1 ? 'Date' : 'Dates'}
+                              </span>
+                            </div>
                           </div>
 
                           {memberEvents.length === 0 ? (
@@ -1567,7 +1683,7 @@ export default function SettingsPage() {
                               No event dates assigned yet
                             </p>
                           ) : (
-                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
                               {memberEvents.map((evt, eIdx) => {
                                 const slot = evt.timingSlot;
                                 const isNight = slot === 'night';
@@ -1603,9 +1719,47 @@ export default function SettingsPage() {
                                             {formatEventTiming(evt.timing) || 'Standard'}
                                           </span>
                                         )}
+
+                                        {/* Booking Status Toggle Badge */}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            handleToggleSettingsCrewBookingStatus(
+                                              evt.quotationId,
+                                              member.name,
+                                              evt.eventId
+                                            );
+                                          }}
+                                          className={`px-1.5 py-0.5 rounded-md font-bold text-[9.5px] flex items-center gap-1 border transition-all cursor-pointer shadow-2xs hover:scale-105 ${
+                                            evt.bookingStatus === 'booked'
+                                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                              : evt.bookingStatus === 'contacted'
+                                              ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                                              : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                                          }`}
+                                          title="Click to toggle Booked / Not Booked"
+                                        >
+                                          {evt.bookingStatus === 'booked' ? (
+                                            <>
+                                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                              <span>✓ Booked</span>
+                                            </>
+                                          ) : evt.bookingStatus === 'contacted' ? (
+                                            <>
+                                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                              <span>Contacted</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                              <span>⏳ Not Booked</span>
+                                            </>
+                                          )}
+                                        </button>
                                       </div>
 
-                                      <div className="text-[10.5px] text-slate-600 truncate mt-0.5 flex items-center gap-1">
+                                      <div className="text-[10.5px] text-slate-600 truncate mt-1 flex items-center gap-1">
                                         <span className="font-semibold text-slate-800">{evt.clientName}</span>
                                         <span className="text-slate-400">•</span>
                                         <span className="text-[#0D4F4F] font-medium truncate">{evt.eventName}</span>
