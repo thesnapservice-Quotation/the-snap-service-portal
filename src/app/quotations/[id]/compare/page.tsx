@@ -320,7 +320,7 @@ export default function QuotationComparePage() {
     eventId: string,
     serviceId: string,
     crewIndex: number,
-    field: 'name' | 'cost' | 'phone' | 'role',
+    field: 'name' | 'cost' | 'phone' | 'role' | 'bookingStatus',
     value: string | number,
     skipConflictCheck = false
   ) => {
@@ -339,6 +339,7 @@ export default function QuotationComparePage() {
                   id: `crew-${crew.length + 1}`,
                   name: `${s.serviceName} #${crew.length + 1}`,
                   cost: s.internalCostPerUnit || 5000,
+                  bookingStatus: 'pending',
                 });
               }
 
@@ -773,6 +774,7 @@ export default function QuotationComparePage() {
                         id: `crew-${idx + 1}`,
                         name: `${srv.serviceName} #${idx + 1}`,
                         cost: srv.internalCostPerUnit || 5000,
+                        bookingStatus: 'pending',
                       }));
 
                   return (
@@ -917,6 +919,34 @@ export default function QuotationComparePage() {
                                         placeholder="Cost"
                                         className="w-full pl-7 pr-2 py-1.5 border border-slate-300 rounded-md text-xs font-bold text-slate-900 focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none"
                                       />
+                                    </div>
+
+                                    {/* Booking Status Selector */}
+                                    <div className="relative shrink-0">
+                                      <select
+                                        value={crewMember.bookingStatus || 'pending'}
+                                        onChange={(e) =>
+                                          handleUpdateCrewMember(
+                                            evt.id,
+                                            srv.serviceId || srv.id,
+                                            idx,
+                                            'bookingStatus',
+                                            e.target.value
+                                          )
+                                        }
+                                        className={`px-2 py-1.5 border rounded-md text-[11px] font-bold cursor-pointer transition-all focus:ring-2 focus:ring-[#0D4F4F] focus:outline-none ${
+                                          crewMember.bookingStatus === 'booked'
+                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                            : crewMember.bookingStatus === 'contacted'
+                                            ? 'bg-blue-50 text-blue-800 border-blue-300'
+                                            : 'bg-amber-50 text-amber-800 border-amber-300'
+                                        }`}
+                                        title="Booking Status"
+                                      >
+                                        <option value="pending">⏳ Pending</option>
+                                        <option value="contacted">💬 Contacted</option>
+                                        <option value="booked">✓ Booked</option>
+                                      </select>
                                     </div>
                                   </div>
                                 </div>

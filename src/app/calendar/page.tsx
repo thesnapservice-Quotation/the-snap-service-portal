@@ -8,7 +8,7 @@ import { formatCurrency, formatDate, formatEventTiming, sortCalendarQuotations, 
 import { BookingCalendar } from '@/components/quotation/booking-calendar';
 import { SendCrewWhatsAppModal, CrewMemberDetail } from '@/components/quotation/send-crew-whatsapp-modal';
 import { Quotation, EventItem } from '@/lib/types';
-import { findAllCrewConflicts } from '@/lib/crew-overlap';
+import { findAllCrewConflicts, isPlaceholderCrewName } from '@/lib/crew-overlap';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 
 export default function MasterCalendarPage() {
-  const { quotations, loading } = useQuotations();
+  const { quotations, loading, saveQuotation } = useQuotations();
   const { settings } = useSettings();
 
   const [search, setSearch] = useState('');
@@ -159,6 +159,66 @@ export default function MasterCalendarPage() {
     setSelectedCrewMember(crewMember);
     setSelectedEventId(eventId);
     setIsCrewModalOpen(true);
+  };
+
+  // Helper to manually toggle or set crew booking status (Booked / Pending / Contacted)
+  const handleToggleCrewBookingStatus = async (
+    quotation: Quotation,
+    crewName: string,
+    forcedStatus?: 'booked' | 'pending' | 'contacted',
+    eventId?: string
+  ) => {
+    if (!quotation || !crewName) return;
+    const cleanTarget = crewName.trim().toLowerCase();
+
+    // Determine current status across matching crew entries
+    let currentStatus: 'booked' | 'pending' | 'contacted' = 'pending';
+    for (const evt of quotation.events) {
+      if (eventId && evt.id !== eventId) continue;
+      for (const srv of evt.services) {
+        for (const c of srv.crewBreakdown || []) {
+          if (c.name?.trim().toLowerCase() === cleanTarget && c.bookingStatus) {
+            currentStatus = c.bookingStatus as any;
+            break;
+          }
+        }
+      }
+    }
+
+    const nextStatus = forcedStatus || (currentStatus === 'booked' ? 'pending' : 'booked');
+
+    const updatedEvents = quotation.events.map((evt) => {
+      if (eventId && evt.id !== eventId) return evt;
+      return {
+        ...evt,
+        services: evt.services.map((srv) => ({
+          ...srv,
+          crewBreakdown: (srv.crewBreakdown || []).map((c) => {
+            if (c.name?.trim().toLowerCase() === cleanTarget) {
+              return {
+                ...c,
+                bookingStatus: nextStatus,
+              };
+            }
+            return c;
+          }),
+        })),
+      };
+    });
+
+    const updatedQuotation: Quotation = {
+      ...quotation,
+      events: updatedEvents,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setSelectedWeddingModalQuotation(updatedQuotation);
+
+    try {
+      await saveQuotation(updatedQuotation);
+    } catch (err) {
+      console.error('Failed to save crew booking status:', err);
+    }
   };
 
   return (
@@ -670,7 +730,16 @@ export default function MasterCalendarPage() {
 
               {/* Overall Assigned Wedding Team */}
               {(() => {
-                const uniqueCrewMap = new Map<string, { name: string; phone?: string; role: string; eventsCount: number }>();
+                const uniqueCrewMap = new Map<
+                  string,
+                  {
+                    name: string;
+                    phone?: string;
+                    role: string;
+                    eventsCount: number;
+                    bookingStatus: 'booked' | 'pending' | 'contacted';
+                  }
+                >();
                 
                 selectedWeddingModalQuotation.events.forEach((evt) => {
                   evt.services.forEach((srv) => {
@@ -689,15 +758,19 @@ export default function MasterCalendarPage() {
                         !cleanName.toLowerCase().startsWith('drone #')
                       ) {
                         const existing = uniqueCrewMap.get(cleanName);
+                        const curStatus = (c.bookingStatus as any) || 'pending';
                         if (existing) {
                           existing.eventsCount += 1;
                           if (c.phone && !existing.phone) existing.phone = c.phone;
+                          if (curStatus === 'booked') existing.bookingStatus = 'booked';
+                          else if (curStatus === 'contacted' && existing.bookingStatus !== 'booked') existing.bookingStatus = 'contacted';
                         } else {
                           uniqueCrewMap.set(cleanName, {
                             name: cleanName,
                             phone: c.phone,
                             role: c.role || srvRole,
                             eventsCount: 1,
+                            bookingStatus: curStatus,
                           });
                         }
                       }
@@ -709,11 +782,25 @@ export default function MasterCalendarPage() {
 
                 if (uniqueCrewList.length === 0) return null;
 
+                const bookedCount = uniqueCrewList.filter((c) => c.bookingStatus === 'booked').length;
+                const allBooked = uniqueCrewList.length > 0 && bookedCount === uniqueCrewList.length;
+
                 return (
                   <div className="p-4 bg-gradient-to-r from-[#0D4F4F]/10 via-[#0D4F4F]/5 to-[#D4AF37]/10 rounded-2xl border border-[#0D4F4F]/20 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-[#0D4F4F] flex items-center gap-2 text-xs uppercase tracking-wider">
-                        <Users className="w-4 h-4 text-[#D4AF37]" /> Assigned Wedding Shooting Team ({uniqueCrewList.length} Members)
+                        <Users className="w-4 h-4 text-[#D4AF37]" /> Assigned Wedding Shooting Team ({uniqueCrewList.length} Members
+                        <span className="font-semibold normal-case text-slate-500">
+                          {' '}•{' '}
+                          {allBooked ? (
+                            <span className="text-emerald-700 font-bold">All Booked ✓</span>
+                          ) : (
+                            <span className="text-amber-800 font-bold">
+                              {bookedCount}/{uniqueCrewList.length} Booked
+                            </span>
+                          )}
+                        </span>
+                        )
                       </span>
                       <span className="text-[11px] text-slate-500 font-medium">Send Multi-Day Schedule</span>
                     </div>
@@ -724,15 +811,72 @@ export default function MasterCalendarPage() {
                           key={cIdx}
                           className="flex items-center justify-between gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs text-xs"
                         >
-                          <div className="flex items-center gap-2.5 overflow-hidden">
+                          <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
                             <div className="w-8 h-8 rounded-full bg-[#0D4F4F] text-[#D4AF37] flex items-center justify-center font-bold text-xs shrink-0">
                               {crew.name.charAt(0).toUpperCase()}
                             </div>
-                            <div className="overflow-hidden">
+                            <div className="overflow-hidden min-w-0">
                               <span className="font-bold text-slate-900 block text-xs truncate">{crew.name}</span>
                               <span className="text-[10px] text-slate-500 block truncate">
                                 {crew.role} • {crew.eventsCount} {crew.eventsCount === 1 ? 'day' : 'days'}
                               </span>
+
+                              {/* Manual Booking Status Toggle & Selector */}
+                              <div className="flex items-center gap-1.5 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleCrewBookingStatus(
+                                      selectedWeddingModalQuotation,
+                                      crew.name
+                                    )
+                                  }
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
+                                    crew.bookingStatus === 'booked'
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                      : crew.bookingStatus === 'contacted'
+                                      ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                                      : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                                  }`}
+                                  title="Click to toggle Done/Pending"
+                                >
+                                  {crew.bookingStatus === 'booked' ? (
+                                    <>
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                      <span>✓ Booked (Done)</span>
+                                    </>
+                                  ) : crew.bookingStatus === 'contacted' ? (
+                                    <>
+                                      <MessageSquare className="w-3 h-3 text-blue-600 shrink-0" />
+                                      <span>Contacted</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                                      <span>⏳ Pending (Not Booked)</span>
+                                    </>
+                                  )}
+                                </button>
+
+                                <div className="relative inline-flex items-center" title="Change booking status">
+                                  <select
+                                    value={crew.bookingStatus || 'pending'}
+                                    onChange={(e) =>
+                                      handleToggleCrewBookingStatus(
+                                        selectedWeddingModalQuotation,
+                                        crew.name,
+                                        e.target.value as any
+                                      )
+                                    }
+                                    className="w-4 h-4 opacity-0 absolute inset-0 cursor-pointer z-10"
+                                  >
+                                    <option value="pending">⏳ Pending (Not Booked)</option>
+                                    <option value="contacted">💬 Contacted (Informed)</option>
+                                    <option value="booked">✓ Booked (Done &amp; Confirmed)</option>
+                                  </select>
+                                  <ChevronDown className="w-3 h-3 text-slate-400 hover:text-slate-600 cursor-pointer" />
+                                </div>
+                              </div>
                             </div>
                           </div>
 
@@ -748,7 +892,7 @@ export default function MasterCalendarPage() {
                                 }
                               )
                             }
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer self-start sm:self-center mt-1 sm:mt-0"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                             <span>All Days Brief</span>
@@ -865,10 +1009,39 @@ export default function MasterCalendarPage() {
                                     key={cIdx}
                                     className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-blue-100 shadow-2xs"
                                   >
-                                    <div>
-                                      <span className="font-bold text-xs text-slate-900 block truncate">
-                                        {crew.name || `Photographer #${cIdx + 1}`}
-                                      </span>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-bold text-xs text-slate-900 truncate">
+                                          {crew.name || `Photographer #${cIdx + 1}`}
+                                        </span>
+                                        {crew.name && !isPlaceholderCrewName(crew.name) && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleToggleCrewBookingStatus(
+                                                selectedWeddingModalQuotation,
+                                                crew.name,
+                                                undefined,
+                                                evt.id
+                                              )
+                                            }
+                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-all cursor-pointer ${
+                                              crew.bookingStatus === 'booked'
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                                : crew.bookingStatus === 'contacted'
+                                                ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                                                : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                                            }`}
+                                            title="Click to toggle Booked/Pending for this event"
+                                          >
+                                            {crew.bookingStatus === 'booked'
+                                              ? '✓ Booked'
+                                              : crew.bookingStatus === 'contacted'
+                                              ? 'Contacted'
+                                              : '⏳ Pending'}
+                                          </button>
+                                        )}
+                                      </div>
                                       <span className="text-[10px] text-slate-500 font-mono block">
                                         {crew.phone || 'No phone'}
                                       </span>
@@ -913,10 +1086,39 @@ export default function MasterCalendarPage() {
                                     key={cIdx}
                                     className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-purple-100 shadow-2xs"
                                   >
-                                    <div>
-                                      <span className="font-bold text-xs text-slate-900 block truncate">
-                                        {crew.name || `Videographer #${cIdx + 1}`}
-                                      </span>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-bold text-xs text-slate-900 truncate">
+                                          {crew.name || `Videographer #${cIdx + 1}`}
+                                        </span>
+                                        {crew.name && !isPlaceholderCrewName(crew.name) && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleToggleCrewBookingStatus(
+                                                selectedWeddingModalQuotation,
+                                                crew.name,
+                                                undefined,
+                                                evt.id
+                                              )
+                                            }
+                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-all cursor-pointer ${
+                                              crew.bookingStatus === 'booked'
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                                : crew.bookingStatus === 'contacted'
+                                                ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                                                : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                                            }`}
+                                            title="Click to toggle Booked/Pending for this event"
+                                          >
+                                            {crew.bookingStatus === 'booked'
+                                              ? '✓ Booked'
+                                              : crew.bookingStatus === 'contacted'
+                                              ? 'Contacted'
+                                              : '⏳ Pending'}
+                                          </button>
+                                        )}
+                                      </div>
                                       <span className="text-[10px] text-slate-500 font-mono block">
                                         {crew.phone || 'No phone'}
                                       </span>
@@ -961,10 +1163,39 @@ export default function MasterCalendarPage() {
                                     key={cIdx}
                                     className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-amber-100 shadow-2xs"
                                   >
-                                    <div>
-                                      <span className="font-bold text-xs text-slate-900 block truncate">
-                                        {crew.name || `Drone Pilot #${cIdx + 1}`}
-                                      </span>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-bold text-xs text-slate-900 truncate">
+                                          {crew.name || `Drone Pilot #${cIdx + 1}`}
+                                        </span>
+                                        {crew.name && !isPlaceholderCrewName(crew.name) && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleToggleCrewBookingStatus(
+                                                selectedWeddingModalQuotation,
+                                                crew.name,
+                                                undefined,
+                                                evt.id
+                                              )
+                                            }
+                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-all cursor-pointer ${
+                                              crew.bookingStatus === 'booked'
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                                : crew.bookingStatus === 'contacted'
+                                                ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                                                : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                                            }`}
+                                            title="Click to toggle Booked/Pending for this event"
+                                          >
+                                            {crew.bookingStatus === 'booked'
+                                              ? '✓ Booked'
+                                              : crew.bookingStatus === 'contacted'
+                                              ? 'Contacted'
+                                              : '⏳ Pending'}
+                                          </button>
+                                        )}
+                                      </div>
                                       <span className="text-[10px] text-slate-500 font-mono block">
                                         {crew.phone || 'No phone'}
                                       </span>
@@ -1040,6 +1271,13 @@ export default function MasterCalendarPage() {
         quotation={selectedQuotation}
         crewMember={selectedCrewMember}
         initialEventId={selectedEventId}
+        onMarkBooked={(name) => {
+          if (selectedWeddingModalQuotation) {
+            handleToggleCrewBookingStatus(selectedWeddingModalQuotation, name, 'booked', selectedEventId);
+          } else if (selectedQuotation) {
+            handleToggleCrewBookingStatus(selectedQuotation, name, 'booked', selectedEventId);
+          }
+        }}
       />
     </div>
   );

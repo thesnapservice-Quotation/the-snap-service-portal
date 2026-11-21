@@ -218,8 +218,21 @@ export function EventDetailsModal({
                           <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
                             #{idx + 1}
                           </div>
-                          <div className="overflow-hidden">
-                            <span className="font-bold text-xs text-slate-900 block truncate">{crew.name || 'Unassigned'}</span>
+                          <div className="overflow-hidden min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs text-slate-900 truncate">{crew.name || 'Unassigned'}</span>
+                              {crew.name && (
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
+                                  crew.bookingStatus === 'booked'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                    : crew.bookingStatus === 'contacted'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                                }`}>
+                                  {crew.bookingStatus === 'booked' ? '✓ Booked' : crew.bookingStatus === 'contacted' ? 'Contacted' : '⏳ Pending'}
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] text-slate-500 font-mono block truncate">{crew.phone || 'No phone'}</span>
                           </div>
                         </div>
@@ -273,8 +286,21 @@ export function EventDetailsModal({
                           <div className="w-7 h-7 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
                             #{idx + 1}
                           </div>
-                          <div className="overflow-hidden">
-                            <span className="font-bold text-xs text-slate-900 block truncate">{crew.name || 'Unassigned'}</span>
+                          <div className="overflow-hidden min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs text-slate-900 truncate">{crew.name || 'Unassigned'}</span>
+                              {crew.name && (
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
+                                  crew.bookingStatus === 'booked'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                    : crew.bookingStatus === 'contacted'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                                }`}>
+                                  {crew.bookingStatus === 'booked' ? '✓ Booked' : crew.bookingStatus === 'contacted' ? 'Contacted' : '⏳ Pending'}
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] text-slate-500 font-mono block truncate">{crew.phone || 'No phone'}</span>
                           </div>
                         </div>
@@ -328,8 +354,21 @@ export function EventDetailsModal({
                           <div className="w-7 h-7 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
                             #{idx + 1}
                           </div>
-                          <div className="overflow-hidden">
-                            <span className="font-bold text-xs text-slate-900 block truncate">{crew.name || 'Unassigned'}</span>
+                          <div className="overflow-hidden min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs text-slate-900 truncate">{crew.name || 'Unassigned'}</span>
+                              {crew.name && (
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
+                                  crew.bookingStatus === 'booked'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                    : crew.bookingStatus === 'contacted'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                                }`}>
+                                  {crew.bookingStatus === 'booked' ? '✓ Booked' : crew.bookingStatus === 'contacted' ? 'Contacted' : '⏳ Pending'}
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] text-slate-500 font-mono block truncate">{crew.phone || 'No phone'}</span>
                           </div>
                         </div>

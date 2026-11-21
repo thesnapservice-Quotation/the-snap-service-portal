@@ -34,12 +34,15 @@ export interface Service {
   defaultInternalCost?: number; // Default cost per unit (internal only)
 }
 
+export type CrewBookingStatus = 'booked' | 'pending' | 'contacted';
+
 export interface CrewMemberCost {
   id: string;
   name: string;
   phone?: string;
   role?: string;
   cost: number;
+  bookingStatus?: CrewBookingStatus | string;
 }
 
 export interface PermanentTeamMember {
