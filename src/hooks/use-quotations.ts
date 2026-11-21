@@ -26,6 +26,7 @@ function matchesWorkspace(q: Quotation, targetWs: string): boolean {
 
 export function useQuotations() {
   const isInitialMount = useRef(true);
+  const isSavingRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [allQuotations, setAllQuotations] = useState<Quotation[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -92,10 +93,25 @@ export function useQuotations() {
           return q;
         });
 
-        // Set DB as authoritative
-        const sorted = sortQuotationsByNumber(processedDb);
-        storage.setAllQuotations(sorted);
-        setAllQuotations(sorted);
+        // Set DB as authoritative, but protect against race conditions:
+        // Never overwrite a local quotation that was updated more recently!
+        setAllQuotations((prev) => {
+          const prevMap = new Map(prev.map((p) => [p.id.toLowerCase(), p]));
+          const merged = processedDb.map((dbQ) => {
+            const localQ = prevMap.get(dbQ.id.toLowerCase());
+            if (localQ && localQ.updatedAt && dbQ.updatedAt) {
+              const localTime = new Date(localQ.updatedAt).getTime();
+              const dbTime = new Date(dbQ.updatedAt).getTime();
+              if (localTime > dbTime) {
+                return localQ;
+              }
+            }
+            return dbQ;
+          });
+          const sorted = sortQuotationsByNumber(merged);
+          storage.setAllQuotations(sorted);
+          return sorted;
+        });
       } else {
         const local = storage.getQuotations();
         const filtered = local.filter((q) => matchesWorkspace(q, targetWs));
@@ -133,11 +149,15 @@ export function useQuotations() {
   useEffect(() => {
     refreshQuotations(false);
 
-    const handleUpdate = () => refreshQuotations(true);
+    const handleUpdate = () => {
+      // If currently saving a quotation, do not trigger a premature refetch that might race with in-flight save
+      if (isSavingRef.current) return;
+      refreshQuotations(true);
+    };
 
     // Safe visibility-aware sync: Only refresh when tab is visible
     const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !isSavingRef.current) {
         refreshQuotations(true);
       }
     }, 30000);
@@ -159,55 +179,72 @@ export function useQuotations() {
   }, [refreshQuotations]);
 
   const saveQuotation = async (quotation: Quotation): Promise<Quotation> => {
-    const user = storage.getCurrentUser();
-    const targetWs = user?.role === 'super_admin' || user?.id === 'user-super-admin'
-      ? 'ws_user-super-admin'
-      : (user?.workspaceId || `ws_${user?.id || 'user-super-admin'}`);
-    const authorId = user?.id || quotation.userId || 'user-super-admin';
-    
-    // Explicitly preserve submitted status without overriding to confirmed
-    const finalStatus = quotation.status || 'sent';
+    isSavingRef.current = true;
+    try {
+      const user = storage.getCurrentUser();
+      const targetWs = user?.role === 'super_admin' || user?.id === 'user-super-admin'
+        ? 'ws_user-super-admin'
+        : (user?.workspaceId || `ws_${user?.id || 'user-super-admin'}`);
+      const authorId = user?.id || quotation.userId || 'user-super-admin';
+      
+      // Explicitly preserve submitted status without overriding to confirmed
+      const finalStatus = quotation.status || 'sent';
 
-    const quotationWithWs: Quotation = {
-      ...quotation,
-      workspaceId: quotation.workspaceId || targetWs,
-      userId: authorId,
-      createdByUserId: quotation.createdByUserId || authorId,
-      updatedByUserId: authorId,
-      status: finalStatus,
-      updatedAt: new Date().toISOString(),
-    };
+      const quotationWithWs: Quotation = {
+        ...quotation,
+        workspaceId: quotation.workspaceId || targetWs,
+        userId: authorId,
+        createdByUserId: quotation.createdByUserId || authorId,
+        updatedByUserId: authorId,
+        status: finalStatus,
+        updatedAt: new Date().toISOString(),
+      };
 
-    // 1. Persist directly to Central Production Database
-    const savedFromDb = await apiSaveQuotation(quotationWithWs);
+      // 1. Immediate Optimistic update to local state & storage (zero UI lag / flicker)
+      setAllQuotations((prev) => {
+        const idx = prev.findIndex((q) => q.id === quotationWithWs.id);
+        let next: Quotation[];
+        if (idx >= 0) {
+          next = [...prev];
+          next[idx] = quotationWithWs;
+        } else {
+          next = [quotationWithWs, ...prev];
+        }
+        return sortQuotationsByNumber(next);
+      });
+      storage.saveQuotationLocally(quotationWithWs);
 
-    // 2. Update local state
-    setAllQuotations((prev) => {
-      const idx = prev.findIndex((q) => q.id === savedFromDb.id);
-      let next: Quotation[];
-      if (idx >= 0) {
-        next = [...prev];
-        next[idx] = savedFromDb;
-      } else {
-        next = [savedFromDb, ...prev];
+      // 2. Persist directly to Central Production Database
+      const savedFromDb = await apiSaveQuotation(quotationWithWs);
+
+      // 3. Update local state with DB verified payload
+      setAllQuotations((prev) => {
+        const idx = prev.findIndex((q) => q.id === savedFromDb.id);
+        let next: Quotation[];
+        if (idx >= 0) {
+          next = [...prev];
+          next[idx] = savedFromDb;
+        } else {
+          next = [savedFromDb, ...prev];
+        }
+        return sortQuotationsByNumber(next);
+      });
+
+      storage.saveQuotationLocally(savedFromDb);
+
+      // 4. Auto-mirror to Google Drive if configured
+      const settings = storage.getSettings();
+      if (settings.integrations?.googleDriveWebhookUrl && settings.integrations?.autoSyncGoogleDrive !== false) {
+        syncQuotationToGoogleDrive(savedFromDb, settings.integrations.googleDriveWebhookUrl).catch(() => {});
       }
-      return sortQuotationsByNumber(next);
-    });
+      uploadQuotationDirectToDrive(savedFromDb).catch(() => {});
 
-    storage.saveQuotationLocally(savedFromDb);
-
-    // 3. Auto-mirror to Google Drive if configured
-    const settings = storage.getSettings();
-    if (settings.integrations?.googleDriveWebhookUrl && settings.integrations?.autoSyncGoogleDrive !== false) {
-      syncQuotationToGoogleDrive(savedFromDb, settings.integrations.googleDriveWebhookUrl).catch(() => {});
+      return savedFromDb;
+    } finally {
+      setTimeout(() => {
+        isSavingRef.current = false;
+      }, 800);
     }
-    uploadQuotationDirectToDrive(savedFromDb).catch(() => {});
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('snap_quotation_updated'));
-    }
-
-    return savedFromDb;
   };
 
   const moveToTrash = async (id: string, reason?: string): Promise<Quotation | null> => {

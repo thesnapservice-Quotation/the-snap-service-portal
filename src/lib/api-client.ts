@@ -10,12 +10,14 @@ let lastQuotationsData: Quotation[] = [];
 
 export async function apiFetchQuotations(workspaceId?: string): Promise<Quotation[]> {
   try {
+    const timestamp = Date.now();
     const url = workspaceId
-      ? `/api/quotations?workspaceId=${encodeURIComponent(workspaceId)}`
-      : `/api/quotations`;
+      ? `/api/quotations?workspaceId=${encodeURIComponent(workspaceId)}&_t=${timestamp}`
+      : `/api/quotations?_t=${timestamp}`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
     };
     if (lastQuotationsEtag) {
       headers['If-None-Match'] = lastQuotationsEtag;
@@ -113,7 +115,16 @@ export async function apiSaveQuotation(quotation: Quotation): Promise<Quotation>
       lastQuotationsEtag = null;
       const data = await res.json();
       if (data && data.quotation) {
-        return data.quotation;
+        const saved = data.quotation as Quotation;
+        const idx = lastQuotationsData.findIndex(
+          (q) => q.id?.toLowerCase() === saved.id?.toLowerCase() || (q.quotationNumber && q.quotationNumber.toLowerCase() === saved.quotationNumber?.toLowerCase())
+        );
+        if (idx >= 0) {
+          lastQuotationsData[idx] = saved;
+        } else {
+          lastQuotationsData.unshift(saved);
+        }
+        return saved;
       }
     }
   } catch (e) {

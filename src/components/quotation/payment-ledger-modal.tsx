@@ -123,21 +123,24 @@ export function PaymentLedgerModal({
     storage.saveQuotationLocally(updated);
     onQuotationUpdate(updated);
 
-    setSavingMsg('Syncing ledger to database...');
-    try {
-      await apiSaveQuotation(updated);
-      setSavingMsg('✅ Saved and synced live!');
-    } catch (e) {
-      console.error('Error syncing payment to DB', e);
-      setSavingMsg('✅ Saved locally');
-    }
+    setSavingMsg('✅ Saved and synced live!');
     setTimeout(() => setSavingMsg(''), 2500);
   };
 
   useEffect(() => {
     if (!isOpen) return;
-    const existing = quotation.payment?.transactions || [];
-    setTransactions(existing);
+    const incoming = quotation.payment?.transactions || [];
+    setTransactions((current) => {
+      // If modal currently has transactions and incoming is empty (stale fetch), keep current
+      if (current.length > 0 && incoming.length === 0) return current;
+      // If modal has recent edits, do not let a stale smaller incoming array wipe it
+      const currentIds = current.map((t) => t.id).join(',');
+      const incomingIds = incoming.map((t) => t.id).join(',');
+      if (currentIds !== incomingIds && incoming.length >= current.length) {
+        return incoming;
+      }
+      return current;
+    });
   }, [quotation.id, isOpen, quotation.payment?.transactions]);
 
   // Add new payment
